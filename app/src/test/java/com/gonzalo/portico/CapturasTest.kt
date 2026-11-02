@@ -1,0 +1,100 @@
+package com.gonzalo.portico
+
+import android.content.Context
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
+import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
+import kotlinx.coroutines.Dispatchers
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/**
+ * Capturas de la interfaz en el ordenador (sin emulador), con juegos de ejemplo. Para revisar el diseño:
+ *   gradle :app:testDebugUnitTest --tests '*CapturasTest*' -Proborazzi.test.record=true
+ * Las imágenes quedan en app/build/outputs/roborazzi/.
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [34], qualifiers = RobolectricDeviceQualifiers.Pixel7)
+class CapturasTest {
+    @get:Rule val rule = createComposeRule()
+    private val ctx: Context get() = ApplicationProvider.getApplicationContext()
+
+    private fun siembra() {
+        Catalogo.cargar(ctx); Skin.cargar(ctx); Ajustes.cargar(ctx)
+        Ajustes.portadasLibretro = false
+        Biblioteca.cargada = true
+        Biblioteca.juegos.clear()
+        val ahora = System.currentTimeMillis()
+        fun rom(n: String, s: String, k: Int, fav: Boolean = false, jug: Long = 0, ms: Long = 0, veces: Int = 0) =
+            Biblioteca.juegos.add(Juego("r$k", n, Tipo.ROM, sistema = s, uri = "content://x/$k", archivo = n, favorito = fav, anadido = ahora - k * 1000L, ultima = jug, msJugados = ms, veces = veces))
+        rom("Pokémon Esmeralda", "gba", 1, fav = true, jug = ahora - 3600_000, ms = 3 * 3600_000L + 1_200_000, veces = 7)
+        rom("Metroid Fusion", "gba", 2); rom("Advance Wars", "gba", 3, fav = true); rom("The Minish Cap", "gba", 4)
+        rom("Pokémon Platino", "nds", 5, jug = ahora - 86_400_000L * 2, ms = 12 * 3600_000L, veces = 21); rom("Mario Kart DS", "nds", 6); rom("Hollow Knight (SNES hack)", "snes", 7)
+        Biblioteca.juegos.add(Juego("a1", "Stardew Valley", Tipo.APP, paquete = "com.chucklefish.stardewvalley", anadido = ahora - 9000))
+        Biblioteca.juegos.add(Juego("w1", "PokéRogue", Tipo.WEB, url = "https://pokerogue.net", anadido = ahora - 10000, ultima = ahora - 600_000, veces = 3, msJugados = 5400_000))
+    }
+
+    private fun foto(nombre: String) {
+        rule.waitForIdle(); Thread.sleep(500); rule.waitForIdle()
+        com.github.takahirom.roborazzi.captureScreenRoboImage("build/outputs/roborazzi/$nombre.png")
+    }
+
+    private fun montar(oscuro: Boolean = true) {
+        coil.Coil.setImageLoader(coil.ImageLoader.Builder(ctx).dispatcher(Dispatchers.Unconfined).allowHardware(false).build())
+        Modo.eleccion = if (oscuro) 2 else 1
+        rule.setContent { PorticoTheme { Surface(Modifier.fillMaxSize(), color = Paper) { PorticoApp() } } }
+    }
+
+    @Test
+    fun interfaces() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        Catalogo.cargar(ctx); Skin.cargar(ctx)
+        // 1) biblioteca vacía
+        Biblioteca.cargada = true; Biblioteca.juegos.clear()
+        montar()
+        foto("1_inicio_vacio")
+    }
+
+    @Test
+    fun conJuegos() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        montar()
+        foto("2_inicio")
+        rule.onNodeWithContentDescription("Juegos").performClick(); foto("3_juegos")
+        rule.onNodeWithContentDescription("Sistemas").performClick(); foto("4_sistemas")
+        rule.onNodeWithContentDescription("Estilo").performClick(); foto("5_estilo")
+        rule.onNodeWithContentDescription("Inicio").performClick()
+        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[1].performClick(); foto("6_ficha")
+    }
+
+    @Test
+    fun otrosEstilosClaro() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        Skin.aplicar(STYLES.first { it.id == "clasico" })
+        montar(oscuro = false)
+        foto("7_inicio_clasico_claro")
+        Skin.aplicar(STYLES.first { it.id == "arcade" })
+        rule.onNodeWithContentDescription("Juegos").performClick(); foto("8_juegos_arcade")
+    }
+
+    @Test
+    fun hojaAnadir() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        montar()
+        rule.onNodeWithContentDescription("Añadir juegos").performClick(); foto("9_anadir")
+    }
+}
