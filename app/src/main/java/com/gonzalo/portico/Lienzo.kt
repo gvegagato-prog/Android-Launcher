@@ -217,9 +217,9 @@ private fun ContenidoWidget(e: Elemento, j: Juego?, wDp: Float, hDp: Float, edit
         value = withContext(Dispatchers.IO) {
             runCatching {
                 Widgets.cargarLetras(ctx)
-                val pag = if (e.esJuego) Widgets.paginaDeJuego(ctx, j!!, wDp, hDp, propio != null)
-                else Widgets.componer(ctx, WTipo.valueOf(e.ref), idNum, wDp, hDp)
-                pag to pag.bitmap(ctx, wDp, hDp, noche, Widgets.escala(ctx, wDp, hDp, 1), propio).asImageBitmap()
+                val pag = if (e.esJuego) Widgets.paginaDeJuego(ctx, j!!, wDp, hDp, propio != null, dentro = true)
+                else Widgets.componer(ctx, WTipo.valueOf(e.ref), idNum, wDp, hDp, dentro = true)
+                pag to pag.bitmap(ctx, wDp, hDp, noche, Widgets.escala(ctx, wDp, hDp, 1), propio, dentro = true).asImageBitmap()
             }.getOrNull()
         }
     }
