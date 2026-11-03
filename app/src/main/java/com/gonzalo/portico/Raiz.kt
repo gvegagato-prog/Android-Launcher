@@ -52,6 +52,7 @@ fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
     }
 
     BackHandler(enabled = fichaId != null) { fichaId = null }
+    AvisoActualizacion()
     BackHandler(enabled = fichaId == null && d != Destino.Portada) { destino = 0 }
 
     Box(Modifier.fillMaxSize().background(Paper)) {

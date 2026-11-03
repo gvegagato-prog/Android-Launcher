@@ -58,6 +58,14 @@ las **horas y las veces se suman** (cada dispositivo sube las suyas). Una ROM qu
 Tu pareja de Atrio puede leer esa parte de la cuenta (las reglas de Atrio dejan leer a la pareja todo `/users/<uid>`).
 **Todavía no se sincronizan** las ROMs, los guardados ni las imágenes (siguiente fase). Probado en el ordenador contra el Firebase de mentira de Atrio (`SincroTest`) y las reglas de mezcla (`MezclaTest`); no con tu cuenta real.
 
+## Actualizaciones automáticas (kDrive, como Atrio)
+
+Pórtico se actualiza sola con el mismo sistema que Atrio: cada versión se sube a **«Mi carpeta/versiones»** de tu kDrive como `Portico-<versión>.apk` (junto a las `Atrio-…apk`; cada app solo mira las suyas).
+Se mira al abrir, cada minuto mientras se ve y, con la app cerrada, cada 4 horas (WorkManager). Si hay una más nueva se baja, se comprueba que es Pórtico y que lleva la misma firma, y se instala
+**sin preguntar** cuando no la usas (Android 12+, con el permiso de instalar apps); si Android no lo deja, te pregunta, y al terminar se vuelve a abrir (con «Mostrar sobre otras apps») o te avisa.
+Ajustes → **Actualizaciones**: interruptor, token y número de tu kDrive (el token de Atrio es solo de Atrio y no se comparte: hay que pegarlo aquí una vez; se guarda solo en el móvil), «Buscar ahora» y el estado de la última comprobación.
+La primera vez que se instala una versión con esto hay que hacerlo a mano; a partir de ahí, sola. Probado contra el kDrive de mentira de Atrio (`ActualizadorTest`), no contra tu kDrive ni instalando de verdad en un móvil.
+
 ## Widgets
 
 Seis widgets, copiados de los de Atrio (mismo lienzo: papel, titulares en Fraunces, portadas recortadas, esquinas redondas y el reborde fino de tinta)

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Actualizarse sola desde tu kDrive (Actualizador.kt): instalar la versión nueva de sí misma, y reabrirse después -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Para que Android deje a Pórtico ver qué emuladores hay instalados (los de ES-DE) y qué apps se pueden abrir -->
     <queries>
         <intent>
@@ -167,6 +170,10 @@
         <activity android:name=".WebJuegoActivity" android:exported="false" android:theme="@style/PorticoWeb"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density|fontScale|locale|layoutDirection|navigation|touchscreen|colorMode|mcc|mnc" />
         <!-- Widgets de la pantalla de inicio (los de Atrio, con juegos) -->
+        <receiver android:name=".ActualizadorReceiver" android:exported="false" />
+        <receiver android:name=".ActualizadorReabrir" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter>
+        </receiver>
         <receiver android:name=".WJugando" android:label="@string/w_jugando" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_jugando" />

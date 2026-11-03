@@ -31,8 +31,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import kotlinx.coroutines.launch
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-const val VERSION = "0.8.0"
+const val VERSION = "0.9.0"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -131,6 +135,12 @@ fun PantEstilo(alVolver: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         Filete(2.dp)
         Spacer(Modifier.height(12.dp))
+        Antetitulo("Actualizaciones", Modifier.padding(bottom = 4.dp))
+        SeccionActualizaciones()
+
+        Spacer(Modifier.height(14.dp))
+        Filete(2.dp)
+        Spacer(Modifier.height(12.dp))
         Antetitulo("Copias", Modifier.padding(bottom = 4.dp))
         MagLink("Guardar copia de la biblioteca", "Un archivo con tus juegos y carpetas (no incluye las ROMs)") { exportar.launch("portico-biblioteca.json") }
         Filete(1.dp, Line)
@@ -202,4 +212,75 @@ private fun SeccionCuenta() {
         MagLink("Salir de la cuenta", "Tus juegos se quedan aquí; dejan de sincronizarse") { SincroP.parar(); Cuenta.salir() }
     }
     aviso?.let { Text(it, color = Acento, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp)) }
+}
+
+
+/** «Actualizaciones»: Pórtico se actualiza sola desde la carpeta «versiones» de tu kDrive (la de Atrio), con tu token de kDrive. */
+@Composable
+private fun SeccionActualizaciones() {
+    val ctx = LocalContext.current
+    val ambito = rememberCoroutineScope()
+    var conectado by remember { mutableStateOf(KDrive.on(ctx)) }
+    var token by remember { mutableStateOf("") }
+    var unidad by remember { mutableStateOf("") }
+    var ocupado by remember { mutableStateOf(false) }
+    var aviso by remember { mutableStateOf<String?>(null) }
+    var auto by remember { mutableStateOf(Actualizador.activo(ctx)) }
+    var sobre by remember { mutableStateOf(Actualizador.puedeReabrirSola(ctx)) }
+    val estado = Actualizador.estado.ifBlank { Actualizador.estadoGuardado(ctx) }
+    DisposableEffect(Unit) {
+        val owner = androidx.lifecycle.ProcessLifecycleOwner.get()
+        val ob = androidx.lifecycle.LifecycleEventObserver { _, ev -> if (ev == androidx.lifecycle.Lifecycle.Event.ON_RESUME) sobre = Actualizador.puedeReabrirSola(ctx) }
+        owner.lifecycle.addObserver(ob); onDispose { owner.lifecycle.removeObserver(ob) }
+    }
+    Fila("Actualizar sola", "Mira la carpeta «versiones» de tu kDrive (Portico-<versión>.apk) y se instala sin preguntar cuando no la usas.") {
+        Interruptor(auto) { auto = it; Actualizador.ponActivo(ctx, it) }
+    }
+    if (!conectado) {
+        Text("Pega tu token de kDrive y el número de tu kDrive (los mismos que en Atrio). Se guardan solo en este móvil.", color = Muted, fontFamily = Body, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+        CampoRevista("Token", token, "token de kDrive", secreto = true) { token = it }
+        CampoRevista("kDrive", unidad, "número o dirección") { unidad = it }
+        MagLink(if (ocupado) "Comprobando…" else "Conectar", "Comprueba el token y busca tu «Mi carpeta»") {
+            if (!ocupado) {
+                ocupado = true; aviso = null
+                ambito.launch {
+                    aviso = try { KDrive.save(ctx, token, unidad); KDrive.test(ctx); conectado = true; token = ""; withContext(Dispatchers.IO) { runCatching { Actualizador.comprueba(ctx, manual = true) } }; null }
+                    catch (e: Exception) { KDrive.forget(ctx); e.message ?: "No se pudo conectar" }
+                    ocupado = false
+                }
+            }
+        }
+    } else {
+        val vers = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty()
+        Text("Versión instalada: $vers" + if (estado.isNotBlank()) " · última comprobación: $estado" else "", color = Muted, fontFamily = Body, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
+        MagLink(if (ocupado) "Mirando…" else "Buscar actualizaciones ahora") {
+            if (!ocupado) { ocupado = true; ambito.launch { withContext(Dispatchers.IO) { Actualizador.comprueba(ctx, manual = true) }; ocupado = false } }
+        }
+        Filete(1.dp, Line)
+        MagLink(if (sobre) "Tras actualizar, Pórtico se vuelve a abrir sola" else "Permitir que se reabra sola tras actualizar", if (sobre) null else "Hace falta el permiso «Mostrar sobre otras apps»; si no, te avisa para abrirla") {
+            if (!sobre) runCatching { ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${ctx.packageName}"))) }
+        }
+        Filete(1.dp, Line)
+        MagLink("Desconectar kDrive", "Se olvida el token de este móvil") { KDrive.forget(ctx); conectado = false }
+    }
+    aviso?.let { Text(it, color = Acento, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp)) }
+}
+
+/** Si hay una versión nueva ya bajada que Android no deja instalar en silencio, se pregunta (o se lleva al ajuste de «instalar apps»). */
+@Composable
+fun AvisoActualizacion() {
+    val ctx = LocalContext.current
+    val n = Actualizador.nueva?.takeIf { !it.silenciosa } ?: return
+    var luego by remember(n.nombre) { mutableStateOf(false) }
+    if (luego) return
+    AlertDialog(
+        onDismissRequest = { luego = true }, containerColor = Paper, shape = esquina(4.dp),
+        title = { Text("Pórtico tiene una versión nueva", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = { Text(if (Actualizador.faltaPermiso) "Hay una versión nueva en tu kDrive. Para instalarla, Android tiene que dejar a Pórtico instalar apps: te llevo a ese ajuste." else "Hay una versión nueva en tu kDrive, ya descargada. Android te pedirá confirmar la instalación.", color = Muted, fontFamily = Body) },
+        confirmButton = { TextButton({
+            if (Actualizador.faltaPermiso) { Actualizador.faltaPermiso = false; ctx.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${ctx.packageName}"))) }
+            else runCatching { Actualizador.instala(ctx, n) }.onFailure { Lanzador.aviso(ctx, "No se pudo instalar: ${it.message}") }
+        }) { Text(if (Actualizador.faltaPermiso) "PERMITIR" else "ACTUALIZAR AHORA", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton({ luego = true }) { Text("LUEGO", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
+    )
 }

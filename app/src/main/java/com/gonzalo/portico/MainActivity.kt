@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         iniciar(this)
+        Actualizador.init(this)
         fichaPedida = intent?.getStringExtra("ficha")
         setContent {
             PorticoTheme {
