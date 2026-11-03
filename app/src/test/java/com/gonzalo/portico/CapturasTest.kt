@@ -76,10 +76,10 @@ class CapturasTest {
         siembra()
         montar(oscuro = false)
         foto("2_portada")
-        ir("JUEGOS"); foto("3_juegos")
+        ir("LISTA"); foto("3_juegos")
         ir("← PÓRTICO"); ir("SISTEMAS"); foto("4_sistemas")
         ir("← PÓRTICO"); rule.onNodeWithContentDescription("Ajustes").performClick(); foto("5_ajustes")
-        ir("← PÓRTICO"); ir("JUEGOS")
+        ir("← PÓRTICO"); ir("LISTA")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick(); foto("6_ficha")
     }
 
@@ -89,7 +89,7 @@ class CapturasTest {
         siembra()
         montar(oscuro = true)
         foto("7_portada_oscuro")
-        ir("JUEGOS"); foto("8_juegos_oscuro")
+        ir("LISTA"); foto("8_juegos_oscuro")
     }
 
     @Test
@@ -105,7 +105,7 @@ class CapturasTest {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
         montar(oscuro = false)
-        ir("JUEGOS")
+        ir("LISTA")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("12_ficha_casillas")
         rule.onNodeWithText("EDITAR").performClick()
@@ -118,7 +118,7 @@ class CapturasTest {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
         montar(oscuro = false)
-        ir("JUEGOS")
+        ir("LISTA")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("PORTADA\u00A0→").performScrollTo().performClick(); foto("10_portada_opciones")
         rule.onNodeWithText("Buscar en internet\u00A0→").performClick(); foto("11_buscador")
@@ -131,7 +131,7 @@ class CapturasTest {
         Skin.invertido = true
         montar(oscuro = false)
         foto("15_invertido_portada")
-        ir("JUEGOS"); foto("16_invertido_juegos")
+        ir("LISTA"); foto("16_invertido_juegos")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("17_invertido_ficha")
     }

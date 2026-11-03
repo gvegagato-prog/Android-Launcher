@@ -106,7 +106,7 @@ private fun ImagenEnCadena(datos: List<Any>, modifier: Modifier, escala: Content
  */
 @Composable
 fun PortadaArco(
-    j: Juego, modifier: Modifier = Modifier, titulo: Boolean = true, alJugar: (() -> Unit)? = null, letra: Boolean = true, relleno: Boolean = false,
+    j: Juego, modifier: Modifier = Modifier, titulo: Boolean = true, alJugar: (() -> Unit)? = null, letra: Boolean = true, relleno: Boolean = false, tamLetra: Int = 64,
 ) {
     val c = LocalContext.current
     val (a, b) = remember(j.id, j.titulo, j.sistema) { tonosDe(j) }
@@ -121,7 +121,7 @@ fun PortadaArco(
     ) {
         if (letra && !conImagen) Text(
             j.titulo.trim().firstOrNull()?.uppercase() ?: "?", color = Color.White.copy(alpha = 0.28f), fontFamily = Display, fontWeight = FontWeight.Bold,
-            fontSize = 64.sp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 26.dp)
+            fontSize = tamLetra.sp, modifier = Modifier.align(Alignment.TopCenter).padding(top = (tamLetra * 0.4f).dp)
         )
         // La imagen, según de dónde sea el juego
         when {

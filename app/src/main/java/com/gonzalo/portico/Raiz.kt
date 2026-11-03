@@ -29,7 +29,6 @@ fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
     val ctx = LocalContext.current
     var destino by rememberSaveable { mutableIntStateOf(0) }
     var fichaId by rememberSaveable { mutableStateOf<String?>(null) }
-    var portadaAlAbrir by remember { mutableStateOf(false) }
     var anadir by rememberSaveable { mutableStateOf(false) }
     var tipoInicial by remember { mutableStateOf<Tipo?>(null) }
     val filtro = remember { FiltroBib() }
@@ -51,13 +50,13 @@ fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
         destino = x.ordinal
     }
 
-    BackHandler(enabled = fichaId != null) { fichaId = null; portadaAlAbrir = false }
+    BackHandler(enabled = fichaId != null) { fichaId = null }
     BackHandler(enabled = fichaId == null && d != Destino.Portada) { destino = 0 }
 
     Box(Modifier.fillMaxSize().background(Paper)) {
         when (d) {
             Destino.Portada -> PantInicio(
-                alAbrir = { fichaId = it.id }, alJugar = ::jugar, alCambiarImagen = { portadaAlAbrir = true; fichaId = it.id }, alAnadir = { abrirAnadir(it) },
+                alAbrir = { fichaId = it.id }, alJugar = ::jugar, alAnadir = { abrirAnadir(it) },
                 alIr = { ir(it) }, alBuscar = { ir(Destino.Juegos); filtro.buscando = true }
             )
             Destino.Sistemas -> PantSistemas(alVolver = { destino = 0 }, alAnadirCarpeta = { abrirAnadir(null) })
@@ -65,7 +64,7 @@ fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
             else -> PantBiblioteca(filtro, alVolver = { destino = 0 }, alAbrir = { fichaId = it.id }, alJugar = ::jugar, alAnadir = { abrirAnadir(null) })
         }
         AnimatedVisibility(fichaId != null, enter = slideInVertically { it / 8 } + fadeIn(), exit = slideOutVertically { it / 8 } + fadeOut()) {
-            fichaId?.let { id -> Ficha(id, alCerrar = { fichaId = null; portadaAlAbrir = false }, alJugar = ::jugar, abrirPortada = portadaAlAbrir, alVerPortada = { portadaAlAbrir = false }) }
+            fichaId?.let { id -> Ficha(id, alCerrar = { fichaId = null }, alJugar = ::jugar) }
         }
     }
     if (anadir) HojaAnadir(tipoInicial) { anadir = false }
