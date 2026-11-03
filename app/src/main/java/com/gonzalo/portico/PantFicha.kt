@@ -110,6 +110,8 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
     var selector by remember { mutableStateOf(false) }
     var editarWeb by remember { mutableStateOf(false) }
     var eligePortada by remember { mutableStateOf(false) }
+    var disenando by remember { mutableStateOf(false) }
+    var editarHoras by remember { mutableStateOf(false) }
     var buscaInternet by remember { mutableStateOf(false) }
     val cambiarPortada = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
         if (u != null) scope.launch { guardarPortada(ctx, j.id, u)?.let { Biblioteca.poner(Biblioteca.por(j.id)!!.copy(portada = it)) } }
@@ -137,33 +139,12 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
                     Titulo(j.titulo, 32, lineas = 3)
                 }
                 BotonAcento("Jugar", Icons.Filled.PlayArrow, Modifier.fillMaxWidth(), alto = 58.dp) { alJugar(j) }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Dato("Veces", j.veces.toString(), Modifier.weight(1f))
-                    Dato("Tiempo ≈", tiempoDe(j.msJugados), Modifier.weight(1f))
-                    Dato("Última vez", haceCuanto(j.ultima), Modifier.weight(1.2f))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Etiqueta(if (disenando) "Editando las casillas" else "Tu ficha", Modifier.weight(1f))
+                    Text(if (disenando) "LISTO" else "EDITAR CASILLAS", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp,
+                        modifier = Modifier.clip(pildora()).clickable { disenando = !disenando }.padding(8.dp))
                 }
-                when (j.tipo) {
-                    Tipo.ROM -> {
-                        val e = remember(j, selector) { Lanzador.elegir(ctx, j) }
-                        Panel(Modifier.fillMaxWidth(), alHacer = { selector = true }) {
-                            Etiqueta("Se abre con")
-                            Spacer(Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(e?.etiqueta ?: "Sin emulador para este sistema", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    val r = e?.resultado
-                                    Cuerpo(when (r) { is Resultado.Ok -> if (Comando.esRetroArch(e.plantilla)) "Instalado · necesita el núcleo descargado en RetroArch" else "Instalado y listo"; is Resultado.Falta -> r.motivo; null -> "" }, tam = 12, color = if (r is Resultado.Ok) Muted else Acento)
-                                }
-                                Icon(Icons.Filled.ChevronRight, null, tint = Muted)
-                            }
-                        }
-                    }
-                    Tipo.APP -> Panel(Modifier.fillMaxWidth()) { Etiqueta("Paquete"); Cuerpo(j.paquete, color = Charcoal) }
-                    Tipo.WEB -> Panel(Modifier.fillMaxWidth(), alHacer = { editarWeb = true }) {
-                        Etiqueta("Dirección"); Cuerpo(j.url, color = Charcoal)
-                        Spacer(Modifier.height(6.dp)); Cuerpo("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)], tam = 12)
-                    }
-                }
+                MagPage(j, defs(j, ctx, { selector = true }, { editarWeb = true }, { editarHoras = true }), disenando)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         BotonSuave("Portada", Icons.Filled.Image, Modifier.weight(1f)) { eligePortada = true }
@@ -209,11 +190,7 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
     )
     if (selector) SelectorEmulador(j.sistema, j) { selector = false }
     if (editarWeb) DialogoWeb(j) { editarWeb = false }
-}
-
-@Composable
-private fun Dato(titulo: String, valor: String, modifier: Modifier) {
-    Panel(modifier) { Etiqueta(titulo); Spacer(Modifier.height(4.dp)); Text(valor, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1) }
+    if (editarHoras) DialogoHoras(j.msJugados, alAceptar = { ms -> Biblioteca.cambiar(j.id) { it.copy(msJugados = ms) }; editarHoras = false }, alCerrar = { editarHoras = false })
 }
 
 /** Un cuadro con una línea de texto para escribir. */
@@ -289,3 +266,96 @@ private fun Opcion(titulo: String, sub: String, elegida: Boolean, instalado: Boo
         else if (instalado && titulo != "Automático") Icon(Icons.Filled.Check, "Instalado", tint = Color(0xFF3DBE8B), modifier = Modifier.size(20.dp))
     }
 }
+
+
+/** Horas y minutos jugados, para corregirlos a mano. */
+@Composable
+fun DialogoHoras(ms: Long, alAceptar: (Long) -> Unit, alCerrar: () -> Unit) {
+    var h by remember { mutableStateOf((ms / 3_600_000).toString()) }
+    var m by remember { mutableStateOf(((ms / 60_000) % 60).toString()) }
+    AlertDialog(
+        onDismissRequest = alCerrar, containerColor = Crudo,
+        title = { Text("Horas jugadas", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f)) { Etiqueta("Horas"); Campo(h, "0", { h = it.filter(Char::isDigit).take(5) }) }
+                    Column(Modifier.weight(1f)) { Etiqueta("Minutos"); Campo(m, "0", { m = it.filter(Char::isDigit).take(2) }) }
+                }
+                Cuerpo("Pórtico suma solo el tiempo que pasas fuera cuando abres un juego (aproximado). Aquí lo corriges.", tam = 12)
+            }
+        },
+        confirmButton = { TextButton({ alAceptar((h.toLongOrNull() ?: 0L) * 3_600_000L + (m.toLongOrNull() ?: 0L).coerceAtMost(59L) * 60_000L) }) { Text("Guardar", color = Acento, fontWeight = FontWeight.Bold) } },
+        dismissButton = { TextButton(alCerrar) { Text("Cancelar", color = Charcoal) } }
+    )
+}
+
+private fun fechaCorta(t: Long) = java.text.SimpleDateFormat("d/M/yyyy", java.util.Locale("es", "ES")).format(java.util.Date(t))
+fun notaTexto(n: Float) = if (n <= 0f) "—" else if (n % 1f == 0f) n.toInt().toString() else String.format(java.util.Locale("es", "ES"), "%.1f", n)
+
+/** Los módulos de la ficha: lo que se puede poner en una casilla. */
+@Composable
+private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: () -> Unit, editarHoras: () -> Unit): Map<String, MagDef> = mapOf(
+    "horas" to MagDef("Horas jugadas", "✎" to editarHoras) {
+        Text(tiempoDe(j.msJugados), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 30.sp, maxLines = 1)
+        Cuerpo("Aproximado: se apunta al volver de jugar", tam = 12)
+    },
+    "veces" to MagDef("Veces y última vez") {
+        Text(j.veces.toString(), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 30.sp, maxLines = 1)
+        Cuerpo("Última vez: " + haceCuanto(j.ultima).lowercase().replaceFirstChar { it.uppercase() }, tam = 12)
+    },
+    "estado" to MagDef("Estado") {
+        // Un solo botón (cabe en media casilla): marcar o desmarcar «terminado»
+        Row(
+            Modifier.fillMaxWidth().height(44.dp).clip(pildora()).background(if (j.terminado) Acento else Sand)
+                .clickable { Biblioteca.cambiar(j.id) { if (it.terminado) it.copy(terminado = false, finalizado = 0L) else it.copy(terminado = true, finalizado = System.currentTimeMillis()) } },
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(if (j.terminado) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked, null, tint = if (j.terminado) SobreAcento else Muted, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(if (j.terminado) "Terminado" else "Marcar terminado", color = if (j.terminado) SobreAcento else Charcoal, fontFamily = Body, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
+        }
+        Spacer(Modifier.height(6.dp))
+        Cuerpo(if (j.terminado && j.finalizado > 0) "Terminado el " + fechaCorta(j.finalizado) else if (j.terminado) "Terminado" else "Todavía en marcha", tam = 12)
+    },
+    "valoracion" to MagDef("Valoración") {
+        if (!j.terminado) {
+            Cuerpo("Márcalo como terminado para valorarlo.", tam = 13)
+            Spacer(Modifier.height(8.dp))
+            BotonSuave("Marcar terminado") { Biblioteca.cambiar(j.id) { it.copy(terminado = true, finalizado = System.currentTimeMillis()) } }
+        } else {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(notaTexto(j.nota), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 28.sp, maxLines = 1)
+                Text(" / 10", color = Muted, fontFamily = Body, fontSize = 13.sp, modifier = Modifier.padding(bottom = 5.dp).weight(1f), maxLines = 1)
+                BotonIcono(Icons.Filled.Remove, "Bajar la nota", tam = 32.dp) { Biblioteca.cambiar(j.id) { it.copy(nota = (it.nota - 0.5f).coerceAtLeast(0f)) } }
+                Spacer(Modifier.width(4.dp))
+                BotonIcono(Icons.Filled.Add, "Subir la nota", tam = 32.dp) { Biblioteca.cambiar(j.id) { it.copy(nota = if (it.nota <= 0f) 7f else (it.nota + 0.5f).coerceAtMost(10f)) } }
+            }
+            Spacer(Modifier.height(8.dp))
+            // Diez puntos: tocar uno pone esa nota
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (k in 1..10) Box(Modifier.weight(1f).height(10.dp).clip(esquina(3.dp)).background(if (j.nota >= k) Acento else if (j.nota >= k - 0.5f && j.nota > 0f) Acento.copy(alpha = 0.5f) else Sand).clickable { Biblioteca.cambiar(j.id) { it.copy(nota = k.toFloat()) } })
+            }
+        }
+    },
+    "apuntes" to MagDef("Apuntes") {
+        var t by remember(j.id) { mutableStateOf(j.notas) }
+        LaunchedEffect(t) { kotlinx.coroutines.delay(500); if (t != Biblioteca.por(j.id)?.notas) Biblioteca.cambiar(j.id) { it.copy(notas = t) } }
+        Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+            if (t.isEmpty()) Text("Trucos, por dónde vas, qué te falta…", color = Muted, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 16.sp)
+            androidx.compose.foundation.text.BasicTextField(t, { t = it }, textStyle = androidx.compose.ui.text.TextStyle(color = Charcoal, fontFamily = Display, fontSize = 17.sp, lineHeight = 25.sp), cursorBrush = androidx.compose.ui.graphics.SolidColor(Acento), modifier = Modifier.fillMaxWidth())
+        }
+    },
+    "lanzamiento" to MagDef("Cómo se abre", if (j.tipo == Tipo.WEB) "Editar" to editarWeb else if (j.tipo == Tipo.ROM) "Cambiar" to abrirSelector else null) {
+        when (j.tipo) {
+            Tipo.ROM -> {
+                val e = remember(j) { Lanzador.elegir(ctx, j) }
+                Text(e?.etiqueta ?: "Sin emulador para este sistema", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                val r = e?.resultado
+                Cuerpo(when (r) { is Resultado.Ok -> if (Comando.esRetroArch(e.plantilla)) "Instalado · necesita el núcleo descargado en RetroArch" else "Instalado y listo"; is Resultado.Falta -> r.motivo; null -> "" }, tam = 12, color = if (r is Resultado.Ok) Muted else Acento)
+            }
+            Tipo.APP -> { Text("App de Android", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 18.sp); Cuerpo(j.paquete, tam = 12) }
+            Tipo.WEB -> { Text(j.url, color = Charcoal, fontFamily = Body, fontSize = 14.sp, maxLines = 2); Cuerpo("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)], tam = 12) }
+        }
+    },
+)

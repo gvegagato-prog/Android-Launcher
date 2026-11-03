@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
@@ -40,6 +41,7 @@ class CapturasTest {
         fun rom(n: String, s: String, k: Int, fav: Boolean = false, jug: Long = 0, ms: Long = 0, veces: Int = 0) =
             Biblioteca.juegos.add(Juego("r$k", n, Tipo.ROM, sistema = s, uri = "content://x/$k", archivo = n, favorito = fav, anadido = ahora - k * 1000L, ultima = jug, msJugados = ms, veces = veces))
         rom("Pokémon Esmeralda", "gba", 1, fav = true, jug = ahora - 3600_000, ms = 3 * 3600_000L + 1_200_000, veces = 7)
+        Biblioteca.juegos[0] = Biblioteca.juegos[0].copy(terminado = true, finalizado = ahora - 86_400_000L * 3, nota = 8.5f, notas = "Me falta el Frente de Batalla. Ojo: guardar antes de la Liga.")
         rom("Metroid Fusion", "gba", 2); rom("Advance Wars", "gba", 3, fav = true); rom("The Minish Cap", "gba", 4)
         rom("Pokémon Platino", "nds", 5, jug = ahora - 86_400_000L * 2, ms = 12 * 3600_000L, veces = 21); rom("Mario Kart DS", "nds", 6); rom("Hollow Knight (SNES hack)", "snes", 7)
         Biblioteca.juegos.add(Juego("a1", "Stardew Valley", Tipo.APP, paquete = "com.chucklefish.stardewvalley", anadido = ahora - 9000))
@@ -105,7 +107,19 @@ class CapturasTest {
         siembra()
         montar()
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[1].performClick()
-        rule.onNodeWithText("Portada").performClick(); foto("10_portada_opciones")
+        rule.onNodeWithText("Portada").performScrollTo().performClick(); foto("10_portada_opciones")
         rule.onNodeWithText("Buscar en internet").performClick(); foto("11_buscador")
+    }
+
+    @Test
+    fun fichaYSusCasillas() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        montar()
+        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[1].performClick()
+        rule.onNodeWithText("TU FICHA").performScrollTo(); foto("12_ficha_casillas")
+        rule.onNodeWithText("EDITAR CASILLAS").performClick()
+        rule.onNodeWithText("EDITANDO LAS CASILLAS").performScrollTo(); foto("13_ficha_editando")
+        rule.onNodeWithText("RESTABLECER EL DISEÑO DE SIEMPRE").performScrollTo(); foto("14_ficha_editando_abajo")
     }
 }

@@ -38,6 +38,15 @@ data class Juego(
     val msJugados: Long = 0L,
     /** Juegos web: 0 automática, 1 horizontal, 2 vertical. */
     val orientacion: Int = 0,
+    /** ¿Lo has terminado? (y cuándo, en milisegundos; 0 = sin fecha) */
+    val terminado: Boolean = false,
+    val finalizado: Long = 0L,
+    /** Valoración de 0 a 10 en pasos de 0,5 (0 = sin valorar). */
+    val nota: Float = 0f,
+    /** Tus apuntes sobre este juego. */
+    val notas: String = "",
+    /** El diseño de la ficha de este juego (JSON de [MagLayouts]); "" = el de su tipo o el de siempre. */
+    val maqueta: String = "",
 )
 
 /** Una carpeta de ROMs que diste (para volver a escanearla). */
@@ -88,6 +97,9 @@ object Biblioteca {
         guardar()
     }
 
+    /** Cambia un juego a partir de su versión más reciente (así dos cambios seguidos no se pisan). */
+    fun cambiar(id: String, f: (Juego) -> Juego) { por(id)?.let { poner(f(it)) } }
+
     fun quitar(id: String) { juegos.removeAll { it.id == id }; guardar() }
     fun por(id: String): Juego? = juegos.firstOrNull { it.id == id }
 
@@ -99,7 +111,7 @@ object Biblioteca {
     fun aJson(j: Juego) = JSONObject().apply {
         put("id", j.id); put("titulo", j.titulo); put("tipo", j.tipo.name); put("sistema", j.sistema); put("uri", j.uri); put("ruta", j.ruta)
         put("archivo", j.archivo); put("paquete", j.paquete); put("url", j.url); put("portada", j.portada); put("emulador", j.emulador)
-        put("favorito", j.favorito); put("anadido", j.anadido); put("ultima", j.ultima); put("veces", j.veces); put("ms", j.msJugados); put("orient", j.orientacion)
+        put("favorito", j.favorito); put("terminado", j.terminado); put("fin", j.finalizado); put("nota", j.nota.toDouble()); put("notas", j.notas); put("maqueta", j.maqueta); put("anadido", j.anadido); put("ultima", j.ultima); put("veces", j.veces); put("ms", j.msJugados); put("orient", j.orientacion)
     }
 
     fun aJuego(o: JSONObject) = Juego(
@@ -107,7 +119,8 @@ object Biblioteca {
         sistema = o.optString("sistema"), uri = o.optString("uri"), ruta = o.optString("ruta"), archivo = o.optString("archivo"),
         paquete = o.optString("paquete"), url = o.optString("url"), portada = o.optString("portada"), emulador = o.optString("emulador"),
         favorito = o.optBoolean("favorito"), anadido = o.optLong("anadido"), ultima = o.optLong("ultima"), veces = o.optInt("veces"),
-        msJugados = o.optLong("ms"), orientacion = o.optInt("orient")
+        msJugados = o.optLong("ms"), orientacion = o.optInt("orient"),
+        terminado = o.optBoolean("terminado"), finalizado = o.optLong("fin"), nota = o.optDouble("nota", 0.0).toFloat(), notas = o.optString("notas"), maqueta = o.optString("maqueta")
     )
 
     fun nuevoId(): String = java.util.UUID.randomUUID().toString().take(12)
