@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
             PorticoTheme {
                 // Iconos de la barra de estado claros u oscuros según el fondo
                 SideEffect {
-                    val oscuro = Modo.oscuro
+                    val oscuro = Skin.tones.darkBg
                     enableEdgeToEdge(
                         statusBarStyle = if (oscuro) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT) else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
                         navigationBarStyle = if (oscuro) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT) else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)

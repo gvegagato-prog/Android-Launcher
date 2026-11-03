@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -339,3 +340,13 @@ val ACCENT_COLORS = listOf(
     Accent("salvia", "Salvia", 0xFF6F8A6B, 0xFFB5CDB0),
 )
 
+/**
+ * Los colores de Atrio «al revés»: el fondo toma el color del texto y el texto el del fondo (las tarjetas, líneas y grises se
+ * recalculan entre los dos). El acento (el rojo de imprenta, o el que hayas elegido) se queda como está.
+ */
+fun invertir(t: Tones): Tones {
+    fun L(c: Color) = c.toArgb().toLong() and 0xFFFFFFFFL
+    // la superficie de las tarjetas: un poco hacia el nuevo texto, como en la paleta de siempre
+    val crudo = lerp(Color(t.ink or 0xFF000000), Color(t.paper or 0xFF000000), 0.05f)
+    return t.copy(paper = t.ink or 0xFF000000, crudo = L(crudo), ink = t.paper or 0xFF000000, gfx = if (t.gfx == t.ink) t.paper else t.gfx, sand = 0, line = 0, edge = 0, muted = 0)
+}

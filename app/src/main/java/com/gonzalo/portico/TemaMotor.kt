@@ -119,10 +119,14 @@ object Skin {
     var accentId by mutableStateOf("paleta")
     /** Tamaño del texto en por ciento. */
     var escala by mutableStateOf(100)
+    /** Colores invertidos: el fondo con el color del texto y el texto con el del fondo; el acento se mantiene. */
+    var invertido by mutableStateOf(false)
 
-    val tones: Tones get() = (if (Modo.oscuro) palette.dark else palette.light).let { b ->
+    val tones: Tones get() = invertidoSi(invertido, (if (Modo.oscuro) palette.dark else palette.light).let { b ->
         ACCENT_COLORS.firstOrNull { it.id == accentId }?.let { a -> b.copy(general = (if (Modo.oscuro) a.dark else a.light) or 0xFF000000) } ?: b
-    }
+    })
+
+    private fun invertidoSi(on: Boolean, t: Tones) = if (on) invertir(t) else t
 
     private val provider = GoogleFont.Provider(
         providerAuthority = "com.google.android.gms.fonts",
@@ -162,12 +166,13 @@ object Skin {
         forma = FORMAS.firstOrNull { it.id == p.getString("forma", "revista") } ?: forma
         accentId = p.getString("acento", "paleta")?.takeIf { id -> id == "paleta" || ACCENT_COLORS.any { it.id == id } } ?: "paleta"
         escala = p.getInt("escala", 100).coerceIn(80, 140)
+        invertido = p.getBoolean("invertido", false)
         Modo.eleccion = p.getInt("modo", 0).coerceIn(0, 2)
     }
 
     fun guardar(c: Context) {
         p(c).edit().putString("paleta", palette.id).putString("display", display).putString("body", body).putString("forma", forma.id)
-            .putString("acento", accentId).putInt("escala", escala).putInt("modo", Modo.eleccion).apply()
+            .putString("acento", accentId).putBoolean("invertido", invertido).putInt("escala", escala).putInt("modo", Modo.eleccion).apply()
     }
 }
 
@@ -186,7 +191,7 @@ val Dorado: Color get() = Color(Skin.tones.gold)
 val SobreAcento: Color get() = if (Acento.luminance2() > 0.5f) Color(0xFF14151A) else Color.White
 fun Color.luminance2(): Float = 0.299f * red + 0.587f * green + 0.114f * blue
 
-fun appColors() = if (Modo.oscuro) darkColorScheme(
+fun appColors() = if (Skin.tones.darkBg) darkColorScheme(
     primary = Charcoal, onPrimary = Crudo, secondary = Acento, onSecondary = SobreAcento,
     background = Paper, onBackground = Charcoal, surface = Crudo, onSurface = Charcoal,
     surfaceVariant = Sand, onSurfaceVariant = Charcoal, surfaceContainer = Crudo, surfaceContainerHigh = Crudo,

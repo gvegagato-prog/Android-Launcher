@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-const val VERSION = "0.3.0"
+const val VERSION = "0.4.0"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -53,6 +53,9 @@ fun PantEstilo(alVolver: () -> Unit) {
         Antetitulo("Apariencia", Modifier.padding(bottom = 4.dp))
         Etiqueta("Modo", Modifier.padding(top = 8.dp))
         MagChoice(listOf("Como el sistema", "Claro", "Oscuro"), Modo.eleccion) { i -> cambia { Modo.eleccion = i } }
+        Etiqueta("Colores", Modifier.padding(top = 10.dp))
+        MagChoice(listOf("Los de Atrio", "Invertidos"), if (Skin.invertido) 1 else 0) { i -> cambia { Skin.invertido = i == 1 } }
+        Text("Invertidos: el fondo toma el color del texto y el texto el del fondo. El acento se queda como está.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 14.sp, lineHeight = 19.sp)
         Etiqueta("Acento", Modifier.padding(top = 10.dp, bottom = 6.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("EL DE LA PALETA", color = if (Skin.accentId == "paleta") Acento else Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp,

@@ -39,6 +39,7 @@ Pórtico usa la interfaz «Revista» de Atrio, con sus mismas piezas (copiadas d
 papel crema (o oscuro), Fraunces para los titulares, filetes gruesos y finos, antetítulos con cuadradito de acento, pestañas subrayadas,
 enlaces con flecha, cifras enormes y puntos guía. No hay dock: se navega desde el menú de la portada y con «← Pórtico».
 Los temas, paletas, acentos y estilos son los mismos que los de Atrio (Ajustes → Apariencia).
+**Colores invertidos** (Ajustes → Apariencia → Colores): el fondo toma el color del texto y el texto el del fondo; el acento se mantiene. Vale en claro y en oscuro.
 
 ## Cómo funciona el lanzamiento (y qué no está probado)
 

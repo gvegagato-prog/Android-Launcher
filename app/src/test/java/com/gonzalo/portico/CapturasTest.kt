@@ -123,4 +123,25 @@ class CapturasTest {
         rule.onNodeWithText("PORTADA\u00A0→").performScrollTo().performClick(); foto("10_portada_opciones")
         rule.onNodeWithText("Buscar en internet\u00A0→").performClick(); foto("11_buscador")
     }
+
+    @Test
+    fun invertidos() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        Skin.invertido = true
+        montar(oscuro = false)
+        foto("15_invertido_portada")
+        ir("JUEGOS"); foto("16_invertido_juegos")
+        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
+        rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("17_invertido_ficha")
+    }
+
+    @Test
+    fun invertidosEnOscuro() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        Skin.invertido = true
+        montar(oscuro = true)
+        foto("18_invertido_oscuro_portada")
+    }
 }
