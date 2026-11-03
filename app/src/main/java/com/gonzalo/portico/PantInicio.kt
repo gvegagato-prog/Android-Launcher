@@ -159,29 +159,38 @@ fun PantInicio(
         "Android" to { alIr(Destino.Android) }, "Web" to { alIr(Destino.Web) }, "Todo" to { alIr(Destino.Juegos) }, "Sistemas" to { alIr(Destino.Sistemas) }
     )
 
-    Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    // La cabecera y el menú, exactamente como en la portada de Atrio (RevistaHome): mismos márgenes, mismo tamaño de cabecera, de filetes y de letra
+    Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 28.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             EnlaceRevista("Buscar") { alBuscar() }
-            EnlaceRevista("Añadir") { alAnadir(null) }
-            EnlaceRevista(if (editando) "Listo" else "Editar", acento = editando) { editando = !editando }
+            EnlaceRevista("Añadir", Modifier.padding(start = 14.dp)) { alAnadir(null) }
+            EnlaceRevista(if (editando) "Listo" else "Editar", Modifier.padding(start = 14.dp), acento = editando) { editando = !editando }
             Spacer(Modifier.weight(1f))
-            Icon(Icons.Filled.Settings, "Ajustes", tint = Charcoal, modifier = Modifier.combinedClickable(onClick = { alIr(Destino.Ajustes) }).padding(8.dp).size(22.dp))
+            // Ajustes: el icono arriba a la derecha (fuera del menú de secciones), como en Atrio
+            Icon(Icons.Filled.Settings, "Ajustes", tint = Charcoal, modifier = Modifier.padding(start = 6.dp).combinedClickable(onClick = { alIr(Destino.Ajustes) }).padding(8.dp).size(22.dp))
         }
-        Cabecera(64.sp, Modifier.padding(top = 2.dp))
+        // Tableta: con sitio de sobra, cabecera más grande (igual que en Atrio)
+        val ancho = minOf(androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp, 1080)
+        Cabecera(if (ancho >= 700) 132.sp else 92.sp, Modifier.padding(top = 8.dp))
         FileteCabecera(3.dp)
-        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-            Text("Nº ${hoy.get(Calendar.DAY_OF_YEAR)}", color = Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Text("Nº ${hoy.get(Calendar.DAY_OF_YEAR)}", color = Charcoal, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Spacer(Modifier.weight(1f))
-            Text(SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "ES")).format(hoy.time).uppercase(), color = Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "ES")).format(hoy.time).uppercase(), color = Charcoal, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
         Filete(1.dp)
-        // Las secciones, como el menú de la portada de Atrio: versalitas entre dos filetes
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            // (el mismo texto que los enlaces de arriba y que las pestañas: un solo tamaño de menú en toda la app)
-            secciones.forEach { (t, f) -> EnlaceRevista(t, onClick = f) }
+        // Las secciones, como el menú de la portada de Atrio (RevistaMenu): sin título, entre dos filetes, versalitas de 12 sp
+        Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
+            Filete(1.dp)
+            FlowRow(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                secciones.forEach { (t, f) ->
+                    Text(t.uppercase(), color = Charcoal, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, maxLines = 1,
+                        modifier = Modifier.clickable(onClick = f).padding(vertical = 9.dp))
+                }
+            }
+            Filete(1.dp)
         }
-        Filete(1.dp)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(18.dp))
 
         if (editando) {
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {

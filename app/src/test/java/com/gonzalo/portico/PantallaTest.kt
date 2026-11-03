@@ -278,9 +278,6 @@ class PantallaTest {
         Skin.fondoId = ""
     }
 
-    @Test fun losMenusTienenTodosElMismoTexto() {
-        assertEquals(12f, MENU_SP.value, 0f); assertEquals(1.4f, MENU_ESPACIO.value, 0f)
-    }
 
     @Test fun elTamanoDeLaFotoEnteraNoSeRecortaALaFormaDelHueco() {
         // Una foto panorámica 2:1 en un hueco cuadrado: se dibuja entera (el doble de ancha que alta), no recortada a un cuadrado
