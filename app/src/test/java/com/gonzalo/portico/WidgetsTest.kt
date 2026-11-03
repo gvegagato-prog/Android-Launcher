@@ -49,13 +49,14 @@ class WidgetsTest {
     }
 
     private fun foto(nombre: String, tipo: WTipo, w: Float, h: Float, noche: Boolean) {
+        runBlocking { Widgets.cargarLetras(ctx) }
         val pag = runBlocking { Widgets.componer(ctx, tipo, 1, w, h) }
         val bm = pag.bitmap(ctx, w, h, noche, 2f)
         File("build/outputs/widgets").mkdirs()
         File("build/outputs/widgets/$nombre.png").outputStream().use { bm.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    private val tamanos = mapOf(WTipo.JUGANDO to (264f to 132f), WTipo.ESTANTE to (280f to 165f), WTipo.PORTADA to (264f to 200f), WTipo.SIGUIENTE to (264f to 132f), WTipo.MARCA to (256f to 64f))
+    private val tamanos = mapOf(WTipo.JUGANDO to (264f to 132f), WTipo.ESTANTE to (280f to 165f), WTipo.PORTADA to (264f to 200f), WTipo.SIGUIENTE to (264f to 132f), WTipo.MARCA to (256f to 64f), WTipo.MARCA_PAPEL to (264f to 132f))
 
     @Test fun dibujaTodosSinFallar() {
         // (no necesita la marca de grabar: comprueba que cada widget se compone y se dibuja con y sin juegos)
@@ -101,7 +102,47 @@ class WidgetsTest {
         for ((t, s) in tamanos) foto("atrio_inv_${t.name.lowercase()}", t, s.first, s.second, false)
         Skin.invertido = false
         for ((t, s) in tamanos) foto("atrio_${t.name.lowercase()}", t, s.first, s.second, false)
+        // y con la letra de Vitrina en vez de la de Atrio
+        Skin.origenAtrio = false; Skin.invertido = false; Skin.display = "Vitrina"
+        for ((t, s) in tamanos) foto("vitrina_${t.name.lowercase()}", t, s.first, s.second, false)
+        Skin.display = "Atrio"
         siembra(vacia = true)
         foto("vacio_jugando", WTipo.JUGANDO, 264f, 132f, false)
+    }
+
+    @Test fun lasLetrasDelTemaLlegaALosWidgets() {
+        siembra()
+        Skin.origenAtrio = false; Skin.invertido = false
+        // Por defecto (Revista de Atrio) son las que vienen con la app
+        Skin.display = "Atrio"; Skin.body = "Atrio"
+        runBlocking { Widgets.cargarLetras(ctx) }
+        val base = Widgets.letrasActuales(ctx)
+        assertSame(base.titular, Hoja(ctx, 100f, 100f, false, 1f).fTitular)
+        // Con Vitrina, los titulares son otra letra (Bricolage Grotesque, variable)
+        Skin.display = "Vitrina"
+        runBlocking { Widgets.cargarLetras(ctx) }
+        val vit = Widgets.letrasActuales(ctx)
+        assertNotSame("los titulares cambian con el tema", base.titular, vit.titular)
+        assertSame("el texto sigue siendo el de la app", base.texto, vit.texto)
+        // Con una letra de Google Fonts que no llega (sin servicios de Google, como aquí), no se rompe: queda la de la app
+        Skin.display = "Press Start 2P"; Skin.body = "Space Mono"
+        runBlocking { Widgets.cargarLetras(ctx) }
+        val g = Widgets.letrasActuales(ctx)
+        assertNotNull(g.titular); assertNotNull(g.negrita)
+        // y los widgets se dibujan igualmente
+        val pag = runBlocking { Widgets.componer(ctx, WTipo.MARCA_PAPEL, 1, 264f, 132f) }
+        assertTrue(pag.bitmap(ctx, 264f, 132f, false, 1f).width > 0)
+    }
+
+    @Test fun laMarcaConPapelLlevaPapel() {
+        siembra()
+        Skin.origenAtrio = false; Skin.invertido = false
+        val pag = runBlocking { Widgets.componer(ctx, WTipo.MARCA_PAPEL, 1, 264f, 132f) }
+        val bm = pag.bitmap(ctx, 264f, 132f, false, 1f)
+        // en el centro de una esquina interior, el papel de la revista (no transparente, a diferencia de la marca sola)
+        val papel = Hoja(ctx, 10f, 10f, false, 1f).papel
+        assertEquals(papel, bm.getPixel(20, 20))
+        val sola = runBlocking { Widgets.componer(ctx, WTipo.MARCA, 1, 264f, 132f) }.bitmap(ctx, 264f, 132f, false, 1f)
+        assertEquals("la marca sola es transparente", 0, sola.getPixel(2, 2) ushr 24)
     }
 }

@@ -44,10 +44,10 @@ Para eso Atrio 1.0.7 (o más nueva) ofrece sus colores en `content://com.gonzalo
 
 ## Widgets
 
-Cinco widgets, copiados de los de Atrio (mismo lienzo: papel, titulares en Fraunces, portadas recortadas, esquinas redondas y el reborde fino de tinta)
-pero con tus juegos: **Sigue jugando**, **Recientes** (la estantería; tocar un juego lo lanza), **En portada**, **¿Y ahora qué?** (una propuesta distinta cada día) y
-la **marca** «PÓRTICO.». Usan los colores del tema que tengas puesto (los de Pórtico o los de Atrio, invertidos o no) y se repintan cuando cambias el tema, los
+Seis widgets, copiados de los de Atrio (mismo lienzo: papel, titulares en Fraunces, portadas recortadas, esquinas redondas y el reborde fino de tinta)
+pero con tus juegos: **Sigue jugando**, **Recientes** (la estantería; tocar un juego lo lanza), **En portada**, **¿Y ahora qué?** (una propuesta distinta cada día) la **marca** «PÓRTICO.» sobre tu fondo y **PÓRTICO en papel** (con su papel, el número del día y la fecha). Usan los colores del tema que tengas puesto (los de Pórtico o los de Atrio, invertidos o no) y se repintan cuando cambias el tema, los
 colores de Atrio o la biblioteca. Con los colores de Atrio no dependen de claro/oscuro; con los de Pórtico, «como el sistema» lleva los dos dibujos y se ve el que toca.
+Las letras también son las del tema (Ajustes → Estilo): las que vienen con la app, Vitrina o las de Google Fonts (se piden a los servicios de Google, igual que en la app; si no llegan, se usa la letra de la app).
 Vistas previas en `docs/widgets/`.
 
 ## Icono

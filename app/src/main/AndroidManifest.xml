@@ -187,5 +187,9 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_marca" />
         </receiver>
+        <receiver android:name=".WMarcaPapel" android:label="@string/w_marcapapel" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_marcapapel" />
+        </receiver>
     </application>
 </manifest>

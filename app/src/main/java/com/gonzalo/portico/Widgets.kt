@@ -24,6 +24,13 @@ import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
+import androidx.core.provider.FontRequest
+import androidx.core.provider.FontsContractCompat
+import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.File
+import kotlin.coroutines.resume
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -58,7 +65,7 @@ import kotlin.math.sqrt
  */
 
 /** Los widgets que hay. */
-enum class WTipo { JUGANDO, ESTANTE, PORTADA, SIGUIENTE, MARCA }
+enum class WTipo { JUGANDO, ESTANTE, PORTADA, SIGUIENTE, MARCA, MARCA_PAPEL }
 
 abstract class WBase(private val tipo: WTipo) : AppWidgetProvider() {
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) = Widgets.pintar(ctx, tipo, ids, goAsync())
@@ -79,6 +86,7 @@ class WEstante : WBase(WTipo.ESTANTE)
 class WPortada : WBase(WTipo.PORTADA)
 class WSiguiente : WBase(WTipo.SIGUIENTE)
 class WMarca : WBase(WTipo.MARCA)
+class WMarcaPapel : WBase(WTipo.MARCA_PAPEL)
 
 /** Una zona que se puede tocar (en dp, desde la esquina de arriba a la izquierda); con [celdas], una rejilla. */
 class Zona(
@@ -142,10 +150,12 @@ class Hoja(val ctx: Context, val w: Float, val h: Float, val noche: Boolean, s: 
     /** El color del reborde (por defecto, el del texto; sobre una foto a sangre, blanco). */
     var reborde: Int? = null
 
-    val fTitular: Typeface get() = Widgets.fuente(ctx, R.font.display_semibold)
-    val fCursiva: Typeface get() = Widgets.fuente(ctx, R.font.display_italic)
-    val fNegrita: Typeface get() = Widgets.fuente(ctx, R.font.body_bold)
-    val fTexto: Typeface get() = Widgets.fuente(ctx, R.font.body_medium)
+    // Las letras del tema (Ajustes → Estilo): las que vienen con la app, Vitrina o las de Google Fonts; ver Widgets.cargarLetras
+    private val letras = Widgets.letrasActuales(ctx)
+    val fTitular: Typeface get() = letras.titular
+    val fCursiva: Typeface get() = letras.cursiva
+    val fNegrita: Typeface get() = letras.negrita
+    val fTexto: Typeface get() = letras.texto
 
     /** Recorta las esquinas (suaves, con antialias) y traza el reborde: una línea fina del color del texto, metida hacia dentro. */
     fun terminar() {
@@ -263,10 +273,79 @@ object Widgets {
         WTipo.PORTADA -> WPortada::class.java
         WTipo.SIGUIENTE -> WSiguiente::class.java
         WTipo.MARCA -> WMarca::class.java
+        WTipo.MARCA_PAPEL -> WMarcaPapel::class.java
     }
 
     @Synchronized fun fuente(ctx: Context, id: Int): Typeface =
         fuentes.getOrPut(id) { runCatching { ctx.resources.getFont(id) }.getOrDefault(Typeface.SERIF) }
+
+    // ------------------------------------------------------------------ letras
+
+    /** Las cuatro letras de un widget: titulares, cursiva, negrita (antetítulos) y texto. */
+    class Letras(val titular: Typeface, val cursiva: Typeface, val negrita: Typeface, val texto: Typeface)
+
+    @Volatile private var letras: Letras? = null
+    private val bajadas = HashMap<String, Typeface>()
+
+    private fun porDefecto(ctx: Context) = Letras(fuente(ctx, R.font.display_semibold), fuente(ctx, R.font.display_italic), fuente(ctx, R.font.body_bold), fuente(ctx, R.font.body_medium))
+
+    /** Las letras ya preparadas (las del tema) o, si aún no se han preparado, las que vienen con la app. */
+    fun letrasActuales(ctx: Context): Letras = letras ?: porDefecto(ctx)
+
+    /**
+     * Prepara las letras del tema que tengas (Skin.display para titulares, Skin.body para el resto). Las de Google Fonts se piden
+     * a los servicios de Google (si ya las ha bajado la app, salen al momento); si no llegan, se usa la letra de la app.
+     */
+    suspend fun cargarLetras(ctx: Context) {
+        val d = porDefecto(ctx)
+        val dis = Skin.display; val cue = Skin.body
+        val titular = tipografia(ctx, dis, 600, false, DISPLAY_FONTS)
+        val cursiva = if (dis == "Atrio") null else tipografia(ctx, dis, 500, true, DISPLAY_FONTS) ?: tipografia(ctx, dis, 400, false, DISPLAY_FONTS)
+        letras = Letras(
+            titular = titular ?: d.titular,
+            cursiva = cursiva ?: if (dis == "Atrio" || titular == null) d.cursiva else titular,
+            negrita = tipografia(ctx, cue, 700, false, BODY_FONTS) ?: d.negrita,
+            texto = tipografia(ctx, cue, 500, false, BODY_FONTS) ?: d.texto
+        )
+    }
+
+    /** Una letra del tema con el grueso más cercano al pedido; null = la de la app (o no se ha podido conseguir). */
+    private suspend fun tipografia(ctx: Context, nombre: String, peso: Int, cursiva: Boolean, lista: List<FontChoice>): Typeface? {
+        if (nombre.isBlank() || nombre == "Atrio") return null
+        if (nombre == "Vitrina") return vitrina(ctx, if (peso >= 600) 700 else 500)
+        val pesos = lista.firstOrNull { it.name == nombre }?.weights?.takeIf { it.isNotEmpty() } ?: intArrayOf(400, 700)
+        val w = pesos.minByOrNull { kotlin.math.abs(it - peso) } ?: 400
+        val clave = "$nombre|$w|$cursiva"
+        synchronized(bajadas) { bajadas[clave]?.let { return it } }
+        val t = bajar(ctx, nombre, w, cursiva) ?: return null
+        synchronized(bajadas) { bajadas[clave] = t }
+        return t
+    }
+
+    /** Bricolage Grotesque (la letra de Vitrina) es una letra variable: se pide su grueso y su anchura. */
+    private fun vitrina(ctx: Context, peso: Int): Typeface? = runCatching {
+        val clave = "vitrina|$peso"
+        synchronized(bajadas) { bajadas[clave]?.let { return it } }
+        val f = File(ctx.cacheDir, "bricolage.ttf")
+        if (!f.exists()) ctx.resources.openRawResource(R.font.bricolage).use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+        Typeface.Builder(f).setFontVariationSettings("'wght' $peso, 'wdth' ${if (peso >= 700) 92 else 100}").build()
+            .also { synchronized(bajadas) { bajadas[clave] = it } }
+    }.getOrNull()
+
+    /** Pide una letra de Google Fonts a los servicios de Google (como hace la app para sus pantallas). */
+    private suspend fun bajar(ctx: Context, nombre: String, peso: Int, cursiva: Boolean): Typeface? = withTimeoutOrNull(5_000) {
+        suspendCancellableCoroutine { k ->
+            val th = HandlerThread("letras-widget").also { it.start() }
+            try {
+                val pet = FontRequest("com.google.android.gms.fonts", "com.google.android.gms", "name=$nombre&weight=$peso" + if (cursiva) "&italic=1" else "", R.array.com_google_android_gms_fonts_certs)
+                FontsContractCompat.requestFont(ctx, pet, object : FontsContractCompat.FontRequestCallback() {
+                    override fun onTypefaceRetrieved(typeface: Typeface) { if (k.isActive) k.resume(typeface); th.quitSafely() }
+                    override fun onTypefaceRequestFailed(reason: Int) { if (k.isActive) k.resume(null); th.quitSafely() }
+                }, Handler(th.looper))
+            } catch (e: Exception) { th.quitSafely(); if (k.isActive) k.resume(null) }
+            k.invokeOnCancellation { th.quitSafely() }
+        }
+    }
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("portico_widgets", Context.MODE_PRIVATE)
     private fun estado(ctx: Context, id: Int, k: String, def: Int) = prefs(ctx).getInt("${id}_$k", def)
@@ -339,6 +418,7 @@ object Widgets {
     fun porDefecto(t: WTipo): Pair<Float, Float> = when (t) {
         WTipo.PORTADA -> 330f to 250f
         WTipo.MARCA -> 330f to 80f
+        WTipo.MARCA_PAPEL -> 330f to 165f
         else -> 330f to 165f
     }
 
@@ -350,6 +430,7 @@ object Widgets {
     }
 
     suspend fun vistas(ctx: Context, tipo: WTipo, id: Int, w: Float, h: Float): RemoteViews {
+        cargarLetras(ctx)
         val pag = componer(ctx, tipo, id, w, h)
         val rv = RemoteViews(ctx.packageName, R.layout.w_marco)
         when (val n = noche()) {
@@ -373,6 +454,7 @@ object Widgets {
             WTipo.PORTADA -> enPortada(d, id, w, h)
             WTipo.SIGUIENTE -> siguiente(d, id, w, h)
             WTipo.MARCA -> marca(d, w, h)
+            WTipo.MARCA_PAPEL -> marcaPapel(d, w, h)
         }
     }
 
@@ -704,5 +786,44 @@ object Widgets {
                 pon(l, 4f, min(h - l.height - 2f, base + fm.descent * 0.4f + 2f))
             }
         }.transparente()
+    }
+
+    /** PÓRTICO en papel: la cabecera de la portada (el nombre, el número del día y la fecha), con su papel de fondo. */
+    private fun marcaPapel(d: WDatos, w: Float, h: Float): Pagina {
+        val ctx = d.ctx
+        val hoy = LocalDate.now()
+        val fecha = "${hoy.dayOfWeek.getDisplayName(TextStyle.FULL, ES)} ${hoy.dayOfMonth} de ${hoy.month.getDisplayName(TextStyle.FULL, ES)}"
+        return Pagina(listOf(Zona(0f, 0f, w, h, abrirApp(ctx), "Abrir Pórtico"))) {
+            fondo()
+            val pad = if (h < 90f) 12f else 16f
+            // Lo de debajo del nombre, según el sitio: la línea del número y la fecha; y la entradilla si cabe
+            val conLinea = h >= 70f
+            val conEntradilla = h >= 140f
+            val bajo = (if (conLinea) 22f else 0f) + (if (conEntradilla) 24f else 0f)
+            val alto = h - 2 * pad - bajo
+            val p = tp(fTitular, 10f, tinta, -0.03f)
+            val s = min((w - 2 * pad) / (p.measureText("PÓRTICO") / 10f), alto / 0.78f).coerceAtLeast(10f)
+            val tpa = tp(fTitular, s, tinta, -0.03f)
+            val capH = s * 0.72f
+            // Todo el bloque centrado en el widget (el nombre se mide por sus mayúsculas, no por la caja de la letra)
+            val bloque = capH + s * 0.08f + 4f + bajo
+            val base = max(pad, (h - bloque) / 2) + capH
+            val tw = tpa.measureText("PÓRTICO")
+            c.drawText("PÓRTICO", (w - tw) / 2, base, tpa)
+            var y = base + s * 0.08f + 4f
+            if (conLinea) {
+                c.drawRect(pad, y, w - pad, y + 1.6f, lleno(tinta))
+                y += 5f
+                val iz = "Nº ${hoy.dayOfYear}"
+                ante(iz, pad, y, w / 2, tinta, 8.5f)
+                val sitio = w - 2 * pad - anchoAnte(iz, 8.5f) - 12f
+                val corta = "${hoy.dayOfWeek.getDisplayName(TextStyle.SHORT, ES).trimEnd('.')} ${hoy.dayOfMonth} ${hoy.month.getDisplayName(TextStyle.SHORT, ES).trimEnd('.')}"
+                ante(if (anchoAnte(fecha, 8.5f) > sitio) corta else fecha, pad + anchoAnte(iz, 8.5f) + 12f, y, w - 2 * pad - anchoAnte(iz, 8.5f) - 12f, tinta, 8.5f, Layout.Alignment.ALIGN_OPPOSITE)
+                y += 14f
+                c.drawRect(pad, y, w - pad, y + 0.6f, lleno(tinta))
+                y += 6f
+            }
+            if (conEntradilla) pon(capa("Tus juegos, al día", tp(fCursiva, 13f, gris), w - 2 * pad, 1), pad, y)
+        }
     }
 }

@@ -13,4 +13,6 @@
     <string name="w_siguiente_d">Algo de tu biblioteca para empezar hoy, con su portada. «Otra» para cambiar.</string>
     <string name="w_marca">PÓRTICO</string>
     <string name="w_marca_d">La cabecera de Pórtico, sola sobre tu fondo. Un toque y estás en la portada.</string>
+    <string name="w_marcapapel">PÓRTICO en papel</string>
+    <string name="w_marcapapel_d">La cabecera de Pórtico en su papel: el número del día y la fecha. Un toque y estás en la portada.</string>
 </resources>
