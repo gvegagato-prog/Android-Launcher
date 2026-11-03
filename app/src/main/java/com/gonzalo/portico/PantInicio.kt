@@ -270,7 +270,7 @@ private fun DialogoElemento(e: Elemento, alCerrar: () -> Unit, alFicha: (String)
                     }
                 }
                 Text("«T» es el color del tema; «+» elige cualquier color. Los que uses quedan aquí para otras fichas (mantén pulsado uno para olvidarlo).", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
-                if (e.esImagen) { Spacer(Modifier.height(8.dp)); MagLink("Encuadrar la imagen", "Arrastra y haz zoom para elegir qué se ve") { encuadre = true } }
+                if (e.esImagen) { Spacer(Modifier.height(8.dp)); MagLink("Encuadrar la imagen", "Arrastra en cualquier dirección y haz zoom: queda como lo veas") { encuadre = true } }
                 if (e.esJuego) { Spacer(Modifier.height(8.dp)); MagLink("Ver la ficha") { alCerrar(); alFicha(e.ref) } }
             }
         },
@@ -335,15 +335,16 @@ fun DialogoEncuadre(e: Elemento, alCerrar: () -> Unit) {
                 Box(Modifier.testTag("encuadre").fillMaxWidth(if (forma >= 1f) 1f else 0.6f).aspectRatio(forma).clip(RoundedCornerShape(12.dp)).background(Sand).border(1.dp, Line, RoundedCornerShape(12.dp))
                     .pointerInput(Unit) {
                         detectTransformGestures { _, pan, z, _ ->
-                            zoom = (zoom * z).coerceIn(1f, 8f)
-                            ox = (ox - 2f * pan.x / size.width / zoom).coerceIn(-1f, 1f)
-                            oy = (oy - 2f * pan.y / size.height / zoom).coerceIn(-1f, 1f)
+                            zoom = (zoom * z).coerceIn(0.3f, 8f)
+                            // La imagen sigue al dedo, en cualquier dirección
+                            ox = (ox + pan.x / size.width).coerceIn(-1f, 1f)
+                            oy = (oy + pan.y / size.height).coerceIn(-1f, 1f)
                         }
                     }) {
                     if (f.exists()) ImagenEncuadrada(f, zoom, ox, oy, Modifier.fillMaxSize())
                 }
-                Etiqueta("Zoom", Modifier.padding(top = 10.dp).align(Alignment.Start))
-                androidx.compose.material3.Slider(zoom, { zoom = it }, valueRange = 1f..8f, colors = colores)
+                Etiqueta("Zoom (menos de 1 la hace más pequeña que el hueco)", Modifier.padding(top = 10.dp).align(Alignment.Start))
+                androidx.compose.material3.Slider(zoom, { zoom = it }, valueRange = 0.3f..8f, colors = colores)
                 MagLink("Restablecer") { zoom = 1f; ox = 0f; oy = 0f }
             }
         },

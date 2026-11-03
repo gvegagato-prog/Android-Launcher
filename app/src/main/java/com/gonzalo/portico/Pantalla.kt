@@ -19,7 +19,7 @@ data class Elemento(
     val color: Int = 0,
     /** Última vez que se cambió (milisegundos). */
     val mod: Long = 0L,
-    /** Encuadre de una imagen: zoom (1 = ajustada al hueco) y hacia dónde se desplaza, de -1 (izquierda/arriba) a 1 (derecha/abajo). */
+    /** Encuadre de una imagen, libre: zoom (1 = rellena el hueco) y cuánto se desplaza, como fracción del ancho/alto del hueco (de -1 a 1). */
     val zoom: Float = 1f, val ox: Float = 0f, val oy: Float = 0f
 ) {
     val esJuego get() = tipo == JUEGO
@@ -35,7 +35,7 @@ fun elementoDeJson(o: JSONObject): Elemento? {
     val id = o.optString("id").ifBlank { return null }
     val t = o.optString("t").takeIf { it == Elemento.JUEGO || it == Elemento.IMAGEN } ?: return null
     return Elemento(id, t, o.optString("r"), o.optInt("x"), o.optInt("y"), o.optInt("w", 1).coerceIn(1, Pantalla.COLUMNAS), o.optInt("h", 1).coerceIn(1, 12), o.optInt("c"), o.optLong("m"),
-        o.optDouble("z", 1.0).toFloat().coerceIn(1f, 8f), o.optDouble("ox", 0.0).toFloat().coerceIn(-1f, 1f), o.optDouble("oy", 0.0).toFloat().coerceIn(-1f, 1f))
+        o.optDouble("z", 1.0).toFloat().coerceIn(0.3f, 8f), o.optDouble("ox", 0.0).toFloat().coerceIn(-1f, 1f), o.optDouble("oy", 0.0).toFloat().coerceIn(-1f, 1f))
 }
 
 object Pantalla {

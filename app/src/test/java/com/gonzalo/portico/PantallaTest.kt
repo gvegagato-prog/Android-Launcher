@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -222,12 +223,34 @@ class PantallaTest {
         rule.onNodeWithTag("el-i1").performTouchInput { click(center) }
         rule.onNodeWithText("Encuadrar la imagen", substring = true, ignoreCase = true).performClick()
         rule.onNodeWithTag("encuadre").performTouchInput { pinch(androidx.compose.ui.geometry.Offset(center.x - 20, center.y), androidx.compose.ui.geometry.Offset(center.x - 60, center.y), androidx.compose.ui.geometry.Offset(center.x + 20, center.y), androidx.compose.ui.geometry.Offset(center.x + 60, center.y)) }
+        rule.onNodeWithTag("encuadre").performTouchInput { down(center); repeat(8) { moveBy(androidx.compose.ui.geometry.Offset(-width * 0.04f, height * 0.03f)) }; up() }
         rule.onNodeWithText("GUARDAR").performClick()
         rule.waitForIdle()
         val i = Pantalla.items.first { it.id == "i1" }
         assertTrue("zoom ${i.zoom}", i.zoom > 1.2f)
+        assertTrue("sigue al dedo hacia la izquierda: ${i.ox}", i.ox < -0.1f); assertTrue("y hacia abajo: ${i.oy}", i.oy > 0.1f)
         val j = elementoDeJson(elementoAJson(i.copy(ox = 0.5f, oy = -0.25f)))!!
         assertEquals(0.5f, j.ox, 0.001f); assertEquals(-0.25f, j.oy, 0.001f); assertEquals(i.zoom, j.zoom, 0.001f)
         assertEquals("sin encuadre no añade campos", 1f, elementoDeJson(elementoAJson(e("x", 0, 0)))!!.zoom, 0.0f)
+    }
+
+    @Test fun nuncaSeParteUnaPalabraAlPintar() {
+        Skin.cargar(ctx)
+        val titulos = listOf("PokeCatcher", "Pokémon Esmeralda", "Supercalifragilisticoespialidoso", "Zelda")
+        val anchos = listOf(70, 95, 130, 180)
+        rule.setContent { PorticoTheme { Column(Modifier) {
+            titulos.forEachIndexed { i, t -> anchos.forEachIndexed { k, w ->
+                Box(Modifier.size(w.dp, 56.dp).testTag("c-$i-$k")) { TituloAjustado(t, androidx.compose.ui.graphics.Color.Black, Modifier.fillMaxSize()) }
+            } }
+        } } }
+        rule.waitForIdle()
+        val malos = ArrayList<String>()
+        titulos.forEachIndexed { i, t -> anchos.forEachIndexed { k, w ->
+            val r = ArrayList<androidx.compose.ui.text.TextLayoutResult>()
+            val nodo = rule.onNodeWithTag("c-$i-$k", useUnmergedTree = true).onChildren().onFirst().fetchSemanticsNode()
+            nodo.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(r)
+            if (r.isEmpty()) malos += "$t en ${w}dp: sin texto" else if (partePalabras(r[0], t)) malos += "$t en ${w}dp"
+        } }
+        assertTrue(malos.joinToString(), malos.isEmpty())
     }
 }

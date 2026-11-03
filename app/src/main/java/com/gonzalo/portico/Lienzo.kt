@@ -204,9 +204,18 @@ fun tamanoQueCabe(medidor: TextMeasurer, texto: String, estilo: TextStyle, ancho
     return lo
 }
 
+/** ¿Ha partido el texto alguna palabra por la mitad al pintarlo? (una línea acaba donde no hay espacio) */
+fun partePalabras(r: androidx.compose.ui.text.TextLayoutResult, texto: String): Boolean {
+    for (i in 0 until r.lineCount - 1) {
+        val fin = r.getLineEnd(i, visibleEnd = false)
+        if (fin in 1 until texto.length && !texto[fin - 1].isWhitespace() && !texto[fin].isWhitespace()) return true
+    }
+    return false
+}
+
 /** Un título centrado, tan grande como quepa en su hueco sin cortarse nunca (salvo que ni a la letra más pequeña quepa). */
 @Composable
-fun TituloAjustado(texto: String, color: Color, modifier: Modifier = Modifier, max: Float = 44f, min: Float = 6f, peso: FontWeight = FontWeight.SemiBold) {
+fun TituloAjustado(texto: String, color: Color, modifier: Modifier = Modifier, max: Float = 44f, min: Float = 3.5f, peso: FontWeight = FontWeight.SemiBold) {
     val medidor = rememberTextMeasurer()
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val w = constraints.maxWidth; val h = constraints.maxHeight
@@ -216,16 +225,17 @@ fun TituloAjustado(texto: String, color: Color, modifier: Modifier = Modifier, m
         var factor by remember(texto, w, h, peso) { mutableStateOf(1f) }
         val sp = (ideal * factor).coerceAtLeast(min)
         Text(texto, color = color, fontFamily = Display, fontWeight = peso, fontSize = sp.sp, lineHeight = (sp * 1.08f).sp, textAlign = TextAlign.Center, softWrap = true,
-            onTextLayout = { if ((it.didOverflowHeight || it.didOverflowWidth || it.size.height > h) && sp > min + 0.1f) factor *= 0.93f })
+            onTextLayout = { if ((it.didOverflowHeight || it.didOverflowWidth || it.size.height > h || partePalabras(it, texto)) && sp > min + 0.1f) factor *= 0.93f })
     }
 }
 
-/** Una imagen encuadrada en su hueco: [zoom] 1 = ajustada, y [ox]/[oy] de -1 a 1 mueven qué parte se ve. */
+/**
+ * Una imagen encuadrada en su hueco, con total libertad: [zoom] (1 = rellena el hueco; menos, más pequeña; más, ampliada) y [ox]/[oy], lo que se
+ * desplaza, como fracción del ancho y del alto del hueco (de -1 a 1; 0 = centrada).
+ */
 @Composable
 fun ImagenEncuadrada(f: File, zoom: Float, ox: Float, oy: Float, modifier: Modifier = Modifier) {
-    AsyncImage(f, null,
-        modifier.graphicsLayer { scaleX = zoom; scaleY = zoom; transformOrigin = TransformOrigin(0.5f + ox / 2f, 0.5f + oy / 2f) },
-        contentScale = ContentScale.Crop, alignment = BiasAlignment(ox, oy))
+    AsyncImage(f, null, modifier.graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = ox * size.width; translationY = oy * size.height }, contentScale = ContentScale.Crop)
 }
 
 private fun horasDe(j: Juego) = if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "0 h"
@@ -247,18 +257,18 @@ private fun Contenido(e: Elemento, j: Juego?, tinta: Color) {
     when {
         e.w == 1 && e.h == 1 -> Box(Modifier.fillMaxSize().padding(9.dp).clip(RoundedCornerShape(8.dp))) {
             ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 26)
-            Text(horas, color = Color.White, fontFamily = Body, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.6.sp, maxLines = 1,
+            Text(horas, color = Color.White, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, maxLines = 1,
                 modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
         }
         e.h == 1 -> Row(Modifier.fillMaxSize().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.fillMaxHeight().aspectRatio(0.68f).clip(RoundedCornerShape(8.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 30) }
             Column(Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(horas, color = realce, fontFamily = Body, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, maxLines = 1)
+                Text(horas, color = realce, fontFamily = Body, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp, maxLines = 1)
                 TituloAjustado(j.titulo, tinta, Modifier.weight(1f).fillMaxWidth())
             }
         }
         else -> Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(horas, color = realce, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, maxLines = 1, modifier = Modifier.padding(bottom = 6.dp))
+            Text(horas, color = realce, fontFamily = Body, fontSize = 14.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, maxLines = 1, modifier = Modifier.padding(bottom = 6.dp))
             Box(Modifier.weight(3f).fillMaxWidth().clip(RoundedCornerShape(10.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 56) }
             TituloAjustado(j.titulo, tinta, Modifier.weight(1.3f).fillMaxWidth().padding(top = 6.dp))
         }
