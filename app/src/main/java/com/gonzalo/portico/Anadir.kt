@@ -102,16 +102,17 @@ fun HojaAnadir(inicial: Tipo?, alCerrar: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(alCerrar, containerColor = Crudo, contentColor = Charcoal) {
+    ModalBottomSheet(alCerrar, containerColor = Paper, contentColor = Charcoal, shape = androidx.compose.ui.graphics.RectangleShape) {
         when (val p = paso) {
-            Paso.Menu -> Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Titulo("Añadir juegos", 24)
-                Cuerpo("Elige de dónde vienen.", tam = 13)
-                Spacer(Modifier.height(6.dp))
-                Entrada(Icons.Filled.FolderOpen, "Carpeta de ROMs", "Pórtico busca dentro y reconoce el sistema por la extensión o por el nombre de la carpeta") { carpeta.launch(null) }
-                Entrada(Icons.Filled.InsertDriveFile, "ROMs sueltas", "Elige uno o varios archivos (.gba, .nds, .sfc…)") { archivos.launch(arrayOf("*/*")) }
-                Entrada(Icons.Filled.Android, "Juego de Android", "De los que ya tienes instalados") { paso = Paso.Apps }
-                Entrada(Icons.Filled.Language, "Juego de navegador", "Una dirección web: PokéRogue y similares") { web = true }
+            Paso.Menu -> Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+                Antetitulo("Añadir", Modifier.padding(bottom = 4.dp), color = Acento, conCuadro = false)
+                FitTitle("Juegos", 44.sp, 46.sp, letterSpacing = (-1).sp, unaLinea = true)
+                Filete(3.dp)
+                Cuerpo("Elige de dónde vienen.", tam = 13, modifier = Modifier.padding(vertical = 8.dp))
+                Entrada("Carpeta de ROMs", "Pórtico busca dentro y reconoce el sistema por la extensión o por el nombre de la carpeta") { carpeta.launch(null) }
+                Entrada("ROMs sueltas", "Elige uno o varios archivos (.gba, .nds, .sfc…)") { archivos.launch(arrayOf("*/*")) }
+                Entrada("Juego de Android", "De los que ya tienes instalados") { paso = Paso.Apps }
+                Entrada("Juego de navegador", "Una dirección web: PokéRogue y similares") { web = true }
             }
             Paso.Apps -> SelectorApps({ elegidas ->
                 val ahora = System.currentTimeMillis(); var n = 0
@@ -125,10 +126,10 @@ fun HojaAnadir(inicial: Tipo?, alCerrar: () -> Unit) {
             is Paso.Trabajando -> Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 CircularProgressIndicator(color = Acento); Cuerpo(p.texto)
             }
-            is Paso.Resumen -> Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Icon(Icons.Filled.CheckCircle, null, tint = Acento, modifier = Modifier.size(44.dp))
-                Titulo(p.texto, 20, lineas = 4)
-                BotonAcento("Listo", alHacer = alCerrar)
+            is Paso.Resumen -> Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
+                Filete(3.dp)
+                FitTitle(p.texto, 30.sp, 34.sp, letterSpacing = (-1).sp, modifier = Modifier.padding(top = 14.dp))
+                MagFooter("Listo", alCerrar)
             }
         }
     }
@@ -139,14 +140,10 @@ private fun resumen(a: Int, rep: Int, sin: Int): String =
     (if (a == 0) "No se ha añadido nada nuevo" else if (a == 1) "Se ha añadido 1 juego" else "Se han añadido $a juegos") + (if (rep > 0) " ($rep ya estaban)" else "")
 
 @Composable
-private fun Entrada(icono: ImageVector, titulo: String, detalle: String, alHacer: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(esquina(18.dp)).clickable(onClick = alHacer).padding(vertical = 12.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(46.dp).clip(esquina(14.dp)).background(Sand), contentAlignment = Alignment.Center) { Icon(icono, null, tint = Acento, modifier = Modifier.size(24.dp)) }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(titulo, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-            Cuerpo(detalle, tam = 12)
-        }
+private fun Entrada(titulo: String, detalle: String, alHacer: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Filete(1.dp, Line)
+        MagLink(titulo, detalle, onClick = alHacer)
     }
 }
 
@@ -156,7 +153,7 @@ private fun PreguntaSistema(n: Int, alElegir: (Sistema?) -> Unit) {
         Titulo("¿De qué consola son?", 22)
         Cuerpo("$n ${if (n == 1) "archivo" else "archivos"} (.zip, .bin, .iso…) valen para varias. Elige el sistema para ${if (n == 1) "él" else "todos"}; si no, se dejan fuera.", tam = 13)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(2.dp)) { items(Catalogo.deCasa, key = { it.id }) { s -> Chip(s.nombre, false) { alElegir(s) } } }
-        Text("Dejarlos fuera", color = Acento, fontFamily = Body, fontWeight = FontWeight.SemiBold, modifier = Modifier.clip(pildora()).clickable { alElegir(null) }.padding(8.dp))
+        EnlaceRevista("Dejarlos fuera\u00A0→", acento = true) { alElegir(null) }
     }
 }
 
@@ -171,8 +168,8 @@ private fun SelectorApps(alAnadir: (List<AppInstalada>) -> Unit) {
     val yaEstan = Biblioteca.juegos.filter { it.tipo == Tipo.APP }.map { it.paquete }.toSet()
     val lista = apps.orEmpty().filter { (!soloJuegos || it.esJuego) && it.paquete !in yaEstan && (busca.isBlank() || Catalogo.norm(it.nombre).contains(Catalogo.norm(busca))) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Titulo("Juegos de Android", 22)
-        CampoBusqueda(busca) { busca = it }
+        Antetitulo("Juegos de Android", Modifier.padding(top = 4.dp), color = Acento, conCuadro = false)
+        CampoBusquedaRevista(busca, "Buscar una app") { busca = it }
         Row { Chip("Solo juegos", soloJuegos) { soloJuegos = true }; Chip("Todas las apps", !soloJuegos) { soloJuegos = false } }
         if (apps == null) Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Acento) }
         else if (lista.isEmpty()) Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -184,12 +181,12 @@ private fun SelectorApps(alAnadir: (List<AppInstalada>) -> Unit) {
                 Row(Modifier.fillMaxWidth().clip(esquina(14.dp)).clickable { if (on) marcadas.remove(a.paquete) else marcadas.add(a.paquete) }.padding(vertical = 8.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     rememberIconoApp(a.paquete)?.let { Image(it, null, Modifier.size(42.dp).clip(esquina(10.dp))) } ?: Box(Modifier.size(42.dp).background(Sand))
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) { Text(a.nombre, color = Charcoal, fontFamily = Body, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1); Cuerpo(a.paquete, tam = 11, lineas = 1) }
-                    Icon(if (on) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank, null, tint = if (on) Acento else Muted)
+                    Column(Modifier.weight(1f)) { Text(a.nombre, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 19.sp, maxLines = 1); Cuerpo(a.paquete, tam = 11, lineas = 1) }
+                    Text(if (on) "✓" else "", color = Acento, fontWeight = FontWeight.Black, fontSize = 18.sp)
                 }
             }
         }
-        BotonAcento(if (marcadas.isEmpty()) "Elige alguno" else "Añadir ${marcadas.size}", Icons.Filled.Add, Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        BotonAcento(if (marcadas.isEmpty()) "Elige alguno" else "Añadir ${marcadas.size}", null, Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
             if (marcadas.isNotEmpty()) alAnadir(apps.orEmpty().filter { it.paquete in marcadas })
         }
     }
@@ -214,7 +211,7 @@ fun DialogoWeb(juego: Juego?, alCerrar: () -> Unit) {
     var orient by remember { mutableStateOf(juego?.orientacion ?: 0) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
-        onDismissRequest = alCerrar, containerColor = Crudo,
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
         title = { Text(if (juego == null) "Juego de navegador" else "Editar", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -223,7 +220,7 @@ fun DialogoWeb(juego: Juego?, alCerrar: () -> Unit) {
                 Campo(nombre, "Nombre", { nombre = it })
                 Etiqueta("Pantalla")
                 Row { listOf("Automática", "Horizontal", "Vertical").forEachIndexed { i, t -> Chip(t, orient == i) { orient = i } } }
-                error?.let { Text(it, color = Color(0xFFE5484D), fontFamily = Body, fontSize = 13.sp) }
+                error?.let { Text(it, color = Acento, fontFamily = Body, fontSize = 13.sp) }
                 Cuerpo("Se abre a pantalla completa y guarda sus cookies y datos (ahí viven las partidas de la mayoría de juegos web).", tam = 12)
             }
         },

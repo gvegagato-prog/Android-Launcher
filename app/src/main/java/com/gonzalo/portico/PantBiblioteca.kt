@@ -3,38 +3,34 @@ package com.gonzalo.portico
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-enum class Orden(val nombre: String) { Recientes("Recientes"), Nombre("Nombre"), Jugados("Más jugados"), Anadidos("Añadidos") }
+enum class Orden(val nombre: String) { Recientes("Recientes"), Nombre("Nombre"), Jugados("Más jugados"), Anadidos("Añadidos"), Nota("Nota") }
 
-/** Los filtros de la biblioteca (viven en la raíz: «Ver todo» desde Inicio los pone). */
+/** Los filtros de la biblioteca (viven en la raíz: el menú de la portada los pone). */
 class FiltroBib {
     var tipo by mutableStateOf<Tipo?>(null)
     var sistema by mutableStateOf<String?>(null)
     var favoritos by mutableStateOf(false)
     var busca by mutableStateOf("")
     var orden by mutableStateOf(Orden.Recientes)
+    var buscando by mutableStateOf(false)
     fun limpiar() { tipo = null; sistema = null; favoritos = false; busca = "" }
 }
 
@@ -49,78 +45,82 @@ fun filtrar(todos: List<Juego>, f: FiltroBib): List<Juego> {
         Orden.Nombre -> l.sortedBy { it.titulo.lowercase() }
         Orden.Jugados -> l.sortedWith(compareByDescending<Juego> { it.msJugados }.thenByDescending { it.veces })
         Orden.Anadidos -> l.sortedByDescending { it.anadido }
+        Orden.Nota -> l.sortedByDescending { it.nota }
     }
 }
 
+/** La sección «Juegos»: título enorme, pestañas, filtros y una lista de texto con su «Jugar →». */
 @Composable
-fun PantBiblioteca(f: FiltroBib, alAbrir: (Juego) -> Unit, alJugar: (Juego) -> Unit, alAnadir: () -> Unit) {
+fun PantBiblioteca(f: FiltroBib, alVolver: () -> Unit, alAbrir: (Juego) -> Unit, alJugar: (Juego) -> Unit, alAnadir: () -> Unit) {
     val todos = Biblioteca.juegos.toList()
     val lista = filtrar(todos, f)
-    var buscando by remember { mutableStateOf(f.busca.isNotEmpty()) }
-    var menuOrden by remember { mutableStateOf(false) }
     val sistemas = todos.filter { it.tipo == Tipo.ROM }.groupBy { it.sistema }.entries.sortedByDescending { it.value.size }
-    val cols = when (Ajustes.tamano) { 1 -> 2; 2 -> 4; else -> 3 }
-    LazyVerticalGrid(
-        GridCells.Fixed(cols), Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = arriba(), bottom = 130.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item(span = { GridItemSpan(cols) }) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Titulo("Juegos", 34, Modifier.weight(1f))
-                    BotonIcono(Icons.Filled.Search, "Buscar") { buscando = !buscando; if (!buscando) f.busca = "" }
-                    Spacer(Modifier.width(8.dp))
-                    Box {
-                        BotonIcono(Icons.Filled.SwapVert, "Ordenar") { menuOrden = true }
-                        androidx.compose.material3.DropdownMenu(menuOrden, { menuOrden = false }, containerColor = Crudo) {
-                            Orden.entries.forEach { o ->
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(o.nombre, color = if (o == f.orden) Acento else Charcoal, fontFamily = Body, fontWeight = if (o == f.orden) FontWeight.Bold else FontWeight.Normal) },
-                                    onClick = { f.orden = o; menuOrden = false })
-                            }
-                        }
+    val pestanas = listOf("Todo", "ROMs", "Android", "Web", "Favoritos")
+    val sel = when { f.favoritos -> 4; f.tipo == Tipo.ROM -> 1; f.tipo == Tipo.APP -> 2; f.tipo == Tipo.WEB -> 3; else -> 0 }
+    val cuentas = listOf(todos.size, todos.count { it.tipo == Tipo.ROM }, todos.count { it.tipo == Tipo.APP }, todos.count { it.tipo == Tipo.WEB }, todos.count { it.favorito })
+    val foco = remember { FocusRequester() }
+    LaunchedEffect(f.buscando) { if (f.buscando) runCatching { foco.requestFocus() } }
+    LazyColumn(Modifier.fillMaxSize().background(Paper).statusBarsPadding(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 40.dp)) {
+        item {
+            Column {
+                RevistaTopBar(alVolver, "Pórtico") {
+                    EnlaceRevista("Buscar") { f.buscando = !f.buscando; if (!f.buscando) f.busca = "" }
+                    EnlaceRevista("+ Añadir", acento = true, onClick = alAnadir)
+                }
+                Antetitulo("Sección · ${todos.size} ${if (todos.size == 1) "ficha" else "fichas"}", Modifier.padding(top = 10.dp), color = Acento, conCuadro = false)
+                FitTitle("Juegos", 52.sp, 56.sp, letterSpacing = (-1.5).sp, modifier = Modifier.padding(top = 2.dp), unaLinea = true)
+                Filete(3.dp)
+                PestanasRevista(pestanas, sel, cuentas = cuentas) { i ->
+                    f.sistema = null; f.favoritos = i == 4
+                    f.tipo = when (i) { 1 -> Tipo.ROM; 2 -> Tipo.APP; 3 -> Tipo.WEB; else -> null }
+                }
+                // Orden y sistemas
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FiltrosRevista(Orden.entries.map { it.nombre }, f.orden.ordinal, Modifier.weight(1f)) { f.orden = Orden.entries[it] }
+                }
+                if (sistemas.size > 1 && (f.tipo == null || f.tipo == Tipo.ROM)) Row(Modifier.fillMaxWidth()) {
+                    FiltrosRevista(listOf("Todos") + sistemas.map { (Catalogo.sistema(it.key)?.corto ?: it.key) + " " + it.value.size }, sistemas.indexOfFirst { it.key == f.sistema } + 1) { i ->
+                        if (i == 0) f.sistema = null else { f.sistema = sistemas[i - 1].key; f.tipo = Tipo.ROM }
                     }
                 }
-                if (buscando) CampoBusqueda(f.busca) { f.busca = it }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    item { Chip("Todo", f.tipo == null && !f.favoritos && f.sistema == null, cuenta = todos.size) { f.limpiar() } }
-                    item { Chip("ROMs", f.tipo == Tipo.ROM && f.sistema == null, cuenta = todos.count { it.tipo == Tipo.ROM }) { f.tipo = Tipo.ROM; f.sistema = null; f.favoritos = false } }
-                    item { Chip("Android", f.tipo == Tipo.APP, cuenta = todos.count { it.tipo == Tipo.APP }) { f.tipo = Tipo.APP; f.sistema = null; f.favoritos = false } }
-                    item { Chip("Web", f.tipo == Tipo.WEB, cuenta = todos.count { it.tipo == Tipo.WEB }) { f.tipo = Tipo.WEB; f.sistema = null; f.favoritos = false } }
-                    item { Chip("Favoritos", f.favoritos, cuenta = todos.count { it.favorito }) { f.favoritos = !f.favoritos } }
-                }
-                if (sistemas.size > 1 && (f.tipo == null || f.tipo == Tipo.ROM)) LazyRow(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    items(sistemas, key = { it.key }) { (id, js) ->
-                        val s = Catalogo.sistema(id)
-                        Chip(s?.corto ?: id, f.sistema == id, cuenta = js.size) { if (f.sistema == id) f.sistema = null else { f.sistema = id; f.tipo = Tipo.ROM } }
-                    }
-                }
+                if (f.buscando) CampoBusquedaRevista(f.busca, "Buscar en juegos", foco) { f.busca = it }
+                Filete(1.dp, Line)
             }
         }
-        if (lista.isEmpty()) item(span = { GridItemSpan(cols) }) {
-            Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Filled.VideogameAsset, null, tint = Muted, modifier = Modifier.size(44.dp))
-                Cuerpo(if (todos.isEmpty()) "Todavía no hay nada aquí." else "Nada con ese filtro.")
-                if (todos.isEmpty()) BotonAcento("Añadir juegos", Icons.Filled.Add, alHacer = alAnadir)
+        if (lista.isEmpty()) item {
+            Column(Modifier.fillMaxWidth().padding(top = 36.dp)) {
+                Text(if (todos.isEmpty()) "Todavía no hay nada aquí." else "Nada con ese filtro.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 18.sp)
+                if (todos.isEmpty()) MagLink("Añadir juegos", accent = true, onClick = alAnadir)
             }
         }
         items(lista, key = { it.id }) { j ->
-            Column(Modifier.clickable { alAbrir(j) }) {
-                PortadaArco(j, Modifier.fillMaxWidth(), alJugar = { alJugar(j) })
-            }
+            FilaRevista(j.titulo, listOf(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "", if (j.terminado) "terminado" else "").filter { it.isNotBlank() }.joinToString(" · "),
+                derecha = {
+                    if (j.terminado && j.nota > 0f) Text(notaTexto(j.nota), color = Muted, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 34.sp, modifier = Modifier.padding(start = 10.dp))
+                    Text("JUGAR →", color = Acento, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp,
+                        modifier = Modifier.clickable { alJugar(j) }.padding(start = 12.dp, top = 12.dp, bottom = 12.dp))
+                }) { alAbrir(j) }
         }
     }
 }
 
+/** La casilla de búsqueda de la revista: «Buscar» en versalitas y el texto en cursiva sobre un filete. */
 @Composable
-fun CampoBusqueda(valor: String, alCambiar: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().height(48.dp).clip(pildora()).background(Sand).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Filled.Search, null, tint = Muted, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
-        Box(Modifier.weight(1f)) {
-            if (valor.isEmpty()) Text("Buscar un juego", color = Muted, fontFamily = Body, fontSize = 15.sp)
-            BasicTextField(valor, alCambiar, singleLine = true, textStyle = TextStyle(color = Charcoal, fontFamily = Body, fontSize = 15.sp), cursorBrush = SolidColor(Acento), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), modifier = Modifier.fillMaxWidth())
+fun CampoBusquedaRevista(valor: String, pista: String, foco: FocusRequester? = null, alCambiar: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.Bottom) {
+            Text("BUSCAR", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.padding(end = 10.dp, bottom = 3.dp))
+            Box(Modifier.weight(1f)) {
+                if (valor.isEmpty()) Text(pista, color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 18.sp)
+                BasicTextField(valor, alCambiar, singleLine = true, textStyle = TextStyle(color = Charcoal, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 18.sp), cursorBrush = SolidColor(Acento),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), modifier = Modifier.fillMaxWidth().let { if (foco != null) it.focusRequester(foco) else it })
+            }
+            if (valor.isNotEmpty()) Text("✕", color = Muted, fontSize = 16.sp, modifier = Modifier.clickable { alCambiar("") }.padding(start = 8.dp))
         }
-        if (valor.isNotEmpty()) Icon(Icons.Filled.Close, "Borrar", tint = Muted, modifier = Modifier.size(20.dp).clickable { alCambiar("") })
+        Filete(2.dp)
     }
 }
+
+/** Un campo de búsqueda suelto (para los diálogos): el mismo, con otro nombre. */
+@Composable
+fun CampoBusqueda(valor: String, alCambiar: (String) -> Unit) = CampoBusquedaRevista(valor, "Buscar", null, alCambiar)

@@ -111,9 +111,9 @@ val MAG_NOMBRES = mapOf(
 @Composable
 fun MagLabel(t: String, accion: String? = null, alHacer: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(t.uppercase(), color = Muted, fontFamily = Body, fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.4.sp, modifier = Modifier.weight(1f))
-        if (accion != null && alHacer != null) Text(accion.uppercase(), color = Acento, fontFamily = Body, fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.2.sp,
-            modifier = Modifier.clickable(onClick = alHacer).padding(start = 8.dp))
+        Box(Modifier.weight(1f)) { Antetitulo(t, tam = 12.sp, conCuadro = false) }
+        if (accion != null && alHacer != null) Text(accion.uppercase(), color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp,
+            modifier = Modifier.clickable(onClick = alHacer).padding(4.dp))
     }
 }
 

@@ -106,15 +106,15 @@ private fun ImagenEnCadena(datos: List<Any>, modifier: Modifier, escala: Content
  */
 @Composable
 fun PortadaArco(
-    j: Juego, modifier: Modifier = Modifier, titulo: Boolean = true, alJugar: (() -> Unit)? = null, letra: Boolean = true,
+    j: Juego, modifier: Modifier = Modifier, titulo: Boolean = true, alJugar: (() -> Unit)? = null, letra: Boolean = true, relleno: Boolean = false,
 ) {
     val c = LocalContext.current
     val (a, b) = remember(j.id, j.titulo, j.sistema) { tonosDe(j) }
-    val forma = arco()
+    val forma = if (relleno) androidx.compose.ui.graphics.RectangleShape else arco()
     var conImagen by remember(j.id, j.portada) { mutableStateOf(false) }
     val borde = Skin.forma
     Box(
-        modifier.aspectRatio(0.75f)
+        modifier.let { if (relleno) it else it.aspectRatio(0.75f) }
             .let { m -> if (borde.sombraDura) m.drawBehind { drawRect(Charcoal, topLeft = Offset(6.dp.toPx(), 6.dp.toPx()), size = size) } else m }
             .clip(forma).background(Brush.linearGradient(listOf(a, b), Offset.Zero, Offset(600f, 1200f)))
             .let { if (borde.borde.value > 0f) it.border(borde.borde, if (borde.bordeTinta) Charcoal else Line, forma) else it }

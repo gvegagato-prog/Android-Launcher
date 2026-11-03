@@ -59,67 +59,68 @@ class CapturasTest {
         rule.setContent { PorticoTheme { Surface(Modifier.fillMaxSize(), color = Paper) { PorticoApp() } } }
     }
 
+    private fun ir(texto: String) { rule.onNodeWithText(texto).performScrollTo().performClick() }
+
     @Test
     fun interfaces() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         Catalogo.cargar(ctx); Skin.cargar(ctx)
-        // 1) biblioteca vacía
         Biblioteca.cargada = true; Biblioteca.juegos.clear()
-        montar()
-        foto("1_inicio_vacio")
+        montar(oscuro = false)
+        foto("1_portada_vacia")
     }
 
     @Test
     fun conJuegos() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
-        montar()
-        foto("2_inicio")
-        rule.onNodeWithContentDescription("Juegos").performClick(); foto("3_juegos")
-        rule.onNodeWithContentDescription("Sistemas").performClick(); foto("4_sistemas")
-        rule.onNodeWithContentDescription("Estilo").performClick(); foto("5_estilo")
-        rule.onNodeWithContentDescription("Inicio").performClick()
-        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[1].performClick(); foto("6_ficha")
+        montar(oscuro = false)
+        foto("2_portada")
+        ir("JUEGOS"); foto("3_juegos")
+        ir("← PÓRTICO"); ir("SISTEMAS"); foto("4_sistemas")
+        ir("← PÓRTICO"); rule.onNodeWithContentDescription("Ajustes").performClick(); foto("5_ajustes")
+        ir("← PÓRTICO"); ir("JUEGOS")
+        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick(); foto("6_ficha")
     }
 
     @Test
-    fun otrosEstilosClaro() {
+    fun oscuro() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
-        Skin.aplicar(STYLES.first { it.id == "clasico" })
-        montar(oscuro = false)
-        foto("7_inicio_clasico_claro")
-        Skin.aplicar(STYLES.first { it.id == "arcade" })
-        rule.onNodeWithContentDescription("Juegos").performClick(); foto("8_juegos_arcade")
+        montar(oscuro = true)
+        foto("7_portada_oscuro")
+        ir("JUEGOS"); foto("8_juegos_oscuro")
     }
 
     @Test
     fun hojaAnadir() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
-        montar()
-        rule.onNodeWithContentDescription("Añadir juegos").performClick(); foto("9_anadir")
-    }
-
-    @Test
-    fun buscadorDePortadas() {
-        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
-        siembra()
-        montar()
-        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[1].performClick()
-        rule.onNodeWithText("Portada").performScrollTo().performClick(); foto("10_portada_opciones")
-        rule.onNodeWithText("Buscar en internet").performClick(); foto("11_buscador")
+        montar(oscuro = false)
+        ir("AÑADIR"); foto("9_anadir")
     }
 
     @Test
     fun fichaYSusCasillas() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
-        montar()
-        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[1].performClick()
-        rule.onNodeWithText("TU FICHA").performScrollTo(); foto("12_ficha_casillas")
-        rule.onNodeWithText("EDITAR CASILLAS").performClick()
-        rule.onNodeWithText("EDITANDO LAS CASILLAS").performScrollTo(); foto("13_ficha_editando")
+        montar(oscuro = false)
+        ir("JUEGOS")
+        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
+        rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("12_ficha_casillas")
+        rule.onNodeWithText("EDITAR").performClick()
+        rule.onNodeWithText("FILA 1").performScrollTo(); foto("13_ficha_editando")
         rule.onNodeWithText("RESTABLECER EL DISEÑO DE SIEMPRE").performScrollTo(); foto("14_ficha_editando_abajo")
+    }
+
+    @Test
+    fun buscadorDePortadas() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        montar(oscuro = false)
+        ir("JUEGOS")
+        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
+        rule.onNodeWithText("PORTADA\u00A0→").performScrollTo().performClick(); foto("10_portada_opciones")
+        rule.onNodeWithText("Buscar en internet\u00A0→").performClick(); foto("11_buscador")
     }
 }

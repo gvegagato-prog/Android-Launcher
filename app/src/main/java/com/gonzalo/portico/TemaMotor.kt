@@ -107,14 +107,14 @@ fun arco(): Shape = ArcoShape(Skin.forma)
 object Modo {
     var oscuro by mutableStateOf(true)
     /** 0 como el sistema, 1 claro, 2 oscuro. */
-    var eleccion by mutableStateOf(2)
+    var eleccion by mutableStateOf(0)
 }
 
 object Skin {
-    var palette by mutableStateOf(PALETTES.first { it.id == "vitrina" })
-    var display by mutableStateOf("Vitrina")
+    var palette by mutableStateOf(PALETTES.first { it.id == "revista" })
+    var display by mutableStateOf("Atrio")
     var body by mutableStateOf("Atrio")
-    var forma by mutableStateOf(FORMAS.first { it.id == "vitrina" })
+    var forma by mutableStateOf(FORMAS.first { it.id == "revista" })
     /** Id de [ACCENT_COLORS] o "paleta" (el de la paleta). */
     var accentId by mutableStateOf("paleta")
     /** Tamaño del texto en por ciento. */
@@ -155,13 +155,14 @@ object Skin {
 
     fun cargar(c: Context) {
         val p = p(c)
-        palette = PALETTES.firstOrNull { it.id == p.getString("paleta", "vitrina") } ?: palette
-        display = p.getString("display", "Vitrina") ?: "Vitrina"
+        if (!p.getBoolean("revista_v1", false)) { p.edit().clear().putBoolean("revista_v1", true).apply() }
+        palette = PALETTES.firstOrNull { it.id == p.getString("paleta", "revista") } ?: palette
+        display = p.getString("display", "Atrio") ?: "Atrio"
         body = p.getString("body", "Atrio") ?: "Atrio"
-        forma = FORMAS.firstOrNull { it.id == p.getString("forma", "vitrina") } ?: forma
+        forma = FORMAS.firstOrNull { it.id == p.getString("forma", "revista") } ?: forma
         accentId = p.getString("acento", "paleta")?.takeIf { id -> id == "paleta" || ACCENT_COLORS.any { it.id == id } } ?: "paleta"
         escala = p.getInt("escala", 100).coerceIn(80, 140)
-        Modo.eleccion = p.getInt("modo", 2).coerceIn(0, 2)
+        Modo.eleccion = p.getInt("modo", 0).coerceIn(0, 2)
     }
 
     fun guardar(c: Context) {

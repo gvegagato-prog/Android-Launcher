@@ -263,6 +263,7 @@ val BODY_FONTS: List<FontChoice> = listOf(
 
 /** Combinaciones listas (paleta + letras). «Atrio» en una letra = la que viene con la app. */
 val STYLES: List<SkinStyle> = listOf(
+    SkinStyle("atrio-revista", "Revista de Atrio", "Como Atrio: papel crema, serif cálida y rojo de imprenta", "revista", "Atrio", "Atrio", "revista"),
     SkinStyle("vitrina", "Vitrina", "Atrio 6: portadas a lo grande, letra con carácter y coral", "vitrina", "Vitrina", "Atrio", "vitrina"),
     SkinStyle("clasico", "Atrio", "El de siempre: serif cálida y texto limpio", "atrio", "Atrio", "Atrio", "clasico"),
     SkinStyle("revista", "Revista", "Portadas de papel y titulares con carácter", "papel", "Playfair Display", "Source Serif 4", "editorial"),

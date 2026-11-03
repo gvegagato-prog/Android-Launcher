@@ -9,10 +9,10 @@ una sola biblioteca.
 
 ## Capturas
 
-Generadas en el ordenador con datos de ejemplo (`CapturasTest`): [inicio](docs/capturas/2_inicio.png) ·
-[juegos](docs/capturas/3_juegos.png) · [ficha](docs/capturas/6_ficha.png) · [sistemas](docs/capturas/4_sistemas.png) ·
-[estilo](docs/capturas/5_estilo.png) · [estilo Atrio en claro](docs/capturas/7_inicio_clasico_claro.png) ·
-[estilo Arcade](docs/capturas/8_juegos_arcade.png)
+La interfaz es la «Revista» de Atrio. Generadas en el ordenador con datos de ejemplo (`CapturasTest`): [portada](docs/capturas/2_portada.png) ·
+[portada en oscuro](docs/capturas/7_portada_oscuro.png) · [juegos](docs/capturas/3_juegos.png) · [ficha](docs/capturas/12_ficha_casillas.png) ·
+[ficha editando casillas](docs/capturas/13_ficha_editando.png) · [sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) ·
+[añadir](docs/capturas/9_anadir.png)
 
 ## Qué hace
 
@@ -33,13 +33,12 @@ Generadas en el ordenador con datos de ejemplo (`CapturasTest`): [inicio](docs/c
   imagen tuya (galería o búsqueda en internet). Cada juego guarda su diseño y puedes usar el de uno para todos los de su tipo.
 - Tiempo de juego aproximado, favoritos, búsqueda, orden, portadas propias, portadas automáticas (libretro), copia de seguridad.
 
-## Diseño: el guiño a Atrio
+## Diseño: la misma interfaz que Atrio
 
-- Mismas paletas (todas las de Atrio, claras y oscuras), mismas combinaciones de letra y color («Vitrina», «Arcade», «Terminal»…),
-  mismo dock en píldora flotante, mismos chips de tinta llena.
-- Lo propio: **la portada es un arco** (la puerta del icono de Atrio, repetida), el dock lleva el «+» en medio, y la forma del
-  arco cambia con el estilo (redondo, biselado o recto con borde y sombra dura según el estilo elegido).
-- El icono son tres arcos seguidos, con la luz de Atrio en el del centro.
+Pórtico usa la interfaz «Revista» de Atrio, con sus mismas piezas (copiadas de `Revista.kt`, `RevistaUI.kt`, `Ediciones.kt` y `Maqueta.kt`):
+papel crema (o oscuro), Fraunces para los titulares, filetes gruesos y finos, antetítulos con cuadradito de acento, pestañas subrayadas,
+enlaces con flecha, cifras enormes y puntos guía. No hay dock: se navega desde el menú de la portada y con «← Pórtico».
+Los temas, paletas, acentos y estilos son los mismos que los de Atrio (Ajustes → Apariencia).
 
 ## Cómo funciona el lanzamiento (y qué no está probado)
 

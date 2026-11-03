@@ -15,7 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -34,6 +33,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.font.FontStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -98,9 +100,9 @@ fun crearAcceso(c: Context, j: Juego): Boolean {
     return ShortcutManagerCompat.requestPinShortcut(c, info, null)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
+fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPortada: Boolean = false, alVerPortada: () -> Unit = {}) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val j = Biblioteca.por(id)
@@ -109,78 +111,72 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
     var borrar by remember { mutableStateOf(false) }
     var selector by remember { mutableStateOf(false) }
     var editarWeb by remember { mutableStateOf(false) }
-    var eligePortada by remember { mutableStateOf(false) }
+    var eligePortada by remember { mutableStateOf(abrirPortada) }
     var disenando by remember { mutableStateOf(false) }
     var editarHoras by remember { mutableStateOf(false) }
     var buscaInternet by remember { mutableStateOf(false) }
+    LaunchedEffect(abrirPortada) { if (abrirPortada) alVerPortada() }
     val cambiarPortada = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
         if (u != null) scope.launch { guardarPortada(ctx, j.id, u)?.let { Biblioteca.poner(Biblioteca.por(j.id)!!.copy(portada = it)) } }
     }
-    val (a, b) = remember(j.id, j.titulo, j.sistema) { tonosDe(j) }
     val sistema = Catalogo.sistema(j.sistema)
 
-    Box(Modifier.fillMaxSize().background(Paper)) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 40.dp)) {
-            // Cabecera: degradado del juego con su arco en grande
-            Box(Modifier.fillMaxWidth().height(380.dp).background(Brush.verticalGradient(listOf(a, b, Paper)))) {
-                PortadaArco(j, Modifier.align(Alignment.Center).padding(top = 40.dp).width(200.dp), titulo = false)
-                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    BotonIcono(Icons.Filled.ArrowBack, "Volver", fondo = Color(0x55000000), tinta = Color.White, alHacer = alCerrar)
-                    Spacer(Modifier.weight(1f))
-                    BotonIcono(if (j.favorito) Icons.Filled.Star else Icons.Filled.StarBorder, if (j.favorito) "Quitar de favoritos" else "Añadir a favoritos", fondo = Color(0x55000000), tinta = if (j.favorito) Color(0xFFFFD24A) else Color.White) {
-                        Biblioteca.poner(j.copy(favorito = !j.favorito))
-                    }
-                }
-            }
-            Column(Modifier.padding(horizontal = 20.dp).offset(y = (-20).dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                Column {
-                    Etiqueta(when (j.tipo) { Tipo.ROM -> sistema?.nombre ?: j.sistema; Tipo.APP -> "Juego de Android"; Tipo.WEB -> "Juego de navegador" })
-                    Spacer(Modifier.height(4.dp))
-                    Titulo(j.titulo, 32, lineas = 3)
-                }
-                BotonAcento("Jugar", Icons.Filled.PlayArrow, Modifier.fillMaxWidth(), alto = 58.dp) { alJugar(j) }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Etiqueta(if (disenando) "Editando las casillas" else "Tu ficha", Modifier.weight(1f))
-                    Text(if (disenando) "LISTO" else "EDITAR CASILLAS", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp,
-                        modifier = Modifier.clip(pildora()).clickable { disenando = !disenando }.padding(8.dp))
-                }
-                MagPage(j, defs(j, ctx, { selector = true }, { editarWeb = true }, { editarHoras = true }), disenando)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BotonSuave("Portada", Icons.Filled.Image, Modifier.weight(1f)) { eligePortada = true }
-                        BotonSuave("Renombrar", Icons.Filled.Edit, Modifier.weight(1f)) { renombrar = true }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BotonSuave("Acceso directo", Icons.Filled.AddToHomeScreen, Modifier.weight(1f)) {
-                            if (!crearAcceso(ctx, j)) Lanzador.aviso(ctx, "Tu launcher no deja crear accesos directos")
-                        }
-                        BotonSuave("Quitar", Icons.Filled.Delete, Modifier.weight(1f), peligro = true) { borrar = true }
-                    }
-                    if (j.portada.isNotBlank()) Text("Usar la portada automática", color = Acento, fontFamily = Body, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
-                        modifier = Modifier.clip(pildora()).clickable { Biblioteca.poner(j.copy(portada = "")) }.padding(8.dp))
-                }
+    Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 20.dp)) {
+        RevistaTopBar(alCerrar, "Volver") {
+            if (!disenando) EnlaceRevista(if (j.favorito) "★ Favorito" else "☆ Favorito", acento = j.favorito) { Biblioteca.poner(j.copy(favorito = !j.favorito)) }
+            EnlaceRevista(if (disenando) "Listo" else "Editar", acento = disenando) { disenando = !disenando }
+        }
+        Filete(3.dp)
+        Spacer(Modifier.height(14.dp))
+        RevistaHeadline(j.titulo, when (j.tipo) { Tipo.ROM -> listOfNotNull(sistema?.corto, sistema?.nombre).joinToString(" · "); Tipo.APP -> "Juego de Android"; Tipo.WEB -> "Juego de navegador" })
+        val deck = listOfNotNull(
+            if (j.terminado) (if (j.finalizado > 0) "terminado el " + fechaCorta(j.finalizado) else "terminado") else null,
+            if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else null
+        ).joinToString(" · ")
+        if (deck.isNotBlank()) Text(deck, color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 17.sp, modifier = Modifier.padding(vertical = 6.dp))
+        Spacer(Modifier.height(10.dp))
+        // Las acciones de la ficha: una fila de enlaces entre dos filetes
+        Filete(1.dp)
+        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            EnlaceRevista("Jugar\u00A0→", acento = true) { alJugar(j) }
+            EnlaceRevista("Portada\u00A0→") { eligePortada = true }
+            EnlaceRevista("Acceso directo\u00A0→") { if (!crearAcceso(ctx, j)) Lanzador.aviso(ctx, "Tu launcher no deja crear accesos directos") }
+            EnlaceRevista("Renombrar\u00A0→") { renombrar = true }
+        }
+        Filete(1.dp)
+        Spacer(Modifier.height(16.dp))
+        if (disenando) Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Sand).padding(12.dp)) {
+            Text("Toca una casilla para elegir qué va en ella (o texto libre, o una imagen). Arrastra el círculo ⇔ de la línea para moverla y el ⇕ de abajo para cambiar el alto.", color = Charcoal, fontFamily = Body, fontSize = 13.sp, lineHeight = 18.sp)
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (j.portada.isNotBlank()) Text("USAR LA PORTADA AUTOMÁTICA", color = Acento, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.clickable { Biblioteca.poner(j.copy(portada = "")) }.padding(vertical = 6.dp))
+                Spacer(Modifier.weight(1f))
+                Text("QUITAR DE PÓRTICO", color = Muted, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.clickable { borrar = true }.padding(vertical = 6.dp))
             }
         }
+        MagPage(j, defs(j, ctx, { selector = true }, { editarWeb = true }, { editarHoras = true }), disenando)
+        if (disenando) MagFooter("Listo") { disenando = false } else MagFooter { disenando = true }
+        Spacer(Modifier.height(20.dp))
     }
     if (renombrar) DialogoTexto("Nombre del juego", j.titulo, "Guardar", { renombrar = false }) { t -> if (t.isNotBlank()) Biblioteca.poner(j.copy(titulo = t.trim())); renombrar = false }
     if (borrar) AlertDialog(
-        onDismissRequest = { borrar = false }, containerColor = Crudo,
+        onDismissRequest = { borrar = false }, containerColor = Paper, shape = esquina(4.dp),
         title = { Text("¿Quitar «${j.titulo}»?", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
-        text = { Cuerpo(if (j.tipo == Tipo.ROM) "Solo se quita de Pórtico: el archivo de la ROM no se toca." else "Solo se quita de Pórtico.") },
-        confirmButton = { TextButton({ Biblioteca.quitar(j.id); borrar = false; alCerrar() }) { Text("Quitar", color = Color(0xFFE5484D)) } },
-        dismissButton = { TextButton({ borrar = false }) { Text("Cancelar", color = Charcoal) } }
+        text = { Text(if (j.tipo == Tipo.ROM) "Solo se quita de Pórtico: el archivo de la ROM no se toca." else "Solo se quita de Pórtico.", color = Muted, fontFamily = Body) },
+        confirmButton = { TextButton({ Biblioteca.quitar(j.id); borrar = false; alCerrar() }) { Text("QUITAR", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton({ borrar = false }) { Text("CANCELAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
     )
     if (eligePortada) AlertDialog(
-        onDismissRequest = { eligePortada = false }, containerColor = Crudo,
+        onDismissRequest = { eligePortada = false }, containerColor = Paper, shape = esquina(4.dp),
         title = { Text("Portada de «${j.titulo}»", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                BotonSuave("Buscar en internet", Icons.Filled.Search, Modifier.fillMaxWidth()) { eligePortada = false; buscaInternet = true }
-                BotonSuave("Elegir de la galería", Icons.Filled.PhotoLibrary, Modifier.fillMaxWidth()) { eligePortada = false; cambiarPortada.launch("image/*") }
-                Cuerpo("Buscar abre Google Imágenes, Pinterest, ArtStation o Newgrounds dentro de Pórtico; tocas una imagen y la usas.", tam = 12)
+            Column {
+                MagLink("Buscar en internet", "Google Imágenes, Pinterest, ArtStation, Newgrounds") { eligePortada = false; buscaInternet = true }
+                Filete(1.dp, Line)
+                MagLink("Elegir de la galería") { eligePortada = false; cambiarPortada.launch("image/*") }
+                if (j.portada.isNotBlank()) { Filete(1.dp, Line); MagLink("Usar la portada automática") { eligePortada = false; Biblioteca.poner(j.copy(portada = "")) } }
             }
         },
-        confirmButton = {}, dismissButton = { TextButton({ eligePortada = false }) { Text("Cancelar", color = Charcoal) } }
+        confirmButton = {}, dismissButton = { TextButton({ eligePortada = false }) { Text("CERRAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
     )
     if (buscaInternet) InternetPicker(
         initialQuery = j.titulo + (if (j.tipo == Tipo.ROM) " " + (sistema?.nombre ?: "") + " portada" else " portada"),
@@ -198,19 +194,23 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
 fun DialogoTexto(titulo: String, inicial: String, boton: String, alCerrar: () -> Unit, alAceptar: (String) -> Unit) {
     var t by remember { mutableStateOf(inicial) }
     AlertDialog(
-        onDismissRequest = alCerrar, containerColor = Crudo,
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
         title = { Text(titulo, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = { Campo(t, "", { t = it }) },
-        confirmButton = { TextButton({ alAceptar(t) }) { Text(boton, color = Acento, fontWeight = FontWeight.Bold) } },
-        dismissButton = { TextButton(alCerrar) { Text("Cancelar", color = Charcoal) } }
+        confirmButton = { TextButton({ alAceptar(t) }) { Text(boton.uppercase(), color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton(alCerrar) { Text("CANCELAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
     )
 }
 
+/** Una línea de texto con un filete debajo (la casilla de la revista). */
 @Composable
 fun Campo(valor: String, pista: String, alCambiar: (String) -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().clip(esquina(14.dp)).background(Sand).padding(horizontal = 14.dp, vertical = 14.dp)) {
-        if (valor.isEmpty()) Text(pista, color = Muted, fontFamily = Body, fontSize = 15.sp)
-        BasicTextField(valor, alCambiar, singleLine = true, textStyle = TextStyle(color = Charcoal, fontFamily = Body, fontSize = 15.sp), cursorBrush = SolidColor(Acento), modifier = Modifier.fillMaxWidth())
+    Column(modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            if (valor.isEmpty()) Text(pista, color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 18.sp)
+            BasicTextField(valor, alCambiar, singleLine = true, textStyle = TextStyle(color = Charcoal, fontFamily = Display, fontSize = 18.sp), cursorBrush = SolidColor(Acento), modifier = Modifier.fillMaxWidth())
+        }
+        Filete(1.5.dp)
     }
 }
 
@@ -223,26 +223,26 @@ fun SelectorEmulador(sistemaId: String, juego: Juego?, alCerrar: () -> Unit) {
     val sonda = remember(juego) { juego ?: Juego(id = "sonda", titulo = "", tipo = Tipo.ROM, sistema = sistemaId, uri = "content://sonda", ruta = "/storage/emulated/0/sonda") }
     val evaluados = remember(sonda) { Lanzador.evaluar(ctx, sonda) }
     var actual by remember { mutableStateOf(if (juego != null) juego.emulador else Ajustes.emuladorPorSistema[sistemaId].orEmpty()) }
-    ModalBottomSheet(alCerrar, containerColor = Crudo, contentColor = Charcoal) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Titulo(if (juego != null) "Emulador de este juego" else "Emulador para ${sistema?.nombre ?: sistemaId}", 22)
-            Cuerpo("Los que ya tienes instalados salen marcados. «Automático» usa uno propio (sin núcleos que descargar) y, si no hay, RetroArch.", tam = 12)
-            Spacer(Modifier.height(8.dp))
+    ModalBottomSheet(alCerrar, containerColor = Paper, contentColor = Charcoal, shape = RectangleShape) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState())) {
+            Antetitulo(if (juego != null) "Emulador de este juego" else "Emulador", Modifier.padding(bottom = 4.dp), color = Acento, conCuadro = false)
+            FitTitle(sistema?.nombre ?: sistemaId, 34.sp, 36.sp, letterSpacing = (-1).sp, maxLines = 2)
+            Cuerpo("Los que ya tienes instalados salen marcados. «Automático» usa uno propio (sin núcleos que descargar) y, si no hay, RetroArch.", tam = 12, modifier = Modifier.padding(vertical = 8.dp))
+            Filete(2.dp)
             fun elegir(l: String) {
                 actual = l
                 if (juego != null) Biblioteca.poner(Biblioteca.por(juego.id)!!.copy(emulador = l))
                 else { if (l.isEmpty()) Ajustes.emuladorPorSistema.remove(sistemaId) else Ajustes.emuladorPorSistema[sistemaId] = l; Ajustes.guardar(ctx) }
             }
             Opcion("Automático", "Recomendado", actual.isEmpty(), true, null) { elegir("") }
-            if (evaluados.isEmpty()) Cuerpo("Pórtico todavía no sabe lanzar este sistema.")
+            if (evaluados.isEmpty()) Cuerpo("Pórtico todavía no sabe lanzar este sistema.", modifier = Modifier.padding(top = 12.dp))
             evaluados.forEach { e ->
                 val r = e.resultado
-                val ok = r is Resultado.Ok
                 val sub = when (r) {
                     is Resultado.Ok -> if (Comando.esRetroArch(e.plantilla)) "Instalado · necesita el núcleo en RetroArch" else "Instalado"
                     is Resultado.Falta -> r.motivo
                 }
-                Opcion(e.etiqueta, sub, actual == e.etiqueta, ok, (r as? Resultado.Falta)?.paquete) { elegir(e.etiqueta) }
+                Opcion(e.etiqueta, sub, actual == e.etiqueta, r is Resultado.Ok, (r as? Resultado.Falta)?.paquete) { elegir(e.etiqueta) }
             }
         }
     }
@@ -251,22 +251,18 @@ fun SelectorEmulador(sistemaId: String, juego: Juego?, alCerrar: () -> Unit) {
 @Composable
 private fun Opcion(titulo: String, sub: String, elegida: Boolean, instalado: Boolean, paquetePlay: String?, alElegir: () -> Unit) {
     val ctx = LocalContext.current
-    Row(
-        Modifier.fillMaxWidth().clip(esquina(16.dp)).background(if (elegida) Sand else Color.Transparent).clickable(onClick = alElegir).padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(if (elegida) Icons.Filled.RadioButtonChecked else Icons.Filled.RadioButtonUnchecked, null, tint = if (elegida) Acento else Muted, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(12.dp))
+    Row(Modifier.fillMaxWidth().clickable(onClick = alElegir).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(titulo, color = Charcoal, fontFamily = Body, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Cuerpo(sub, tam = 12, color = if (instalado) Muted else Muted.copy(alpha = 0.8f))
+            Text(titulo, color = if (elegida) Acento else Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+            Text(sub.uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
-        if (!instalado && paquetePlay != null) Text("Instalar", color = Acento, fontFamily = Body, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-            modifier = Modifier.clip(pildora()).clickable { Lanzador.tienda(ctx, paquetePlay) }.padding(10.dp))
-        else if (instalado && titulo != "Automático") Icon(Icons.Filled.Check, "Instalado", tint = Color(0xFF3DBE8B), modifier = Modifier.size(20.dp))
+        if (!instalado && paquetePlay != null) Text("INSTALAR\u00A0→", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp,
+            modifier = Modifier.clickable { Lanzador.tienda(ctx, paquetePlay) }.padding(10.dp))
+        else if (elegida) Text("✓", color = Acento, fontWeight = FontWeight.Black, fontSize = 18.sp)
+        else if (instalado && titulo != "Automático") Text("INSTALADO", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
+    Filete(1.dp, Line)
 }
-
 
 /** Horas y minutos jugados, para corregirlos a mano. */
 @Composable
@@ -274,19 +270,19 @@ fun DialogoHoras(ms: Long, alAceptar: (Long) -> Unit, alCerrar: () -> Unit) {
     var h by remember { mutableStateOf((ms / 3_600_000).toString()) }
     var m by remember { mutableStateOf(((ms / 60_000) % 60).toString()) }
     AlertDialog(
-        onDismissRequest = alCerrar, containerColor = Crudo,
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
         title = { Text("Horas jugadas", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(1f)) { Etiqueta("Horas"); Campo(h, "0", { h = it.filter(Char::isDigit).take(5) }) }
                     Column(Modifier.weight(1f)) { Etiqueta("Minutos"); Campo(m, "0", { m = it.filter(Char::isDigit).take(2) }) }
                 }
                 Cuerpo("Pórtico suma solo el tiempo que pasas fuera cuando abres un juego (aproximado). Aquí lo corriges.", tam = 12)
             }
         },
-        confirmButton = { TextButton({ alAceptar((h.toLongOrNull() ?: 0L) * 3_600_000L + (m.toLongOrNull() ?: 0L).coerceAtMost(59L) * 60_000L) }) { Text("Guardar", color = Acento, fontWeight = FontWeight.Bold) } },
-        dismissButton = { TextButton(alCerrar) { Text("Cancelar", color = Charcoal) } }
+        confirmButton = { TextButton({ alAceptar((h.toLongOrNull() ?: 0L) * 3_600_000L + (m.toLongOrNull() ?: 0L).coerceAtMost(59L) * 60_000L) }) { Text("GUARDAR", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton(alCerrar) { Text("CANCELAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
     )
 }
 
@@ -297,65 +293,56 @@ fun notaTexto(n: Float) = if (n <= 0f) "—" else if (n % 1f == 0f) n.toInt().to
 @Composable
 private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: () -> Unit, editarHoras: () -> Unit): Map<String, MagDef> = mapOf(
     "horas" to MagDef("Horas jugadas", "✎" to editarHoras) {
-        Text(tiempoDe(j.msJugados), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 30.sp, maxLines = 1)
-        Cuerpo("Aproximado: se apunta al volver de jugar", tam = 12)
+        FitTitle(tiempoDe(j.msJugados), 40.sp, 42.sp, unaLinea = true, maxLines = 1)
+        Text("TUS HORAS", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text("Aproximado: se apunta al volver de jugar", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
     },
     "veces" to MagDef("Veces y última vez") {
-        Text(j.veces.toString(), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 30.sp, maxLines = 1)
-        Cuerpo("Última vez: " + haceCuanto(j.ultima).lowercase().replaceFirstChar { it.uppercase() }, tam = 12)
+        Text(j.veces.toString(), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 40.sp, lineHeight = 42.sp, maxLines = 1)
+        Text("VECES", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text("Última vez: " + haceCuanto(j.ultima).lowercase(), color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
     },
     "estado" to MagDef("Estado") {
-        // Un solo botón (cabe en media casilla): marcar o desmarcar «terminado»
-        Row(
-            Modifier.fillMaxWidth().height(44.dp).clip(pildora()).background(if (j.terminado) Acento else Sand)
-                .clickable { Biblioteca.cambiar(j.id) { if (it.terminado) it.copy(terminado = false, finalizado = 0L) else it.copy(terminado = true, finalizado = System.currentTimeMillis()) } },
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(if (j.terminado) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked, null, tint = if (j.terminado) SobreAcento else Muted, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(if (j.terminado) "Terminado" else "Marcar terminado", color = if (j.terminado) SobreAcento else Charcoal, fontFamily = Body, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
+        MagChoice(listOf("Sin terminar", "Terminado"), if (j.terminado) 1 else 0) { i ->
+            Biblioteca.cambiar(j.id) { if (i == 1) it.copy(terminado = true, finalizado = System.currentTimeMillis()) else it.copy(terminado = false, finalizado = 0L) }
         }
-        Spacer(Modifier.height(6.dp))
-        Cuerpo(if (j.terminado && j.finalizado > 0) "Terminado el " + fechaCorta(j.finalizado) else if (j.terminado) "Terminado" else "Todavía en marcha", tam = 12)
+        Text(if (j.terminado && j.finalizado > 0) "terminado el " + fechaCorta(j.finalizado) else if (j.terminado) "terminado" else "todavía en marcha", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
     },
     "valoracion" to MagDef("Valoración") {
         if (!j.terminado) {
-            Cuerpo("Márcalo como terminado para valorarlo.", tam = 13)
-            Spacer(Modifier.height(8.dp))
-            BotonSuave("Marcar terminado") { Biblioteca.cambiar(j.id) { it.copy(terminado = true, finalizado = System.currentTimeMillis()) } }
+            Text("Márcalo como terminado para valorarlo.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp)
+            MagLink("Marcar terminado", accent = true) { Biblioteca.cambiar(j.id) { it.copy(terminado = true, finalizado = System.currentTimeMillis()) } }
         } else {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(notaTexto(j.nota), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 28.sp, maxLines = 1)
-                Text(" / 10", color = Muted, fontFamily = Body, fontSize = 13.sp, modifier = Modifier.padding(bottom = 5.dp).weight(1f), maxLines = 1)
-                BotonIcono(Icons.Filled.Remove, "Bajar la nota", tam = 32.dp) { Biblioteca.cambiar(j.id) { it.copy(nota = (it.nota - 0.5f).coerceAtLeast(0f)) } }
-                Spacer(Modifier.width(4.dp))
-                BotonIcono(Icons.Filled.Add, "Subir la nota", tam = 32.dp) { Biblioteca.cambiar(j.id) { it.copy(nota = if (it.nota <= 0f) 7f else (it.nota + 0.5f).coerceAtMost(10f)) } }
+                Text(notaTexto(j.nota), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 64.sp, lineHeight = 62.sp, letterSpacing = (-2).sp, maxLines = 1, softWrap = false)
+                Text("/10", color = Muted, fontFamily = Body, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
             }
-            Spacer(Modifier.height(8.dp))
-            // Diez puntos: tocar uno pone esa nota
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                for (k in 1..10) Box(Modifier.weight(1f).height(10.dp).clip(esquina(3.dp)).background(if (j.nota >= k) Acento else if (j.nota >= k - 0.5f && j.nota > 0f) Acento.copy(alpha = 0.5f) else Sand).clickable { Biblioteca.cambiar(j.id) { it.copy(nota = k.toFloat()) } })
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                EnlaceRevista("−\u00A00,5") { Biblioteca.cambiar(j.id) { it.copy(nota = (it.nota - 0.5f).coerceAtLeast(0f)) } }
+                EnlaceRevista("+\u00A00,5") { Biblioteca.cambiar(j.id) { it.copy(nota = if (it.nota <= 0f) 7f else (it.nota + 0.5f).coerceAtMost(10f)) } }
             }
+            MagChoice((1..10).map { it.toString() }, if (j.nota > 0f && j.nota % 1f == 0f) j.nota.toInt() - 1 else -1) { i -> Biblioteca.cambiar(j.id) { it.copy(nota = (i + 1).toFloat()) } }
         }
     },
     "apuntes" to MagDef("Apuntes") {
         var t by remember(j.id) { mutableStateOf(j.notas) }
         LaunchedEffect(t) { kotlinx.coroutines.delay(500); if (t != Biblioteca.por(j.id)?.notas) Biblioteca.cambiar(j.id) { it.copy(notas = t) } }
         Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            if (t.isEmpty()) Text("Trucos, por dónde vas, qué te falta…", color = Muted, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 16.sp)
-            androidx.compose.foundation.text.BasicTextField(t, { t = it }, textStyle = androidx.compose.ui.text.TextStyle(color = Charcoal, fontFamily = Display, fontSize = 17.sp, lineHeight = 25.sp), cursorBrush = androidx.compose.ui.graphics.SolidColor(Acento), modifier = Modifier.fillMaxWidth())
+            if (t.isEmpty()) Text("Trucos, por dónde vas, qué te falta…", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 17.sp)
+            BasicTextField(t, { t = it }, textStyle = TextStyle(color = Charcoal, fontFamily = Display, fontSize = 19.sp, lineHeight = 29.sp), cursorBrush = SolidColor(Acento), modifier = Modifier.fillMaxWidth())
         }
     },
     "lanzamiento" to MagDef("Cómo se abre", if (j.tipo == Tipo.WEB) "Editar" to editarWeb else if (j.tipo == Tipo.ROM) "Cambiar" to abrirSelector else null) {
         when (j.tipo) {
             Tipo.ROM -> {
                 val e = remember(j) { Lanzador.elegir(ctx, j) }
-                Text(e?.etiqueta ?: "Sin emulador para este sistema", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(e?.etiqueta ?: "Sin emulador para este sistema", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
                 val r = e?.resultado
-                Cuerpo(when (r) { is Resultado.Ok -> if (Comando.esRetroArch(e.plantilla)) "Instalado · necesita el núcleo descargado en RetroArch" else "Instalado y listo"; is Resultado.Falta -> r.motivo; null -> "" }, tam = 12, color = if (r is Resultado.Ok) Muted else Acento)
+                Text((when (r) { is Resultado.Ok -> if (Comando.esRetroArch(e.plantilla)) "Instalado · necesita el núcleo descargado en RetroArch" else "Instalado y listo"; is Resultado.Falta -> r.motivo; null -> "" }).uppercase(),
+                    color = if (r is Resultado.Ok) Muted else Acento, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
-            Tipo.APP -> { Text("App de Android", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 18.sp); Cuerpo(j.paquete, tam = 12) }
-            Tipo.WEB -> { Text(j.url, color = Charcoal, fontFamily = Body, fontSize = 14.sp, maxLines = 2); Cuerpo("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)], tam = 12) }
+            Tipo.APP -> { Text("App de Android", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text(j.paquete, color = Muted, fontFamily = Body, fontSize = 12.sp) }
+            Tipo.WEB -> { Text(j.url, color = Charcoal, fontFamily = Display, fontSize = 17.sp, maxLines = 2); Text(("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)]).uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
         }
     },
 )

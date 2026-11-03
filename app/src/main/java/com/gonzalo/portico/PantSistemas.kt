@@ -5,17 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -28,8 +24,9 @@ fun arriba(): Dp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding
 /** Estado de un sistema: cuántos juegos tiene y con qué emulador se abren. */
 private class EstadoSistema(val s: Sistema, val juegos: Int, val emu: String, val listo: Boolean)
 
+/** «Sistemas»: cada consola con el emulador que se usa, y las carpetas de ROMs. */
 @Composable
-fun PantSistemas(alAnadirCarpeta: () -> Unit) {
+fun PantSistemas(alVolver: () -> Unit, alAnadirCarpeta: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val todos = Biblioteca.juegos.toList()
@@ -47,50 +44,48 @@ fun PantSistemas(alAnadirCarpeta: () -> Unit) {
                 EstadoSistema(s, conteo[s.id] ?: 0, if (e == null) "Sin comandos" else if (e.resultado is Resultado.Ok) e.etiqueta else "Sin emulador instalado", e?.resultado is Resultado.Ok)
             }
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = arriba(), bottom = 130.dp, start = 20.dp, end = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(Paper).statusBarsPadding(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 40.dp)) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Titulo("Sistemas", 34)
-                Cuerpo("Cada consola, con el emulador que tú elijas. Pórtico no incluye emuladores: abre los que ya tienes instalados.", tam = 13)
-            }
-        }
-        item {
-            Panel(Modifier.fillMaxWidth()) {
-                Etiqueta("Carpetas de ROMs")
-                Spacer(Modifier.height(6.dp))
-                if (Biblioteca.carpetas.isEmpty()) Cuerpo("Todavía no has añadido ninguna. Añade la carpeta donde guardas tus ROMs y Pórtico la recorre.", tam = 13)
-                else Biblioteca.carpetas.forEach { Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Folder, null, tint = Acento, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(it.nombre, color = Charcoal, fontFamily = Body, fontSize = 14.sp, modifier = Modifier.weight(1f)); Icon(Icons.Filled.Close, "Quitar carpeta", tint = Muted, modifier = Modifier.size(18.dp).clickable { Biblioteca.carpetas.remove(it); Biblioteca.guardar() }) } }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    BotonSuave("Añadir carpeta", Icons.Filled.CreateNewFolder, alHacer = alAnadirCarpeta)
+            Column {
+                RevistaTopBar(alVolver, "Pórtico") { EnlaceRevista("+ Carpeta", acento = true, onClick = alAnadirCarpeta) }
+                Antetitulo("Sección · ${Catalogo.sistemas.size} sistemas", Modifier.padding(top = 10.dp), color = Acento, conCuadro = false)
+                FitTitle("Sistemas", 52.sp, 56.sp, letterSpacing = (-1.5).sp, modifier = Modifier.padding(top = 2.dp), unaLinea = true)
+                Filete(3.dp)
+                Text("Cada consola, con el emulador que tú elijas. Pórtico no incluye emuladores: abre los que ya tienes instalados.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp, lineHeight = 22.sp, modifier = Modifier.padding(vertical = 12.dp))
+                Filete(2.dp)
+                Spacer(Modifier.height(12.dp))
+                Antetitulo("Carpetas de ROMs", Modifier.padding(bottom = 6.dp))
+                if (Biblioteca.carpetas.isEmpty()) Text("Todavía no has añadido ninguna. Añade la carpeta donde guardas tus ROMs y Pórtico la recorre.", color = Muted, fontFamily = Body, fontSize = 14.sp, lineHeight = 20.sp)
+                else Biblioteca.carpetas.forEach { c ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(c.nombre, color = Charcoal, fontFamily = Display, fontSize = 19.sp, modifier = Modifier.weight(1f))
+                        Text("QUITAR", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.clickable { Biblioteca.carpetas.remove(c); Biblioteca.guardar() }.padding(8.dp))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    EnlaceRevista("Añadir carpeta →", acento = true, onClick = alAnadirCarpeta)
                     if (Biblioteca.carpetas.isNotEmpty()) {
-                        if (escaneando) CircularProgressIndicator(Modifier.size(24.dp), color = Acento, strokeWidth = 3.dp)
-                        else BotonSuave("Buscar nuevos", Icons.Filled.Refresh) {
+                        if (escaneando) CircularProgressIndicator(Modifier.size(20.dp), color = Acento, strokeWidth = 2.dp)
+                        else EnlaceRevista("Buscar nuevos →") {
                             escaneando = true
                             scope.launch { val i = reescanearCarpetas(ctx); escaneando = false; aviso = if (i.anadidos == 0) "No hay juegos nuevos" else "${i.anadidos} juegos nuevos" }
                         }
                     }
                 }
-                aviso?.let { Spacer(Modifier.height(6.dp)); Cuerpo(it, tam = 12, color = Acento) }
+                aviso?.let { Text(it, color = Acento, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp) }
+                Spacer(Modifier.height(10.dp))
+                Filete(2.dp)
+                CampoBusquedaRevista(busca, "Buscar un sistema") { busca = it }
+                Filete(1.dp, Line)
             }
         }
-        item { CampoBusqueda(busca) { busca = it } }
         items(lista, key = { it.s.id }) { e ->
-            Row(Modifier.fillMaxWidth().clip(esquina(20.dp)).background(Crudo).clickable { abierto = e.s.id }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(52.dp, 58.dp).clip(arco()).background(e.s.color), contentAlignment = Alignment.Center) {
-                    Text(e.s.corto, color = Color.White, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = if (e.s.corto.length > 3) 12.sp else 15.sp)
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(e.s.nombre, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
-                    Cuerpo("${if (e.juegos == 0) "Sin juegos" else if (e.juegos == 1) "1 juego" else "${e.juegos} juegos"} · ${e.emu}", tam = 12, lineas = 1)
-                }
-                Icon(if (e.listo) Icons.Filled.CheckCircle else Icons.Filled.ErrorOutline, if (e.listo) "Emulador listo" else "Falta emulador", tint = if (e.listo) Color(0xFF3DBE8B) else Muted, modifier = Modifier.size(22.dp))
-            }
+            FilaRevista(e.s.nombre, "${if (e.juegos == 0) "sin juegos" else if (e.juegos == 1) "1 juego" else "${e.juegos} juegos"} · ${e.emu}",
+                derecha = { Text(if (e.listo) "LISTO" else "FALTA", color = if (e.listo) Charcoal else Acento, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, modifier = Modifier.padding(start = 10.dp)) }) { abierto = e.s.id }
         }
         item {
-            if (busca.isBlank()) Text(if (verTodos) "Ver solo los míos" else "Ver los ${Catalogo.sistemas.size} sistemas", color = Acento, fontFamily = Body, fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                modifier = Modifier.clip(pildora()).clickable { verTodos = !verTodos }.padding(10.dp))
+            if (busca.isBlank()) Text((if (verTodos) "Ver solo los míos" else "Ver los ${Catalogo.sistemas.size} sistemas").uppercase() + " →", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = 1.4.sp,
+                modifier = Modifier.clickable { verTodos = !verTodos }.padding(vertical = 18.dp))
         }
     }
     abierto?.let { SelectorEmulador(it, null) { abierto = null } }
