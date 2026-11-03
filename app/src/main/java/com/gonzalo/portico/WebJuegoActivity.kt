@@ -43,6 +43,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -81,6 +83,9 @@ class WebJuegoActivity : ComponentActivity() {
         val w = WebView(this).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundColor(AColor.BLACK)
+            // Deslizar hacia abajo no debe hacer nada: ni rebote, ni brillo de borde, ni «tirar para recargar»
+            overScrollMode = android.view.View.OVER_SCROLL_NEVER
+            isVerticalScrollBarEnabled = false; isHorizontalScrollBarEnabled = false
             settings.apply {
                 javaScriptEnabled = true; domStorageEnabled = true
                 mediaPlaybackRequiresUserGesture = false
@@ -91,6 +96,9 @@ class WebJuegoActivity : ComponentActivity() {
             }
             CookieManager.getInstance().setAcceptCookie(true)
             webViewClient = object : WebViewClient() {
+                // Por si el WebView no deja poner el script al principio: se pone en cuanto la página se ve
+                override fun onPageCommitVisible(v: WebView, url: String?) { v.evaluateJavascript(JS_SIN_REBOTE, null) }
+                override fun onPageFinished(v: WebView, url: String?) { v.evaluateJavascript(JS_SIN_REBOTE, null) }
                 override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                     val s = r.url.scheme
                     if (s == "http" || s == "https") return false
@@ -116,6 +124,8 @@ class WebJuegoActivity : ComponentActivity() {
             }
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
+        // Antes de que la página ponga nada: «overscroll-behavior: none» (así ni el navegador ni la web tiran de la pantalla)
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) WebViewCompat.addDocumentStartJavaScript(w, JS_SIN_REBOTE, setOf("*"))
         web = w
         if (savedInstanceState == null) w.loadUrl(url) else w.restoreState(savedInstanceState)
 
@@ -160,6 +170,8 @@ class WebJuegoActivity : ComponentActivity() {
     override fun onDestroy() { (web?.parent as? ViewGroup)?.removeView(web); web?.destroy(); web = null; super.onDestroy() }
 
     companion object {
+        /** Quita el rebote y el «deslizar para recargar» de la página (y de Chromium) en la dirección vertical y horizontal. */
+        const val JS_SIN_REBOTE = "(function(){try{var id='portico-sin-rebote';if(document.getElementById(id))return;var s=document.createElement('style');s.id=id;s.textContent='html,body{overscroll-behavior:none !important}';(document.head||document.documentElement).appendChild(s);}catch(e){}})();"
         fun intent(c: Context, j: Juego) = Intent(c, WebJuegoActivity::class.java)
             .putExtra("id", j.id).putExtra("url", j.url).putExtra("titulo", j.titulo).putExtra("orient", j.orientacion)
     }

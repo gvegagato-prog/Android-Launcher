@@ -53,6 +53,20 @@ suspend fun guardarPortada(c: Context, id: String, uri: Uri): String? = withCont
     }.getOrNull()
 }
 
+/** Igual, pero con los bytes de una imagen ya bajada de internet. null = no es una imagen. */
+suspend fun guardarPortadaBytes(c: Context, id: String, bytes: ByteArray): String? = withContext(Dispatchers.IO) {
+    runCatching {
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+        if (o.outWidth <= 0) return@runCatching null
+        var s = 1; while (o.outWidth / s > 1000 || o.outHeight / s > 1400) s *= 2
+        val b = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = s }) ?: return@runCatching null
+        val f = File(File(c.filesDir, "portadas").apply { mkdirs() }, "$id-${System.currentTimeMillis()}.jpg")
+        f.outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        f.absolutePath
+    }.getOrNull()
+}
+
 /** El icono del acceso directo: la portada si hay, o el degradado con la inicial. */
 fun iconoAcceso(c: Context, j: Juego): Bitmap {
     val lado = 192
@@ -95,6 +109,8 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
     var borrar by remember { mutableStateOf(false) }
     var selector by remember { mutableStateOf(false) }
     var editarWeb by remember { mutableStateOf(false) }
+    var eligePortada by remember { mutableStateOf(false) }
+    var buscaInternet by remember { mutableStateOf(false) }
     val cambiarPortada = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
         if (u != null) scope.launch { guardarPortada(ctx, j.id, u)?.let { Biblioteca.poner(Biblioteca.por(j.id)!!.copy(portada = it)) } }
     }
@@ -150,7 +166,7 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BotonSuave("Portada", Icons.Filled.Image, Modifier.weight(1f)) { cambiarPortada.launch("image/*") }
+                        BotonSuave("Portada", Icons.Filled.Image, Modifier.weight(1f)) { eligePortada = true }
                         BotonSuave("Renombrar", Icons.Filled.Edit, Modifier.weight(1f)) { renombrar = true }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -172,6 +188,24 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit) {
         text = { Cuerpo(if (j.tipo == Tipo.ROM) "Solo se quita de Pórtico: el archivo de la ROM no se toca." else "Solo se quita de Pórtico.") },
         confirmButton = { TextButton({ Biblioteca.quitar(j.id); borrar = false; alCerrar() }) { Text("Quitar", color = Color(0xFFE5484D)) } },
         dismissButton = { TextButton({ borrar = false }) { Text("Cancelar", color = Charcoal) } }
+    )
+    if (eligePortada) AlertDialog(
+        onDismissRequest = { eligePortada = false }, containerColor = Crudo,
+        title = { Text("Portada de «${j.titulo}»", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                BotonSuave("Buscar en internet", Icons.Filled.Search, Modifier.fillMaxWidth()) { eligePortada = false; buscaInternet = true }
+                BotonSuave("Elegir de la galería", Icons.Filled.PhotoLibrary, Modifier.fillMaxWidth()) { eligePortada = false; cambiarPortada.launch("image/*") }
+                Cuerpo("Buscar abre Google Imágenes, Pinterest, ArtStation o Newgrounds dentro de Pórtico; tocas una imagen y la usas.", tam = 12)
+            }
+        },
+        confirmButton = {}, dismissButton = { TextButton({ eligePortada = false }) { Text("Cancelar", color = Charcoal) } }
+    )
+    if (buscaInternet) InternetPicker(
+        initialQuery = j.titulo + (if (j.tipo == Tipo.ROM) " " + (sistema?.nombre ?: "") + " portada" else " portada"),
+        idJuego = j.id,
+        onPick = { ruta -> Biblioteca.por(j.id)?.let { Biblioteca.poner(it.copy(portada = ruta)) }; buscaInternet = false },
+        onDismiss = { buscaInternet = false }
     )
     if (selector) SelectorEmulador(j.sistema, j) { selector = false }
     if (editarWeb) DialogoWeb(j) { editarWeb = false }

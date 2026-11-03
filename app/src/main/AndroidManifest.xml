@@ -164,6 +164,6 @@
             android:excludeFromRecents="true" android:taskAffinity="" />
         <!-- Juegos de navegador a pantalla completa -->
         <activity android:name=".WebJuegoActivity" android:exported="false" android:theme="@style/PorticoWeb"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density" />
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density|fontScale|locale|layoutDirection|navigation|touchscreen|colorMode|mcc|mnc" />
     </application>
 </manifest>

@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
@@ -96,5 +97,15 @@ class CapturasTest {
         siembra()
         montar()
         rule.onNodeWithContentDescription("Añadir juegos").performClick(); foto("9_anadir")
+    }
+
+    @Test
+    fun buscadorDePortadas() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        montar()
+        rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[1].performClick()
+        rule.onNodeWithText("Portada").performClick(); foto("10_portada_opciones")
+        rule.onNodeWithText("Buscar en internet").performClick(); foto("11_buscador")
     }
 }

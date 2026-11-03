@@ -23,9 +23,10 @@ Generadas en el ordenador con datos de ejemplo (`CapturasTest`): [inicio](docs/c
 - **Juegos de Android**: elige de las apps instaladas (marca primero las que Android declara como juegos).
 - **Juegos de navegador** (PokéRogue y similares): pantalla completa, sin barra de direcciones, con cookies y datos guardados
   entre sesiones (ahí viven las partidas), pantalla siempre encendida, orientación fija si quieres, y confirmación antes de
-  salir. Funciona con mando Bluetooth (la API Gamepad de Chromium).
+  salir. Deslizar hacia abajo no recarga ni rebota (overscroll desactivado). Funciona con mando Bluetooth (la API Gamepad de Chromium).
 - **Accesos directos** en el escritorio del móvil para cualquier juego.
 - **Pantalla de inicio**: opcionalmente puedes elegir Pórtico como launcher del móvil (Estilo → Pantalla de inicio).
+- **Portadas desde internet** (como en Atrio): en la ficha, Portada → «Buscar en internet» abre Google Imágenes, Pinterest, ArtStation o Newgrounds dentro de Pórtico, con su casilla de búsqueda; tocas una imagen (o la mantienes pulsada) y se usa de portada. También puedes elegir una de la galería.
 - Tiempo de juego aproximado, favoritos, búsqueda, orden, portadas propias, portadas automáticas (libretro), copia de seguridad.
 
 ## Diseño: el guiño a Atrio
