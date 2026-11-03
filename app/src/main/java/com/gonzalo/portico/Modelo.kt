@@ -58,10 +58,11 @@ object Biblioteca {
     val carpetas = mutableStateListOf<Carpeta>()
     var cargada by mutableStateOf(false)
     private var archivo: File? = null
+    private var appCtx: Context? = null
 
     fun cargar(c: Context) {
         if (cargada) return
-        archivo = File(c.filesDir, "biblioteca.json")
+        archivo = File(c.filesDir, "biblioteca.json"); appCtx = c.applicationContext
         val f = archivo!!
         if (f.exists()) runCatching { leer(f.readText()) }
         cargada = true
@@ -89,6 +90,7 @@ object Biblioteca {
     fun guardar() {
         val f = archivo ?: return
         runCatching { val t = File(f.path + ".tmp"); t.writeText(aTexto()); t.renameTo(f) }
+        archivo?.parentFile?.let { appCtx?.let { c -> Widgets.pedir(c) } }
     }
 
     fun poner(j: Juego) {

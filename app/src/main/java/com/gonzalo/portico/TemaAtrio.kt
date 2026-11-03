@@ -49,7 +49,10 @@ object TemaAtrio {
             aviso = if (instalada(c)) "Atrio no ofrece sus colores todavía: instala la versión 1.0.7 o más nueva de Atrio." else "Atrio no está instalado en este móvil."
             return false
         }
-        tonos = tonosDe(v); aviso = ""
+        val nuevos = tonosDe(v)
+        val cambio = tonos != nuevos
+        tonos = nuevos; aviso = ""
+        if (cambio) Widgets.pedir(c)
         guardado(c).edit().putString("atrio", JSONObject().also { o -> COLUMNAS.forEachIndexed { i, k -> o.put(k, v[i]) } }.toString()).apply()
         return true
     }

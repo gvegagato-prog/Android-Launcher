@@ -166,5 +166,26 @@
         <!-- Juegos de navegador a pantalla completa -->
         <activity android:name=".WebJuegoActivity" android:exported="false" android:theme="@style/PorticoWeb"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|uiMode|density|fontScale|locale|layoutDirection|navigation|touchscreen|colorMode|mcc|mnc" />
+        <!-- Widgets de la pantalla de inicio (los de Atrio, con juegos) -->
+        <receiver android:name=".WJugando" android:label="@string/w_jugando" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_jugando" />
+        </receiver>
+        <receiver android:name=".WEstante" android:label="@string/w_estante" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_estante" />
+        </receiver>
+        <receiver android:name=".WPortada" android:label="@string/w_portada" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_portada" />
+        </receiver>
+        <receiver android:name=".WSiguiente" android:label="@string/w_siguiente" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_siguiente" />
+        </receiver>
+        <receiver android:name=".WMarca" android:label="@string/w_marca" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/w_marca" />
+        </receiver>
     </application>
 </manifest>

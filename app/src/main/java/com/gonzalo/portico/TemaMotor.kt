@@ -124,13 +124,22 @@ object Skin {
     /** Colores de Atrio (los que tienes puestos allí) en lugar de los de la paleta de Pórtico. */
     var origenAtrio by mutableStateOf(true)
 
-    /** La paleta de Pórtico (con su acento elegido). */
-    private val propios: Tones get() = (if (Modo.oscuro) palette.dark else palette.light).let { b ->
-        ACCENT_COLORS.firstOrNull { it.id == accentId }?.let { a -> b.copy(general = (if (Modo.oscuro) a.dark else a.light) or 0xFF000000) } ?: b
+    /** La paleta de Pórtico (con su acento elegido), en claro o en oscuro. */
+    private fun propiosPara(noche: Boolean): Tones = (if (noche) palette.dark else palette.light).let { b ->
+        ACCENT_COLORS.firstOrNull { it.id == accentId }?.let { a -> b.copy(general = (if (noche) a.dark else a.light) or 0xFF000000) } ?: b
     }
 
-    /** Los colores que se ven: los de Atrio (si se piden y se han leído) o los de Pórtico, y al revés si está «invertidos». */
-    val tones: Tones get() = invertidoSi(invertido, TemaAtrio.tonos.takeIf { origenAtrio } ?: propios)
+    /**
+     * Los colores que se ven en claro o en oscuro ([noche]): los de Atrio (si se piden y se han leído; ya vienen en el modo que
+     * tengas allí) o los de Pórtico, y al revés si está «invertidos». Los widgets los piden de las dos maneras.
+     */
+    fun tonosPara(noche: Boolean): Tones = invertidoSi(invertido, TemaAtrio.tonos.takeIf { origenAtrio } ?: propiosPara(noche))
+
+    /** Los colores que se ven ahora. */
+    val tones: Tones get() = tonosPara(Modo.oscuro)
+
+    /** ¿Los colores no dependen de claro/oscuro? (los de Atrio ya vienen resueltos) */
+    val coloresFijos: Boolean get() = origenAtrio && TemaAtrio.tonos != null
 
     private fun invertidoSi(on: Boolean, t: Tones) = if (on) invertir(t) else t
 
@@ -180,6 +189,7 @@ object Skin {
     }
 
     fun guardar(c: Context) {
+        Widgets.pedir(c)
         p(c).edit().putString("paleta", palette.id).putString("display", display).putString("body", body).putString("forma", forma.id)
             .putString("acento", accentId).putBoolean("invertido", invertido).putBoolean("origen_atrio", origenAtrio).putInt("escala", escala).putInt("modo", Modo.eleccion).apply()
     }

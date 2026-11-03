@@ -1,0 +1,708 @@
+package com.gonzalo.portico
+
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.BroadcastReceiver
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.graphics.Shader
+import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
+import android.os.Bundle
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.TextUtils
+import android.widget.RemoteViews
+import androidx.compose.ui.graphics.toArgb
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
+
+/*
+ * Widgets de la pantalla de inicio de Pórtico: los de Atrio (Widgets.kt) con la misma estética de revista — papel y tinta,
+ * titulares grandes en Fraunces, portadas recortadas, esquinas redondas y el reborde fino de tinta — pero con los juegos.
+ * Cada widget se dibuja entero (así la letra y las portadas quedan como en la app) y encima lleva zonas transparentes para
+ * tocar. Los colores son los del tema que tengas puesto: los de Pórtico o los de Atrio (invertidos o no).
+ */
+
+/** Los widgets que hay. */
+enum class WTipo { JUGANDO, ESTANTE, PORTADA, SIGUIENTE, MARCA }
+
+abstract class WBase(private val tipo: WTipo) : AppWidgetProvider() {
+    override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) = Widgets.pintar(ctx, tipo, ids, goAsync())
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, o: Bundle) =
+        Widgets.pintar(ctx, tipo, intArrayOf(id), goAsync())
+    override fun onDeleted(ctx: Context, ids: IntArray) = Widgets.olvidar(ctx, ids)
+    override fun onReceive(ctx: Context, i: Intent) {
+        if (i.action == Widgets.ACCION) {
+            val id = i.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 0)
+            Widgets.accion(ctx, id, i.getStringExtra("op").orEmpty())
+            Widgets.pintar(ctx, tipo, intArrayOf(id), goAsync())
+        } else super.onReceive(ctx, i)
+    }
+}
+
+class WJugando : WBase(WTipo.JUGANDO)
+class WEstante : WBase(WTipo.ESTANTE)
+class WPortada : WBase(WTipo.PORTADA)
+class WSiguiente : WBase(WTipo.SIGUIENTE)
+class WMarca : WBase(WTipo.MARCA)
+
+/** Una zona que se puede tocar (en dp, desde la esquina de arriba a la izquierda); con [celdas], una rejilla. */
+class Zona(
+    val x: Float, val y: Float, val w: Float, val h: Float, val toque: PendingIntent?, val desc: String = "",
+    val celdas: List<List<Pair<PendingIntent?, String>>>? = null
+) {
+    fun vista(ctx: Context, ancho: Float, alto: Float, d: Float): RemoteViews {
+        fun px(v: Float) = (max(0f, v) * d).roundToInt()
+        val (l, t, r, b) = listOf(px(x), px(y), px(ancho - x - w), px(alto - y - h))
+        val rejilla = celdas
+        if (rejilla == null) {
+            val v = RemoteViews(ctx.packageName, R.layout.w_zona)
+            v.setViewPadding(R.id.w_hueco, l, t, r, b)
+            toque?.let { v.setOnClickPendingIntent(R.id.w_toque, it) }
+            if (desc.isNotEmpty()) v.setContentDescription(R.id.w_toque, desc)
+            return v
+        }
+        val v = RemoteViews(ctx.packageName, R.layout.w_rejilla)
+        v.setViewPadding(R.id.w_hueco, l, t, r, b)
+        rejilla.forEach { fila ->
+            val f = RemoteViews(ctx.packageName, R.layout.w_fila)
+            fila.forEach { (pi, ds) ->
+                val c = RemoteViews(ctx.packageName, R.layout.w_celda)
+                pi?.let { c.setOnClickPendingIntent(R.id.w_celda, it) }
+                if (ds.isNotEmpty()) c.setContentDescription(R.id.w_celda, ds)
+                f.addView(R.id.w_fila, c)
+            }
+            v.addView(R.id.w_filas, f)
+        }
+        return v
+    }
+}
+
+/** Un widget listo para dibujar: sus zonas y cómo se pinta (en claro y en oscuro). */
+class Pagina(val zonas: List<Zona>, val dibujo: Hoja.() -> Unit) {
+    /** Sin papel ni esquinas: solo lo dibujado, sobre el fondo de pantalla. */
+    var sinFondo = false
+    fun transparente() = apply { sinFondo = true }
+    fun bitmap(ctx: Context, w: Float, h: Float, noche: Boolean, s: Float): Bitmap = Hoja(ctx, w, h, noche, s).apply { dibujo(); if (!sinFondo) terminar() }.bm
+}
+
+private val ES = Locale("es", "ES")
+
+/** El lienzo de un widget: se dibuja en dp, con los colores del tema y las letras de la revista. */
+class Hoja(val ctx: Context, val w: Float, val h: Float, val noche: Boolean, s: Float) {
+    val bm: Bitmap = Bitmap.createBitmap(max(1, (w * s).roundToInt()), max(1, (h * s).roundToInt()), Bitmap.Config.ARGB_8888)
+    val c = Canvas(bm).apply { scale(bm.width / w, bm.height / h) }
+
+    // Los colores del tema que tengas (los de Pórtico o los de Atrio, invertidos o no), en claro o en oscuro
+    private val tonos = Skin.tonosPara(noche)
+    val papel = tonos.cPaper.toArgb()
+    val crudo = tonos.cCrudo.toArgb()
+    val tinta = tonos.cInk.toArgb()
+    val gris = tonos.cMuted.toArgb()
+    val linea = tonos.cLine.toArgb()
+    val arena = tonos.cSand.toArgb()
+    val acento = tonos.cGeneral().toArgb()
+    /** El acento sobre una foto oscura. */
+    val acentoFoto = Skin.tonosPara(true).cGeneral().toArgb()
+    val radio = 22f
+    /** El color del reborde (por defecto, el del texto; sobre una foto a sangre, blanco). */
+    var reborde: Int? = null
+
+    val fTitular: Typeface get() = Widgets.fuente(ctx, R.font.display_semibold)
+    val fCursiva: Typeface get() = Widgets.fuente(ctx, R.font.display_italic)
+    val fNegrita: Typeface get() = Widgets.fuente(ctx, R.font.body_bold)
+    val fTexto: Typeface get() = Widgets.fuente(ctx, R.font.body_medium)
+
+    /** Recorta las esquinas (suaves, con antialias) y traza el reborde: una línea fina del color del texto, metida hacia dentro. */
+    fun terminar() {
+        val m = 6f
+        c.drawRoundRect(RectF(m, m, w - m, h - m), radio - m, radio - m, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeWidth = 1.1f; color = reborde ?: tinta })
+        val p = Path().apply { addRoundRect(RectF(0f, 0f, w, h), radio, radio, Path.Direction.CW); fillType = Path.FillType.INVERSE_WINDING }
+        c.drawPath(p, Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) })
+    }
+
+    fun fondo(color: Int = papel) = c.drawColor(color)
+    fun lleno(color: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+
+    fun tp(f: Typeface, size: Float, color: Int, track: Float = 0f) =
+        TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.LINEAR_TEXT_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
+            typeface = f; textSize = size; this.color = color; letterSpacing = track; textLocale = ES
+        }
+
+    fun capa(t: CharSequence, p: TextPaint, ancho: Float, lineas: Int = Int.MAX_VALUE, inter: Float = 1f, al: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL): StaticLayout =
+        StaticLayout.Builder.obtain(t, 0, t.length, p, max(1, ancho.toInt())).setAlignment(al).setMaxLines(lineas)
+            .setEllipsize(TextUtils.TruncateAt.END).setLineSpacing(0f, inter).setIncludePad(false).build()
+
+    /** Pinta un texto ya compuesto; devuelve su alto. */
+    fun pon(l: Layout, x: Float, y: Float): Float { c.save(); c.translate(x, y); l.draw(c); c.restore(); return l.height.toFloat() }
+
+    /** Un titular tan grande como quepa (sin partir palabras) en [lineas] y [alto]. */
+    fun titular(
+        t: String, ancho: Float, alto: Float, maxS: Float, minS: Float, lineas: Int, color: Int = tinta,
+        f: Typeface = fTitular, inter: Float = 0.95f, al: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL
+    ): StaticLayout {
+        var s = maxS
+        while (true) {
+            val p = tp(f, s, color, -0.01f)
+            val palabra = t.split(' ').maxOfOrNull { p.measureText(it) } ?: 0f
+            val l = capa(t, p, ancho, Int.MAX_VALUE, inter, al)
+            if (l.lineCount <= lineas && l.height <= alto && palabra <= ancho) return l
+            if (s <= minS) return capa(t, p, ancho, max(1, min(lineas, (alto / (s * 1.15f)).toInt())), inter, al)
+            s = max(minS, s - max(0.5f, s * 0.06f))
+        }
+    }
+
+    /** Antetítulo: mayúsculas pequeñas, negras y espaciadas. Devuelve el alto. */
+    fun ante(t: String, x: Float, y: Float, ancho: Float, color: Int = tinta, size: Float = 9f, al: Layout.Alignment = Layout.Alignment.ALIGN_NORMAL): Float =
+        pon(capa(t.uppercase(ES), tp(fNegrita, size, color, 0.16f), ancho, 1, 1f, al), x, y)
+
+    fun anchoAnte(t: String, size: Float = 9f) = tp(fNegrita, size, tinta, 0.16f).measureText(t.uppercase(ES))
+
+    /** Cabecera de sección: el cuadradito de acento y el antetítulo. */
+    fun seccion(t: String, x: Float, y: Float, ancho: Float, color: Int = tinta, cuadro: Int = acento) {
+        c.drawRect(x, y + 1.6f, x + 7.4f, y + 9f, lleno(cuadro))
+        ante(t, x + 12f, y, ancho - 12f, color)
+    }
+
+    /** Una portada recortada (centrada) con esquinas redondas; sin imagen, una portada de letra. */
+    fun portada(img: Bitmap?, r: RectF, nombre: String, rad: Float = 9f, filo: Boolean = true) {
+        if (img == null || img.width <= 0) { tapa(r, nombre, rad); return }
+        val s = max(r.width() / img.width, r.height() / img.height)
+        val m = Matrix().apply { setScale(s, s); postTranslate(r.left + (r.width() - img.width * s) / 2, r.top + (r.height() - img.height * s) / 2) }
+        val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { shader = BitmapShader(img, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(m) } }
+        c.drawRoundRect(r, rad, rad, p)
+        if (filo) c.drawRoundRect(r, rad, rad, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 0.6f; color = 0x26000000 })
+    }
+
+    /** Portada de letra (la de los juegos sin imagen): la inicial grande en acento y el nombre. */
+    fun tapa(r: RectF, nombre: String, rad: Float = 9f) {
+        c.drawRoundRect(r, rad, rad, lleno(arena))
+        val ini = nombre.trim().firstOrNull()?.uppercase() ?: "·"
+        val big = capa(ini, tp(fTitular, r.height() * 0.42f, acento), r.width(), 1, 1f, Layout.Alignment.ALIGN_CENTER)
+        val conNombre = r.width() >= 56f && r.height() >= 70f
+        pon(big, r.left, r.top + (r.height() - big.height) / 2 - if (conNombre) r.height() * 0.1f else 0f)
+        if (conNombre) {
+            val n = capa(nombre, tp(fTitular, min(11f, r.width() / 6.5f), tinta), r.width() - 12f, 2, 0.95f, Layout.Alignment.ALIGN_CENTER)
+            pon(n, r.left + 6f, r.bottom - n.height - 8f)
+        }
+    }
+
+    /** Degradado vertical (para leer encima de una foto). */
+    fun velo(top: Float, bottom: Float, de: Int, a: Int, medio: Int? = null) {
+        val cs = if (medio != null) intArrayOf(de, medio, a) else intArrayOf(de, a)
+        val p = Paint().apply { shader = LinearGradient(0f, top, 0f, bottom, cs, null, Shader.TileMode.CLAMP) }
+        c.drawRect(0f, top, w, bottom, p)
+    }
+
+    /** «2/5 ›»: hay más, y tocando aquí se pasa al siguiente. */
+    fun paginas(i: Int, n: Int, xDer: Float, y: Float, color: Int = gris) {
+        if (n < 2) return
+        ante("${i + 1}/$n  ›", xDer - 80f, y, 80f, color, 9f, Layout.Alignment.ALIGN_OPPOSITE)
+    }
+}
+
+/** Lo que hay guardado en la app, como lo ven los widgets. */
+class WDatos(val ctx: Context) {
+    val todos: List<Juego> = Biblioteca.juegos.toList()
+    /** Lo último que has jugado (y, si aún no has jugado a nada, lo último que has añadido). */
+    val recientes: List<Juego> = todos.filter { it.ultima > 0 }.let { l -> recientes(l.ifEmpty { todos }) }
+    val sinTerminar: List<Juego> = todos.filter { !it.terminado }
+
+    /** «GBA · 3 H 20 MIN», «TERMINADO · NOTA 8,5»… */
+    fun estado(j: Juego): String = if (j.terminado) listOfNotNull("Terminado", if (j.nota > 0f) "nota " + notaTexto(j.nota) else null).joinToString(" · ")
+        else listOfNotNull(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else null).joinToString(" · ")
+
+    /** «Nintendo Game Boy Advance · Android · Web»: de dónde es. */
+    fun origen(j: Juego): String = when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Navegador" }
+}
+
+object Widgets {
+    const val ACCION = "com.gonzalo.portico.WIDGET"
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Volatile private var pendiente: Job? = null
+    private val fuentes = HashMap<Int, Typeface>()
+
+    fun clase(t: WTipo): Class<out AppWidgetProvider> = when (t) {
+        WTipo.JUGANDO -> WJugando::class.java
+        WTipo.ESTANTE -> WEstante::class.java
+        WTipo.PORTADA -> WPortada::class.java
+        WTipo.SIGUIENTE -> WSiguiente::class.java
+        WTipo.MARCA -> WMarca::class.java
+    }
+
+    @Synchronized fun fuente(ctx: Context, id: Int): Typeface =
+        fuentes.getOrPut(id) { runCatching { ctx.resources.getFont(id) }.getOrDefault(Typeface.SERIF) }
+
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences("portico_widgets", Context.MODE_PRIVATE)
+    private fun estado(ctx: Context, id: Int, k: String, def: Int) = prefs(ctx).getInt("${id}_$k", def)
+
+    /** Lo que se toca dentro del widget: el siguiente, otra propuesta. */
+    fun accion(ctx: Context, id: Int, op: String) {
+        val p = prefs(ctx)
+        if (op == "sig") p.edit().putInt("${id}_i", p.getInt("${id}_i", 0) + 1).apply()
+    }
+
+    fun olvidar(ctx: Context, ids: IntArray) {
+        val ed = prefs(ctx).edit()
+        ids.forEach { id -> ed.remove("${id}_i") }
+        ed.apply()
+    }
+
+    /** Lee lo guardado (el tema, la biblioteca y los colores de Atrio): un widget puede pintarse sin que la app esté abierta. */
+    fun preparar(ctx: Context) {
+        Catalogo.cargar(ctx); Skin.cargar(ctx); Ajustes.cargar(ctx); Biblioteca.cargar(ctx)
+        if (TemaAtrio.tonos == null) TemaAtrio.cargarGuardado(ctx)
+    }
+
+    /** Repinta esos widgets (en segundo plano: las portadas pueden venir de internet). */
+    fun pintar(ctx: Context, tipo: WTipo, ids: IntArray, res: BroadcastReceiver.PendingResult?) {
+        val app = ctx.applicationContext
+        scope.launch {
+            try {
+                withTimeoutOrNull(9_000) {
+                    preparar(app)
+                    runCatching { TemaAtrio.refrescar(app) }
+                    ids.forEach { id -> try { pintarUno(app, tipo, id) } catch (e: CancellationException) { throw e } catch (e: Exception) { } }
+                }
+            } finally { res?.finish() }
+        }
+    }
+
+    /** Algo cambió en la app (un juego, el tema, los colores de Atrio): se repintan los widgets que haya, sin prisa. */
+    fun pedir(ctx: Context) {
+        val app = ctx.applicationContext
+        val mgr = runCatching { AppWidgetManager.getInstance(app) }.getOrNull() ?: return
+        val hay = WTipo.entries.mapNotNull { t ->
+            runCatching { mgr.getAppWidgetIds(ComponentName(app, clase(t))) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { t to it }
+        }
+        if (hay.isEmpty()) return
+        pendiente?.cancel()
+        pendiente = scope.launch {
+            delay(1_200)
+            hay.forEach { (t, ids) -> ids.forEach { id -> try { pintarUno(app, t, id) } catch (e: CancellationException) { throw e } catch (e: Exception) { } } }
+        }
+    }
+
+    suspend fun pintarUno(ctx: Context, tipo: WTipo, id: Int) {
+        val mgr = AppWidgetManager.getInstance(ctx)
+        val (w, h) = tamano(ctx, mgr.getAppWidgetOptions(id), tipo)
+        mgr.updateAppWidget(id, vistas(ctx, tipo, id, w, h))
+    }
+
+    /** Claro, oscuro, o null = como el sistema (se mandan los dos y el sistema elige). Con los colores de Atrio, que no dependen de eso, uno solo. */
+    fun noche(): Boolean? = if (Skin.coloresFijos) false else when (Modo.eleccion) { 1 -> false; 2 -> true; else -> null }
+
+    /** El tamaño del widget en dp (en vertical: el ancho mínimo y el alto máximo, como hace Android). */
+    fun tamano(ctx: Context, o: Bundle?, tipo: WTipo): Pair<Float, Float> {
+        val vertical = ctx.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
+        val w = o?.getInt(if (vertical) AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH else AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH) ?: 0
+        val h = o?.getInt(if (vertical) AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT else AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
+        val (dw, dh) = porDefecto(tipo)
+        return (if (w > 40) w.toFloat() else dw) to (if (h > 40) h.toFloat() else dh)
+    }
+
+    fun porDefecto(t: WTipo): Pair<Float, Float> = when (t) {
+        WTipo.PORTADA -> 330f to 250f
+        WTipo.MARCA -> 330f to 80f
+        else -> 330f to 165f
+    }
+
+    /** Píxeles por dp del dibujo: los de la pantalla, sin pasarse de memoria (Android limita lo que pesa un widget). */
+    fun escala(ctx: Context, w: Float, h: Float, copias: Int): Float {
+        val d = ctx.resources.displayMetrics.density
+        val tope = if (copias == 2) 1_100_000f else 1_800_000f
+        return min(d, sqrt(tope / (w * h)))
+    }
+
+    suspend fun vistas(ctx: Context, tipo: WTipo, id: Int, w: Float, h: Float): RemoteViews {
+        val pag = componer(ctx, tipo, id, w, h)
+        val rv = RemoteViews(ctx.packageName, R.layout.w_marco)
+        when (val n = noche()) {
+            null -> {
+                val s = escala(ctx, w, h, 2)
+                rv.setImageViewBitmap(R.id.w_dia, pag.bitmap(ctx, w, h, false, s))
+                rv.setImageViewBitmap(R.id.w_noche, pag.bitmap(ctx, w, h, true, s))
+            }
+            else -> rv.setImageViewBitmap(R.id.w_img, pag.bitmap(ctx, w, h, n, escala(ctx, w, h, 1)))
+        }
+        val d = ctx.resources.displayMetrics.density
+        pag.zonas.forEach { rv.addView(R.id.w_zonas, it.vista(ctx, w, h, d)) }
+        return rv
+    }
+
+    suspend fun componer(ctx: Context, tipo: WTipo, id: Int, w: Float, h: Float): Pagina {
+        val d = WDatos(ctx)
+        return when (tipo) {
+            WTipo.JUGANDO -> jugando(d, id, w, h)
+            WTipo.ESTANTE -> estante(d, w, h)
+            WTipo.PORTADA -> enPortada(d, id, w, h)
+            WTipo.SIGUIENTE -> siguiente(d, id, w, h)
+            WTipo.MARCA -> marca(d, w, h)
+        }
+    }
+
+    // ------------------------------------------------------------------ toques
+
+    private const val PI = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
+    private fun op(ctx: Context, tipo: WTipo, id: Int, op: String): PendingIntent {
+        val i = Intent(ctx, clase(tipo)).setAction(ACCION).setData(Uri.parse("portico://w/$id/$op"))
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id).putExtra("op", op)
+        return PendingIntent.getBroadcast(ctx, id, i, PI)
+    }
+
+    /** Abre Pórtico en su portada. */
+    fun abrirApp(ctx: Context): PendingIntent {
+        val i = Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        return PendingIntent.getActivity(ctx, 1, i, PI)
+    }
+
+    /** Abre la ficha de un juego. */
+    fun abrirFicha(ctx: Context, id: String): PendingIntent {
+        val i = Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setData(Uri.parse("portico://ficha/$id"))
+            .putExtra("ficha", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        return PendingIntent.getActivity(ctx, 2, i, PI)
+    }
+
+    /** Lanza el juego directamente (por la misma pantalla sin pantalla de los accesos directos). */
+    fun jugar(ctx: Context, id: String): PendingIntent {
+        val i = LanzarActivity.intent(ctx, id).setData(Uri.parse("portico://jugar/$id")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(ctx, 3, i, PI)
+    }
+
+    // ------------------------------------------------------------------ imágenes
+
+    private fun px(ctx: Context, dp: Float) = (dp * ctx.resources.displayMetrics.density).roundToInt().coerceIn(32, 1400)
+
+    private fun decodificar(path: String, lado: Int): Bitmap? {
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, o)
+        if (o.outWidth <= 0) return null
+        var s = 1
+        while (min(o.outWidth, o.outHeight) / (s * 2) >= lado) s *= 2
+        return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = s })
+    }
+
+    /** La imagen de un juego a unos [lado] píxeles: la que elegiste, el icono de la app o la caja de libretro; si no llega, null (portada de letra). */
+    suspend fun imagen(ctx: Context, j: Juego, lado: Int): Bitmap? = withContext(Dispatchers.IO) {
+        try {
+            if (j.portada.isNotBlank()) decodificar(j.portada, lado)?.let { return@withContext it }
+            when (j.tipo) {
+                Tipo.APP -> runCatching { ctx.packageManager.getApplicationIcon(j.paquete).aBitmap(max(lado, 96)) }.getOrNull()
+                Tipo.ROM -> if (!Ajustes.portadasLibretro) null else {
+                    for (u in urlsLibretro(j)) {
+                        val b = withTimeoutOrNull(4_500) {
+                            val r = ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(u).allowHardware(false).size(lado).build())
+                            ((r as? SuccessResult)?.drawable as? BitmapDrawable)?.bitmap
+                        }
+                        if (b != null) return@withContext b
+                    }
+                    null
+                }
+                Tipo.WEB -> null
+            }
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+    }
+
+    // ------------------------------------------------------------------ Sigue jugando
+
+    /** Un widget sin nada que enseñar todavía: lo dice con la misma letra y lleva a donde empezar. */
+    private fun vacio(ctx: Context, sec: String, titulo: String, texto: String, w: Float, h: Float): Pagina =
+        Pagina(listOf(Zona(0f, 0f, w, h, abrirApp(ctx), titulo))) {
+            fondo()
+            val pad = 16f
+            seccion(sec, pad, pad, w - 2 * pad)
+            val l = titular(titulo, w - 2 * pad, h * 0.42f, 28f, 13f, 3)
+            pon(l, pad, pad + 22f)
+            val t = capa(texto, tp(fTexto, 11.5f, gris), w - 2 * pad, max(1, ((h - pad * 2 - 30f - l.height) / 15f).toInt()), 1.05f)
+            pon(t, pad, pad + 28f + l.height)
+        }
+
+    private suspend fun jugando(d: WDatos, id: Int, w: Float, h: Float): Pagina {
+        val ctx = d.ctx
+        val lista = d.recientes
+        if (lista.isEmpty()) return vacio(ctx, "Sigue jugando", "Nada que jugar todavía", "Añade un juego a Pórtico y lo tendrás aquí, a un toque de jugar.", w, h)
+        val i = Math.floorMod(estado(ctx, id, "i", 0), lista.size)
+        val e = lista[i]
+        val compacto = w < 200f && h < 200f
+        val img = imagen(ctx, e, px(ctx, if (compacto) max(w, h) else h * 0.9f))
+        val accion = "Jugar  →"
+        val horas = if (e.msJugados >= 60_000) tiempoDe(e.msJugados) else ""
+        val zonas = mutableListOf(
+            Zona(0f, 0f, w, h, abrirFicha(ctx, e.id), "Abrir ${e.titulo}"),
+            Zona(0f, h - 44f, w * 0.5f, 44f, jugar(ctx, e.id), "Jugar a ${e.titulo}")
+        )
+        if (lista.size > 1) zonas += Zona(w - 72f, 0f, 72f, 42f, op(ctx, WTipo.JUGANDO, id, "sig"), "Otro juego")
+        return Pagina(zonas) {
+            val pad = if (h < 90f) 12f else 14f
+            when {
+                compacto -> {
+                    // La portada a sangre y el título encima
+                    portada(img, RectF(0f, 0f, w, h), e.titulo, 0f, false); reborde = 0xCCFFFFFF.toInt()
+                    velo(h * 0.2f, h, 0x00000000, 0xF0000000.toInt(), 0x88000000.toInt())
+                    velo(0f, 52f, 0xB0000000.toInt(), 0x00000000)
+                    seccion("Sigue jugando", pad, pad, w - 2 * pad, 0xFFFFFFFF.toInt(), acentoFoto)
+                    paginas(i, lista.size, w - pad, pad, 0xCCFFFFFF.toInt())
+                    val bottom = h - pad - 4f
+                    ante(accion, pad, bottom - 8f, w * 0.6f, acentoFoto, 8.5f)
+                    val l = titular(e.titulo, w - 2 * pad, h * 0.42f, 24f, 12f, 3, 0xFFFFFFFF.toInt())
+                    pon(l, pad, bottom - 20f - l.height)
+                }
+                h > w * 1.15f -> {
+                    // Alto: portada arriba y el título debajo
+                    fondo()
+                    seccion("Sigue jugando", pad, pad, w - 2 * pad - 50f)
+                    paginas(i, lista.size, w - pad, pad)
+                    val top = pad + 20f
+                    val ch = h * 0.5f - top
+                    val cw = min(ch * 0.66f, w * 0.55f)
+                    portada(img, RectF(pad, top, pad + cw, top + ch), e.titulo)
+                    val x0 = pad + cw + 10f
+                    if (horas.isNotEmpty()) pon(capa(horas, tp(fTitular, min(26f, (w - x0 - pad) / 3f), acento), w - x0 - pad + 4f, 1), x0, top + ch - 30f)
+                    var y = top + ch + 12f
+                    val l = titular(e.titulo, w - 2 * pad, h - y - pad - 26f - 16f, 30f, 13f, 4)
+                    y += pon(l, pad, y) + 3f
+                    pon(capa(d.origen(e), tp(fCursiva, 12f, gris), w - 2 * pad, 1), pad, y)
+                    ante(accion, pad, h - pad - 11f, w - 2 * pad, acento)
+                }
+                else -> {
+                    // Ancho: portada a la izquierda; a la derecha, la sección arriba, el pie abajo y el titular entre los dos
+                    fondo()
+                    val ch = h - 2 * pad
+                    val cw = min(ch * 0.66f, w * 0.36f)
+                    portada(img, RectF(pad, pad, pad + cw, pad + ch), e.titulo)
+                    val x0 = pad + cw + 14f
+                    val rw = w - x0 - pad
+                    seccion("Sigue jugando", x0, pad + 1f, rw)
+                    paginas(i, lista.size, w - pad, pad + 1f)
+                    val altoAnte = capa("L", tp(fNegrita, 9f, tinta, 0.16f), 40f, 1).height.toFloat()
+                    val bajo = h < 110f
+                    val pieY = if (bajo) h - pad - altoAnte else h - pad - 17f
+                    ante(accion, x0, pieY, rw, acento)
+                    if (horas.isNotEmpty()) ante(horas, x0, pieY, rw, gris, 9f, Layout.Alignment.ALIGN_OPPOSITE)
+                    if (!bajo) c.drawRect(x0, h - pad - 22f - 3f, w - pad, h - pad - 21.4f - 3f, lleno(linea))
+                    val arriba = pad + 1f + altoAnte
+                    val aire = if (bajo) 7f else 10f
+                    val hueco = pieY - arriba - 2 * aire - if (bajo) 0f else 4f
+                    val autor = if (h >= 130f) capa(d.origen(e), tp(fCursiva, 12.5f, gris), rw, 1) else null
+                    val altoAutor = autor?.let { it.height + 4f } ?: 0f
+                    val l = titular(e.titulo, rw, hueco - altoAutor, (h * 0.19f).coerceIn(30f, 46f), if (bajo) 12f else 13f, if (bajo) 1 else 3)
+                    val y = arriba + (pieY - arriba - l.height - altoAutor) / 2
+                    pon(l, x0, y)
+                    autor?.let { pon(it, x0, y + l.height + 4f) }
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ Recientes (estantería)
+
+    private suspend fun estante(d: WDatos, w: Float, h: Float): Pagina {
+        val ctx = d.ctx
+        val pad = 14f
+        val todas = d.recientes
+        if (todas.isEmpty()) return vacio(ctx, "Recientes", "Nada jugado todavía", "Lo último que juegues aparecerá aquí en fila, como en una estantería.", w, h)
+        val bajo = h < 150f
+        val n = ((w - 2 * pad) / (if (bajo) 140f else 78f)).toInt().coerceIn(1, 6).coerceAtMost(todas.size)
+        val items = todas.take(n)
+        val slot = (w - 2 * pad) / n
+        val top = pad + 22f
+        val textos = if (bajo) 0f else 44f
+        val ch = h - top - pad - textos
+        val imgs = items.map { imagen(ctx, it, px(ctx, ch)) }
+        val zonas = listOf(
+            Zona(0f, 0f, w, top, abrirApp(ctx), "Abrir Pórtico"),
+            // Tocar un juego lo lanza: es un launcher
+            Zona(pad, top, w - 2 * pad, h - top, null, "", listOf(items.map { jugar(ctx, it.id) to "Jugar a ${it.titulo}" }))
+        )
+        return Pagina(zonas) {
+            fondo()
+            seccion("Recientes", pad, pad, w - 2 * pad)
+            pon(capa("Pórtico", tp(fTitular, 13f, tinta), 80f, 1, 1f, Layout.Alignment.ALIGN_OPPOSITE), w - pad - 80f, pad - 3f)
+            c.drawRect(pad, pad + 14.5f, w - pad, pad + 15.2f, lleno(linea))
+            items.forEachIndexed { k, e ->
+                val gap = 5f
+                val x = pad + slot * k + gap
+                val cw = min(slot - 2 * gap, ch * 0.68f)
+                portada(imgs[k], RectF(x, top, x + cw, top + ch), e.titulo, 8f)
+                if (bajo) {
+                    val tx = x + cw + 8f
+                    val tw = slot - 2 * gap - cw - 8f
+                    val est = capa(d.estado(e).uppercase(ES), tp(fNegrita, 7.5f, acento, 0.16f), tw, 2)
+                    val l = titular(e.titulo, tw, ch - est.height - 4f, 15f, 10f, 3)
+                    pon(l, tx, top)
+                    pon(est, tx, top + ch - est.height)
+                } else {
+                    val tw = slot - 2 * gap
+                    val l = capa(e.titulo, tp(fTitular, 12f, tinta, -0.01f), tw, 2, 0.95f)
+                    pon(l, x, top + ch + 5f)
+                    ante(d.estado(e), x, top + ch + 7f + l.height, tw, acento, 7.5f)
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ En portada
+
+    private suspend fun enPortada(d: WDatos, id: Int, w: Float, h: Float): Pagina {
+        val ctx = d.ctx
+        val items = d.recientes
+        if (items.isEmpty()) return vacio(ctx, "En portada", "Tu revista empieza aquí", "Añade o juega algo y saldrá en la portada.", w, h)
+        val i = Math.floorMod(estado(ctx, id, "i", 0), items.size)
+        val e = items[i]
+        val img = imagen(ctx, e, px(ctx, max(w, h)))
+        val zonas = mutableListOf(
+            Zona(0f, 0f, w, h, abrirFicha(ctx, e.id), e.titulo),
+            Zona(w - 110f, h - 40f, 110f, 40f, jugar(ctx, e.id), "Jugar a ${e.titulo}")
+        )
+        if (items.size > 1) zonas += Zona(w - 80f, 0f, 80f, 52f, op(ctx, WTipo.PORTADA, id, "sig"), "Siguiente")
+        val fecha = LocalDate.now().let { "${it.dayOfMonth} ${it.month.getDisplayName(TextStyle.SHORT, ES).trimEnd('.')} ${it.year}" }
+        return Pagina(zonas) {
+            val pad = 16f
+            val blanco = 0xFFFFFFFF.toInt()
+            if (img != null) {
+                portada(img, RectF(0f, 0f, w, h), e.titulo, 0f, false); reborde = 0xCCFFFFFF.toInt()
+                velo(0f, min(96f, h * 0.42f), 0xC8000000.toInt(), 0x00000000, 0x70000000)
+                velo(h * 0.18f, h, 0x00000000, 0xF2000000.toInt(), 0x99000000.toInt())
+            } else { fondo(0xFF15120F.toInt()); reborde = 0xCCFFFFFF.toInt() }
+            // Cabecera de la revista
+            val mast = capa("Pórtico", tp(fTitular, if (h < 180f) 22f else 28f, blanco, -0.02f), w * 0.6f, 1)
+            pon(mast, pad, pad - 4f)
+            val fw = w - 2 * pad - mast.getLineWidth(0) - 8f
+            ante(if (fw < anchoAnte(fecha, 8.5f)) fecha.substringBeforeLast(' ') else fecha, w - pad - fw, pad, fw, 0xDDFFFFFF.toInt(), 8.5f, Layout.Alignment.ALIGN_OPPOSITE)
+            paginas(i, items.size, w - pad, pad + 13f, 0xBBFFFFFF.toInt())
+            c.drawRect(pad, pad + mast.height + 1f, w - pad, pad + mast.height + 1.8f, lleno(0x66FFFFFF))
+            // El titular
+            val meta = d.origen(e).takeIf { h >= 170f }
+            var y = h - pad
+            if (meta != null) { val ml = capa(meta, tp(fCursiva, 12.5f, 0xCCFFFFFF.toInt()), w - 2 * pad - 90f, 1); y -= ml.height; pon(ml, pad, y); y -= 4f }
+            val l = titular(e.titulo, w - 2 * pad, h * 0.46f, if (w > 280f) 40f else 30f, 14f, 3, blanco, inter = 0.92f)
+            y -= l.height
+            pon(l, pad, y)
+            // El estado, en una etiqueta de acento (se lee sobre cualquier foto)
+            val est = d.estado(e)
+            val ew = min(w - 2 * pad, anchoAnte(est, 8.5f) + 12f)
+            c.drawRoundRect(pad, y - 19f, pad + ew, y - 4f, 4f, 4f, lleno(acento))
+            ante(est, pad + 6f, y - 16.5f, ew - 10f, 0xFFFFFFFF.toInt(), 8.5f)
+            // Jugar
+            ante("Jugar  →", w - pad - 90f, h - pad - 10f, 90f, acentoFoto, 9f, Layout.Alignment.ALIGN_OPPOSITE)
+        }
+    }
+
+    // ------------------------------------------------------------------ ¿Y ahora qué?
+
+    private suspend fun siguiente(d: WDatos, id: Int, w: Float, h: Float): Pagina {
+        val ctx = d.ctx
+        // Algo de tu biblioteca que no hayas terminado (mejor si aún no lo has abierto), en un orden revuelto pero fijo
+        val sinProbar = d.sinTerminar.filter { it.veces == 0 }
+        val lista = (sinProbar.ifEmpty { d.sinTerminar }).sortedBy { (it.id.hashCode().toLong() * 2654435761L) and 0xFFFFFF }
+        if (lista.isEmpty()) return vacio(ctx, "¿Y ahora qué?", "Nada pendiente", "Añade juegos a Pórtico y aquí te propondré cuál empezar.", w, h)
+        // Una propuesta distinta cada día (y la que quieras con «Otra»)
+        val i = Math.floorMod(LocalDate.now().toEpochDay() + estado(ctx, id, "i", 0), lista.size.toLong()).toInt()
+        val e = lista[i]
+        val compacto = w < 200f && h < 200f
+        val img = imagen(ctx, e, px(ctx, if (compacto) max(w, h) else h))
+        val pad = 14f
+        val zonas = mutableListOf(
+            Zona(0f, 0f, w, h, abrirFicha(ctx, e.id), e.titulo),
+            Zona(0f, h - 40f, w * 0.55f, 40f, jugar(ctx, e.id), "Jugar a ${e.titulo}")
+        )
+        if (lista.size > 1) zonas += Zona(w - 86f, h - 40f, 86f, 40f, op(ctx, WTipo.SIGUIENTE, id, "sig"), "Otra propuesta")
+        return Pagina(zonas) {
+            if (compacto) {
+                portada(img, RectF(0f, 0f, w, h), e.titulo, 0f, false); reborde = 0xCCFFFFFF.toInt()
+                velo(h * 0.15f, h, 0x00000000, 0xF0000000.toInt(), 0x99000000.toInt())
+                velo(0f, 46f, 0xA0000000.toInt(), 0x00000000)
+                seccion("¿Y ahora qué?", pad, pad, w - 2 * pad, 0xFFFFFFFF.toInt(), acentoFoto)
+                val l = titular(e.titulo, w - 2 * pad, h * 0.42f, 24f, 12f, 3, 0xFFFFFFFF.toInt())
+                pon(l, pad, h - pad - 22f - l.height)
+                ante("Jugar  →", pad, h - pad - 11f, w * 0.6f, acentoFoto, 8.5f)
+                if (lista.size > 1) ante("Otra  ›", w - pad - 60f, h - pad - 11f, 60f, 0xCCFFFFFF.toInt(), 8.5f, Layout.Alignment.ALIGN_OPPOSITE)
+                return@Pagina
+            }
+            fondo()
+            val ch = h - 2 * pad
+            val cw = min(ch * 0.68f, w * 0.34f)
+            portada(img, RectF(pad, pad, pad + cw, pad + ch), e.titulo)
+            val x0 = pad + cw + 14f
+            val rw = w - x0 - pad
+            seccion("¿Y ahora qué?", x0, pad + 1f, rw)
+            val y0 = pad + 20f
+            val l = titular(e.titulo, rw, h - y0 - pad - 30f - 16f, (h * 0.19f).coerceIn(30f, 46f), 13f, 3)
+            pon(l, x0, y0)
+            pon(capa(d.origen(e), tp(fCursiva, 12f, gris), rw, 1), x0, y0 + l.height + 4f)
+            c.drawRect(x0, h - pad - 22f, w - pad, h - pad - 21.4f, lleno(linea))
+            ante("Jugar  →", x0, h - pad - 12f, rw * 0.7f, acento)
+            if (lista.size > 1) ante("Otra  ›", w - pad - 70f, h - pad - 12f, 70f, gris, 9f, Layout.Alignment.ALIGN_OPPOSITE)
+        }
+    }
+
+    // ------------------------------------------------------------------ La marca
+
+    private fun marca(d: WDatos, w: Float, h: Float): Pagina {
+        val ctx = d.ctx
+        val hoy = LocalDate.now()
+        val fecha = "${hoy.dayOfWeek.getDisplayName(TextStyle.FULL, ES)} ${hoy.dayOfMonth} de ${hoy.month.getDisplayName(TextStyle.FULL, ES)}"
+        return Pagina(listOf(Zona(0f, 0f, w, h, abrirApp(ctx), "Abrir Pórtico"))) {
+            // Solo la palabra, sobre el fondo de pantalla (con una sombra suave para que se lea en cualquiera)
+            val color = if (noche) 0xFFF6F1E7.toInt() else tinta
+            val sombra = if (noche) 0x99000000.toInt() else 0x55FFFFFF
+            val pie = if (h >= 84f) 16f else 0f
+            val p = tp(fTitular, 10f, color, -0.03f)
+            val ancho = p.measureText("PÓRTICO")
+            val cuadro = 0.16f
+            var s = min((w - 8f) / (ancho / 10f * (1f + cuadro)), (h - pie - 4f) / 0.95f)
+            s = s.coerceAtLeast(10f)
+            val tpa = tp(fTitular, s, color, -0.03f).apply { setShadowLayer(s * 0.06f, 0f, s * 0.02f, sombra) }
+            val fm = tpa.fontMetrics
+            val tw = tpa.measureText("PÓRTICO")
+            val total = tw + s * cuadro
+            val x = (w - total) / 2
+            val capH = s * 0.72f
+            val base = (h - pie) / 2 + capH / 2
+            c.drawText("PÓRTICO", x, base, tpa)
+            // El punto de la revista: un cuadradito de acento
+            val q = s * 0.12f
+            c.drawRect(x + tw + s * 0.03f, base - q, x + tw + s * 0.03f + q, base, lleno(acento).apply { setShadowLayer(s * 0.04f, 0f, s * 0.015f, sombra) })
+            if (pie > 0f) {
+                val l = capa(("Tus juegos · $fecha").uppercase(ES), tp(fNegrita, 8.5f, color, 0.2f).apply { setShadowLayer(2f, 0f, 0.6f, sombra) }, w - 8f, 1, 1f, Layout.Alignment.ALIGN_CENTER)
+                pon(l, 4f, min(h - l.height - 2f, base + fm.descent * 0.4f + 2f))
+            }
+        }.transparente()
+    }
+}

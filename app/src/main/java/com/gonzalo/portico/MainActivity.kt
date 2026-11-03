@@ -6,12 +6,23 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
+    /** La ficha que pide abrir un widget (se consume al abrirla). */
+    private var fichaPedida by androidx.compose.runtime.mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent); fichaPedida = intent.getStringExtra("ficha")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         iniciar(this)
+        fichaPedida = intent?.getStringExtra("ficha")
         setContent {
             PorticoTheme {
                 // Iconos de la barra de estado claros u oscuros según el fondo
@@ -22,7 +33,7 @@ class MainActivity : ComponentActivity() {
                         navigationBarStyle = if (oscuro) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT) else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                     )
                 }
-                PorticoApp()
+                PorticoApp(fichaPedida) { fichaPedida = null }
             }
         }
     }

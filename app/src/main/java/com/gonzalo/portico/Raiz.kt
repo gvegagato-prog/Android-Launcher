@@ -25,7 +25,7 @@ enum class Destino { Portada, Juegos, Roms, Android, Web, Favoritos, Sistemas, A
 
 /** La app: portada de revista y sus secciones, la ficha de un juego por encima y la hoja de «añadir». */
 @Composable
-fun PorticoApp() {
+fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
     val ctx = LocalContext.current
     var destino by rememberSaveable { mutableIntStateOf(0) }
     var fichaId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -34,6 +34,8 @@ fun PorticoApp() {
     var tipoInicial by remember { mutableStateOf<Tipo?>(null) }
     val filtro = remember { FiltroBib() }
     val d = Destino.entries[destino]
+    // Un widget pide abrir la ficha de un juego
+    LaunchedEffect(fichaPedida) { if (fichaPedida != null && Biblioteca.por(fichaPedida) != null) { fichaId = fichaPedida; destino = 0 }; if (fichaPedida != null) alAbrirPedida() }
 
     fun jugar(j: Juego) { Lanzador.lanzar(ctx, j)?.let { Lanzador.aviso(ctx, it) } }
     fun abrirAnadir(t: Tipo?) { tipoInicial = t; anadir = true }

@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Icono de Pórtico: tres arcos seguidos (un pórtico). El del centro, más alto y con la luz de Atrio por dentro. -->
+<!-- Icono de Pórtico: el marco de Atrio (la puerta), pero bajo y cuadrado, y con la luz roja por dentro en vez de arena.
+     Mismo trazo claro, mismo difuminado interior (de transparente a color) y la misma base, dentro de la zona segura. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:pathData="M45.6,72 V42.2 A8.4,8.4 0 0 1 62.4,42.2 V72 Z">
+    <!-- La luz roja que llena el marco: se difumina de transparente (arriba) a rojo (abajo) -->
+    <path android:pathData="M29.5,43.5 H78.5 V64.5 H29.5 Z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="54" android:startY="34" android:endX="54" android:endY="72"
-                android:startColor="#00FF7A50" android:endColor="#CCFF7A50" />
+            <gradient android:type="linear" android:startX="54" android:startY="43.5" android:endX="54" android:endY="64.5"
+                android:startColor="#00F0503C" android:endColor="#E6F0503C" />
         </aapt:attr>
     </path>
-    <path android:strokeColor="#EEF1F5" android:strokeWidth="4.4" android:strokeLineCap="butt" android:pathData="M43.4,72 V42 A10.6,10.6 0 0 1 64.6,42 V72" />
-    <path android:strokeColor="#8FB3D9" android:strokeWidth="3.6" android:strokeLineCap="butt" android:pathData="M30.8,72 V54.4 A6.2,6.2 0 0 1 43.2,54.4" />
-    <path android:strokeColor="#8FB3D9" android:strokeWidth="3.6" android:strokeLineCap="butt" android:pathData="M64.8,72 V54.4 A6.2,6.2 0 0 1 77.2,54.4 V72" />
-    <path android:strokeColor="#8FB3D9" android:strokeWidth="3.2" android:strokeLineCap="butt" android:pathData="M27.5,74.8 H80.5" />
+    <!-- El marco -->
+    <path android:strokeColor="#EEF1F5" android:strokeWidth="5" android:strokeLineJoin="miter" android:strokeLineCap="butt" android:pathData="M27,41 H81 V67 H27 Z" />
+    <!-- La base -->
+    <path android:strokeColor="#8FB3D9" android:strokeWidth="3.2" android:strokeLineCap="butt" android:pathData="M24,71 H84" />
 </vector>

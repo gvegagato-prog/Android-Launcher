@@ -42,6 +42,18 @@ Los temas, paletas, acentos y estilos son los mismos que los de Atrio (Ajustes �
 **Colores de Atrio** (Ajustes → Apariencia → Colores de): Pórtico lee los colores que tienes puestos en Atrio (paleta, fondo de color, colores a mano, acento, claro u oscuro) y los usa; con **Invertir** los pone del revés: el fondo con el color del texto y el texto con el del fondo, y el acento se mantiene.
 Para eso Atrio 1.0.7 (o más nueva) ofrece sus colores en `content://com.gonzalo.gamerate.tema/colores` (solo colores, ningún dato tuyo). Sin esa versión, o sin Atrio, Pórtico usa su propia paleta y te lo dice en Ajustes.
 
+## Widgets
+
+Cinco widgets, copiados de los de Atrio (mismo lienzo: papel, titulares en Fraunces, portadas recortadas, esquinas redondas y el reborde fino de tinta)
+pero con tus juegos: **Sigue jugando**, **Recientes** (la estantería; tocar un juego lo lanza), **En portada**, **¿Y ahora qué?** (una propuesta distinta cada día) y
+la **marca** «PÓRTICO.». Usan los colores del tema que tengas puesto (los de Pórtico o los de Atrio, invertidos o no) y se repintan cuando cambias el tema, los
+colores de Atrio o la biblioteca. Con los colores de Atrio no dependen de claro/oscuro; con los de Pórtico, «como el sistema» lleva los dos dibujos y se ve el que toca.
+Vistas previas en `docs/widgets/`.
+
+## Icono
+
+El marco de Atrio (la puerta) en versión baja y cuadrada, con la luz roja por dentro en vez de arena, sobre el mismo azul noche con su difuminado interior.
+
 ## Cómo funciona el lanzamiento (y qué no está probado)
 
 Los comandos para abrir cada emulador **no están escritos a mano**: salen de los archivos de ES-DE para Android
