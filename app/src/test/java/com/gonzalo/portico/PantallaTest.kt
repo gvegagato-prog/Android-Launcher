@@ -281,4 +281,48 @@ class PantallaTest {
     @Test fun losMenusTienenTodosElMismoTexto() {
         assertEquals(12f, MENU_SP.value, 0f); assertEquals(1.4f, MENU_ESPACIO.value, 0f)
     }
+
+    @Test fun elTamanoDeLaFotoEnteraNoSeRecortaALaFormaDelHueco() {
+        // Una foto panorámica 2:1 en un hueco cuadrado: se dibuja entera (el doble de ancha que alta), no recortada a un cuadrado
+        val (w, h) = tamanoEncuadre(100f, 100f, 400f, 200f, 1f)
+        assertEquals(200f, w, 0.01f); assertEquals(100f, h, 0.01f)
+        // Una foto alta 1:2: ancho justo y el doble de alta
+        val (w2, h2) = tamanoEncuadre(100f, 100f, 200f, 400f, 1f)
+        assertEquals(100f, w2, 0.01f); assertEquals(200f, h2, 0.01f)
+        assertEquals(400f, tamanoEncuadre(100f, 100f, 400f, 200f, 2f).first, 0.01f)
+    }
+
+    @Test fun sePuedeLlevarAlHuecoCualquierParteDeLaFoto() {
+        // Foto de 400×200 en franjas (rojo | verde | azul: 0-100, 100-300, 300-400) en un hueco cuadrado de 100 dp: tiene que dibujarse ENTERA
+        // (200×100 dp, con su forma) y poder moverse para enseñar cualquier parte; no recortada a un cuadrado ni deformada.
+        coil.Coil.setImageLoader(coil.ImageLoader.Builder(ctx).dispatcher(kotlinx.coroutines.Dispatchers.Unconfined).allowHardware(false).build())
+        val bmp = android.graphics.Bitmap.createBitmap(400, 200, android.graphics.Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(bmp).apply {
+            drawColor(0xFF00FF00.toInt())
+            drawRect(0f, 0f, 100f, 200f, android.graphics.Paint().apply { color = 0xFFFF0000.toInt() })
+            drawRect(300f, 0f, 400f, 200f, android.graphics.Paint().apply { color = 0xFF0000FF.toInt() })
+        }
+        val f = java.io.File(ctx.cacheDir, "franjas.png").apply { outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
+        val ox = androidx.compose.runtime.mutableFloatStateOf(0f)
+        rule.setContent { Box(Modifier.size(100.dp).testTag("hueco")) { ImagenEncuadrada(f, 1f, ox.floatValue, 0f, Modifier.fillMaxSize()) } }
+        // El color en un punto del hueco (fracción del ancho; a media altura)
+        fun en(frac: Float): Int {
+            rule.waitForIdle(); Thread.sleep(400); rule.waitForIdle()
+            val b = rule.onNodeWithTag("hueco").fetchSemanticsNode().boundsInRoot
+            val ruta = "build/outputs/roborazzi/franjas_test.png"
+            com.github.takahirom.roborazzi.captureScreenRoboImage(ruta)
+            val im = android.graphics.BitmapFactory.decodeFile(ruta)
+            return im.getPixel((b.left + (b.right - b.left) * frac).toInt(), ((b.top + b.bottom) / 2).toInt())
+        }
+        fun rojo(c: Int) = (c shr 16 and 0xFF) > 200 && (c shr 8 and 0xFF) < 60 && (c and 0xFF) < 60
+        fun verde(c: Int) = (c shr 8 and 0xFF) > 200 && (c shr 16 and 0xFF) < 60 && (c and 0xFF) < 60
+        fun azul(c: Int) = (c and 0xFF) > 200 && (c shr 16 and 0xFF) < 60 && (c shr 8 and 0xFF) < 60
+        // Centrada: el hueco enseña el centro de la foto (todo verde)
+        assertTrue("centrada: %08X".format(en(0.1f)), verde(en(0.1f))); assertTrue(verde(en(0.9f)))
+        // Movida a la derecha media anchura: entra la parte izquierda de la foto, que ANTES estaba fuera (rojo a la izquierda, verde a la derecha)
+        ox.floatValue = 0.5f
+        assertTrue("a la derecha, a la izquierda del hueco hay rojo: %08X".format(en(0.25f)), rojo(en(0.25f))); assertTrue(verde(en(0.75f)))
+        ox.floatValue = -0.5f
+        assertTrue("a la izquierda, a la derecha hay azul: %08X".format(en(0.75f)), azul(en(0.75f))); assertTrue(verde(en(0.25f)))
+    }
 }

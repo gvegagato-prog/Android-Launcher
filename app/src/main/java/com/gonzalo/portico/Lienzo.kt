@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -293,9 +294,26 @@ fun TituloAjustado(texto: String, color: Color, modifier: Modifier = Modifier, m
     }
 }
 
+/** El tamaño al que se dibuja la FOTO ENTERA en un hueco de [w]×[h]: la menor que lo cubre (zoom 1), por [zoom]; sin recortar nada. */
+fun tamanoEncuadre(w: Float, h: Float, iw: Float, ih: Float, zoom: Float): Pair<Float, Float> {
+    val ar = if (iw > 0f && ih > 0f) iw / ih else w / h
+    val base = if (ar > w / h) (h * ar to h) else (w to w / ar)
+    return base.first * zoom to base.second * zoom
+}
+
+/** El tamaño de la foto tal como se ve (con su giro EXIF), leyendo solo la cabecera del archivo; null si no se puede. */
+fun medidasFoto(f: File): Pair<Int, Int>? = runCatching {
+    val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(f.path, o)
+    if (o.outWidth <= 0 || o.outHeight <= 0) return@runCatching null
+    val giro = runCatching { android.media.ExifInterface(f.path).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1) }.getOrDefault(1)
+    if (giro in setOf(5, 6, 7, 8)) o.outHeight to o.outWidth else o.outWidth to o.outHeight
+}.getOrNull()
+
 /**
- * Una imagen encuadrada en su hueco, con total libertad: [zoom] (1 = rellena el hueco; menos, más pequeña; más, ampliada) y [ox]/[oy], lo que se
- * desplaza, como fracción del ancho y del alto del hueco (de -1 a 1; 0 = centrada).
+ * Una imagen encuadrada en su hueco, con total libertad. Se dibuja la foto ENTERA (con su forma, no recortada a la del hueco) y el hueco
+ * solo enseña la parte que queda dentro: [zoom] 1 = la foto cubre el hueco; menos, más pequeña; más, ampliada; y [ox]/[oy] la mueven, como
+ * fracción del ancho y del alto del hueco (de -1 a 1), así que se puede llevar al hueco cualquier parte de la foto.
  */
 @Composable
 fun ImagenEncuadrada(f: File, zoom: Float, ox: Float, oy: Float, modifier: Modifier = Modifier) {
@@ -303,7 +321,14 @@ fun ImagenEncuadrada(f: File, zoom: Float, ox: Float, oy: Float, modifier: Modif
     // Se carga grande (no del tamaño del hueco): al hacer zoom se sigue viendo nítida
     val lado = if (zoom > 1.3f) 3072 else 2048
     val peticion = remember(f.path, f.lastModified(), lado) { coil.request.ImageRequest.Builder(ctx).data(f).size(lado).build() }
-    AsyncImage(peticion, null, modifier.graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = ox * size.width; translationY = oy * size.height }, contentScale = ContentScale.Crop)
+    val medidas = remember(f.path, f.lastModified()) { medidasFoto(f) }
+    val d = LocalDensity.current
+    BoxWithConstraints(modifier.clipToBounds(), contentAlignment = Alignment.Center) {
+        val w = constraints.maxWidth.toFloat(); val h = constraints.maxHeight.toFloat()
+        val (dw, dh) = tamanoEncuadre(w, h, medidas?.first?.toFloat() ?: 0f, medidas?.second?.toFloat() ?: 0f, zoom)
+        AsyncImage(peticion, null, Modifier.requiredSize(with(d) { dw.toDp() }, with(d) { dh.toDp() }).offset { IntOffset((ox * w).roundToInt(), (oy * h).roundToInt()) },
+            contentScale = ContentScale.FillBounds)
+    }
 }
 
 private fun horasDe(j: Juego) = if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "0 h"
