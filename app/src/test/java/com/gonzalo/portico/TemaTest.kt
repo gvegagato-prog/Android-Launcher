@@ -41,4 +41,23 @@ class TemaTest {
     @Test fun todasLasPaletasSeInviertenSinPerderElAcento() {
         for (p in PALETTES) for (t in listOf(p.light, p.dark)) assertEquals(t.general, invertir(t).general)
     }
+
+    private val base = PALETTES.first { it.id == "revista" }.light
+
+    @Test fun losColoresAMano() {
+        // Sin nada elegido, no cambia nada
+        assertEquals(base, Skin.conPropios(base, 0L, 0L, 0L))
+        // Un fondo oscuro: el texto pasa solo a claro, y las tarjetas, líneas y grises salen de los dos
+        val oscuro = Skin.conPropios(base, 0xFF101820, 0L, 0L)
+        assertEquals(0xFF101820, oscuro.paper); assertTrue(Color(oscuro.ink).luminance2() > 0.5f); assertEquals(0L, oscuro.sand)
+        assertEquals("el acento se queda", base.general, oscuro.general)
+        // Un fondo claro: texto oscuro
+        assertTrue(Color(Skin.conPropios(base, 0xFFF4F4F4, 0L, 0L).ink).luminance2() < 0.5f)
+        // Texto y acento elegidos a mano mandan
+        val m = Skin.conPropios(base, 0xFF101820, 0xFFFFD166, 0xFF06D6A0)
+        assertEquals(0xFFFFD166, m.ink); assertEquals(0xFF06D6A0, m.general)
+        // Solo el acento: fondo y texto intactos
+        val a = Skin.conPropios(base, 0L, 0L, 0xFF06D6A0)
+        assertEquals(base.paper, a.paper); assertEquals(base.ink, a.ink); assertEquals(0xFF06D6A0, a.general)
+    }
 }

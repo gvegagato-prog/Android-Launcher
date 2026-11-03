@@ -56,7 +56,7 @@ su reborde fino de tinta). **Un toque juega; mantener pulsado abre la ficha.** P
 Pórtico usa la interfaz «Revista» de Atrio, con sus mismas piezas (copiadas de `Revista.kt`, `RevistaUI.kt`, `Ediciones.kt` y `Maqueta.kt`):
 papel crema (o oscuro), Fraunces para los titulares, filetes gruesos y finos, antetítulos con cuadradito de acento, pestañas subrayadas,
 enlaces con flecha, cifras enormes y puntos guía. No hay dock: se navega desde el menú de la portada y con «← Pórtico».
-Los temas, paletas, acentos y estilos son los mismos que los de Atrio (Ajustes → Apariencia).
+Los temas y paletas son los mismos que los de Atrio. Ajustes → Apariencia → **A tu manera** (como en Atrio): eliges a mano el color del fondo, del texto y del acento (tono, saturación y brillo, o su código #RRGGBB) y lo demás sale de ellos; los widgets los usan también. Ya no hay «estilos» ni cambio de letras.
 **Colores de Atrio** (Ajustes → Apariencia → Colores de): Pórtico lee los colores que tienes puestos en Atrio (paleta, fondo de color, colores a mano, acento, claro u oscuro) y los usa; con **Invertir** los pone del revés: el fondo con el color del texto y el texto con el del fondo, y el acento se mantiene.
 Para eso Atrio 1.0.7 (o más nueva) ofrece sus colores en `content://com.gonzalo.gamerate.tema/colores` (solo colores, ningún dato tuyo). Sin esa versión, o sin Atrio, Pórtico usa su propia paleta y te lo dice en Ajustes.
 

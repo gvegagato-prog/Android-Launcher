@@ -36,7 +36,7 @@ import androidx.compose.material3.TextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-const val VERSION = "0.13.2"
+const val VERSION = "0.14.0"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -98,13 +98,14 @@ fun PantEstilo(alVolver: () -> Unit) {
         }
         Etiqueta("Tamaño del texto", Modifier.padding(top = 14.dp))
         MagChoice(listOf("Pequeño", "Normal", "Grande", "Muy grande"), listOf(90, 100, 112, 125).indexOf(Skin.escala).coerceAtLeast(1)) { i -> cambia { Skin.escala = listOf(90, 100, 112, 125)[i] } }
-        Etiqueta("Estilo", Modifier.padding(top = 14.dp))
-        var masEstilos by remember { mutableStateOf(false) }
-        if (masEstilos) MagChoice(STYLES.map { it.name }, STYLES.indexOfFirst { it.id == Skin.estiloActual()?.id }) { i -> cambia { Skin.aplicar(STYLES[i]) } }
-        else Text(Skin.estiloActual()?.name ?: "Combinación propia", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, modifier = Modifier.padding(top = 4.dp))
-        EnlaceRevista(if (masEstilos) "Ocultar estilos\u00A0→" else "Cambiar de estilo\u00A0→", acento = true) { masEstilos = !masEstilos }
-        Text(Skin.estiloActual()?.desc ?: "", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp))
-        Text("Los estilos y paletas son los mismos que los de Atrio.", color = Muted, fontFamily = Body, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        // A tu manera (como en Atrio): el color que quieras para el fondo, el texto y el acento
+        Etiqueta("A tu manera", Modifier.padding(top = 16.dp))
+        Text("Elige tú el fondo, el texto y el acento; lo demás (tarjetas, líneas, grises) sale de ellos. Se ve al momento.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 14.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 2.dp))
+        SelectorColor("Fondo", Skin.fondoPropio, Paper, { Skin.fondoPropio = it }) { Skin.guardar(ctx) }
+        Filete(1.dp, Line)
+        SelectorColor("Texto", Skin.tintaPropia, Charcoal, { Skin.tintaPropia = it }) { Skin.guardar(ctx) }
+        Filete(1.dp, Line)
+        SelectorColor("Acento", Skin.acentoPropio, Acento, { Skin.acentoPropio = it }) { Skin.guardar(ctx) }
 
         Spacer(Modifier.height(26.dp))
         Filete(2.dp)

@@ -17,6 +17,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
@@ -123,6 +126,27 @@ object Skin {
     var invertido by mutableStateOf(true)
     /** Colores de Atrio (los que tienes puestos allí) en lugar de los de la paleta de Pórtico. */
     var origenAtrio by mutableStateOf(true)
+    /** Colores elegidos a mano, como «A tu manera» de Atrio (0 = automático): por encima de todo lo demás. */
+    var fondoPropio by mutableStateOf(0L)
+    var tintaPropia by mutableStateOf(0L)
+    var acentoPropio by mutableStateOf(0L)
+
+    /** El fondo (las tarjetas, líneas y grises salen de él y del texto), el texto y el acento elegidos a mano, sobre [t]. */
+    fun conPropios(t: Tones, fondo: Long = fondoPropio, tintaP: Long = tintaPropia, acentoP: Long = acentoPropio): Tones {
+        var r = t
+        if (fondo != 0L || tintaP != 0L) {
+            val papel = if (fondo != 0L) fondo else r.paper
+            val tinta = when {
+                tintaP != 0L -> tintaP
+                fondo != 0L -> if (Color(papel).luminance() < 0.4f) 0xFFF1EBE0 else 0xFF15120F
+                else -> r.ink
+            }
+            val crudo = lerp(Color(papel), Color(tinta), 0.04f).toArgb().toLong() and 0xFFFFFFFFL
+            r = r.copy(paper = papel, crudo = crudo, ink = tinta, gfx = tinta, sand = 0, line = 0, edge = 0, muted = 0)
+        }
+        if (acentoP != 0L) r = r.copy(general = acentoP)
+        return r
+    }
 
     /** La paleta de Pórtico (con su acento elegido), en claro o en oscuro. */
     private fun propiosPara(noche: Boolean): Tones = (if (noche) palette.dark else palette.light).let { b ->
@@ -133,7 +157,7 @@ object Skin {
      * Los colores que se ven en claro o en oscuro ([noche]): los de Atrio (si se piden y se han leído; ya vienen en el modo que
      * tengas allí) o los de Pórtico, y al revés si está «invertidos». Los widgets los piden de las dos maneras.
      */
-    fun tonosPara(noche: Boolean): Tones = invertidoSi(invertido, TemaAtrio.tonos.takeIf { origenAtrio } ?: propiosPara(noche))
+    fun tonosPara(noche: Boolean): Tones = conPropios(invertidoSi(invertido, TemaAtrio.tonos.takeIf { origenAtrio } ?: propiosPara(noche)))
 
     /** Los colores que se ven ahora. */
     val tones: Tones get() = tonosPara(Modo.oscuro)
@@ -186,12 +210,14 @@ object Skin {
         invertido = p.getBoolean("invertido", true)
         origenAtrio = p.getBoolean("origen_atrio", true)
         Modo.eleccion = p.getInt("modo", 0).coerceIn(0, 2)
+        fondoPropio = p.getLong("fondo_propio", 0L); tintaPropia = p.getLong("tinta_propia", 0L); acentoPropio = p.getLong("acento_propio", 0L)
     }
 
     fun guardar(c: Context) {
         Widgets.pedir(c)
         p(c).edit().putString("paleta", palette.id).putString("display", display).putString("body", body).putString("forma", forma.id)
-            .putString("acento", accentId).putBoolean("invertido", invertido).putBoolean("origen_atrio", origenAtrio).putInt("escala", escala).putInt("modo", Modo.eleccion).apply()
+            .putString("acento", accentId).putBoolean("invertido", invertido).putBoolean("origen_atrio", origenAtrio).putInt("escala", escala).putInt("modo", Modo.eleccion)
+            .putLong("fondo_propio", fondoPropio).putLong("tinta_propia", tintaPropia).putLong("acento_propio", acentoPropio).apply()
     }
 }
 
