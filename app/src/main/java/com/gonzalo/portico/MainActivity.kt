@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
         kotlin.concurrent.thread { TemaAtrio.refrescar(c) }
         // Tu cuenta de Atrio, en directo mientras Pórtico se ve
         SincroP.escuchar(c)
+        SubirRomsWorker.programar(c)
     }
 
     override fun onStop() { super.onStop(); SincroP.parar() }

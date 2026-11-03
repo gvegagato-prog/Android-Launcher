@@ -133,6 +133,17 @@ class NubePTest {
         assertTrue(pb, pb.isNotBlank()); assertArrayEquals(ByteArray(900) { 9 }, File(pb).readBytes())
         assertFalse("no se vuelve a bajar", NubeP.portadas(ctx))
 
+        // Subida automática de las ROMs que faltan: sube solo las que no están, una vez
+        movil("A"); Biblioteca.juegos.clear(); Biblioteca.borrados.clear()
+        val m = Juego("a2", "Metroid", Tipo.ROM, sistema = "gba", uri = "content://m", archivo = "Metroid", mod = 1)
+        Biblioteca.juegos.add(z); Biblioteca.juegos.add(m); Biblioteca.juegos.add(z.copy(id = "a3", titulo = "Sin archivo", archivo = "Sin archivo", uri = ""))
+        val mf = File(tmp("roms2"), "Metroid.gba").apply { writeBytes(ByteArray(4000) { 5 }) }
+        assertEquals("solo Metroid: Zelda ya estaba y la otra no está aquí", 1, NubeP.subirRoms(ctx) { j -> if (j.id == "a2") FArch(mf) else FArch(rom) })
+        assertEquals(mf.length(), NubeP.romEnNube(m)!!.s)
+        assertEquals(0, NubeP.subirRoms(ctx) { FArch(mf) })
+        NubeP.ponRomsSolas(ctx, false); Biblioteca.juegos.add(m.copy(id = "a4", archivo = "Otra", titulo = "Otra"))
+        assertEquals("con el interruptor apagado no sube", 0, NubeP.subirRoms(ctx) { FArch(mf) }); NubeP.ponRomsSolas(ctx, true)
+
         // El índice en la cuenta no lleva rutas ni nombres de tu móvil, solo hash, id de kDrive y nombres de archivo
         val raw = http("GET", "/__dump")
         assertFalse(raw.contains("/storage/")); Cuenta.salir()

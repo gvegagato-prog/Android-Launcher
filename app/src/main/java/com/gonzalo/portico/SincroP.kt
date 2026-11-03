@@ -90,7 +90,7 @@ object SincroP {
     }
 
     /** Las portadas que elegiste: van a tu kDrive (si está conectado), como las imágenes de Atrio. Errores aparte: no estropean la sincronización. */
-    private fun portadas(c: Context) { if (KDrive.on(c)) runCatching { NubeP.portadas(c) } }
+    private fun portadas(c: Context) { if (KDrive.on(c)) { runCatching { NubeP.portadas(c) }; runCatching { SubirRomsWorker.programar(c) } } }
 
     /** Baja y mezcla lo nuevo de tus otros dispositivos. Devuelve true si ha cambiado algo aquí. */
     suspend fun bajar(c: Context): Boolean = candado.withLock {

@@ -73,7 +73,7 @@ Con la cuenta de Atrio vinculada y el kDrive conectado (Ajustes), en la ficha de
   **Antes de jugar**, Pórtico mira si en la nube hay un guardado distinto del tuyo y que no sea el que ya habías sincronizado; si lo hay, lo baja (comprobando que llega entero) y lo pone en su sitio, dejando antes una copia de lo que sustituye (`copias_guardados`, las 5 últimas).
   **Al volver a Pórtico**, si el guardado de este móvil ha cambiado, lo sube. Si los dos móviles cambiaron el mismo guardado sin sincronizar entre medias, gana el de la nube y la copia te protege.
   No hay vigilancia mientras juegas (Android no avisa de cuándo un emulador escribe un archivo): se mira al lanzar y al volver.
-- **ROMs**: «Subir la ROM a mi kDrive» (a trozos, como en Atrio) y, en el otro móvil, «Descargar la ROM» a la carpeta que elijas; se une sola al juego. Solo a tu kDrive; qué ROMs subes es cosa tuya.
+- **ROMs**: se **suben solas** a tu kDrive (a trozos, como en Atrio) las que aún no están, solo con wifi (WorkManager; si se corta, reintenta la ROM entera). Interruptor en Ajustes → Actualizaciones. En el otro móvil, «Descargar la ROM» a la carpeta que elijas (hace falta elegir carpeta); se une sola al juego. Solo a tu kDrive.
 - **Portadas** que elegiste: se suben solas y las bajan tus otros móviles si no tienen portada (si ya tienen otra, no se pisa).
 - El índice (hash, id de kDrive y nombre de archivo, nunca rutas de tu móvil) viaja en tu cuenta: `/users/<uid>/portico/nube/…`; los archivos, en «Mi carpeta/Portico/…».
 

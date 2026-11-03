@@ -179,6 +179,24 @@ object NubeP {
         } finally { tmp.delete() }
     }
 
+    /** ¿Subir las ROMs solas? (con wifi; el interruptor está en Ajustes → Actualizaciones y nube) */
+    fun romsSolas(c: Context) = prefs(c).getBoolean("roms_solas", true)
+    fun ponRomsSolas(c: Context, v: Boolean) { prefs(c).edit().putBoolean("roms_solas", v).apply() }
+
+    /** Sube a tu kDrive las ROMs de este móvil que aún no están (una por una). Devuelve cuántas ha subido. */
+    fun subirRoms(c: Context, abre: (Juego) -> Arch? = { j -> androidx.documentfile.provider.DocumentFile.fromSingleUri(c, Uri.parse(j.uri))?.takeIf { it.exists() }?.let { DocArch(c, it) } }): Int {
+        if (!Cuenta.vinculada || !KDrive.on(c) || !romsSolas(c)) return 0
+        val remoto = Cuenta.db("GET", "${Cuenta.raiz}/nube/roms", null)?.let { JSONObject(it) }
+        var n = 0
+        for (j in Biblioteca.juegos.toList()) {
+            if (j.tipo != Tipo.ROM || j.uri.isBlank()) continue
+            if (remoto?.optJSONObject(kid(j))?.optJSONObject("f")?.has("rom") == true) continue
+            val a = abre(j) ?: continue
+            subirRom(c, j, a); n++
+        }
+        return n
+    }
+
     // ---------------------------------------------------------------- portadas propias
 
     private val hashes = HashMap<String, String>()

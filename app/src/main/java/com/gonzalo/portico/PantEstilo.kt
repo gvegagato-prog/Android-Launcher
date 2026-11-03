@@ -36,7 +36,7 @@ import androidx.compose.material3.TextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-const val VERSION = "0.10.0"
+const val VERSION = "0.10.1"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -236,6 +236,12 @@ private fun SeccionActualizaciones() {
     Fila("Actualizar sola", "Mira la carpeta «versiones» de tu kDrive (Portico-<versión>.apk) y se instala sin preguntar cuando no la usas.") {
         Interruptor(auto) { auto = it; Actualizador.ponActivo(ctx, it) }
     }
+    if (conectado) {
+        var solas by remember { mutableStateOf(NubeP.romsSolas(ctx)) }
+        Fila("Subir mis ROMs a mi kDrive", "Solas y solo con wifi, para tenerlas en tus otros móviles junto a sus guardados. Van a tu kDrive, no a ningún sitio público.") {
+            Interruptor(solas) { solas = it; NubeP.ponRomsSolas(ctx, it); if (it) SubirRomsWorker.programar(ctx) }
+        }
+    }
     if (!conectado) {
         Text("Pega tu token de kDrive y el número de tu kDrive (los mismos que en Atrio). Se guardan solo en este móvil.", color = Muted, fontFamily = Body, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
         CampoRevista("Token", token, "token de kDrive", secreto = true) { token = it }
@@ -244,7 +250,7 @@ private fun SeccionActualizaciones() {
             if (!ocupado) {
                 ocupado = true; aviso = null
                 ambito.launch {
-                    aviso = try { KDrive.save(ctx, token, unidad); KDrive.test(ctx); conectado = true; token = ""; withContext(Dispatchers.IO) { runCatching { Actualizador.comprueba(ctx, manual = true) } }; null }
+                    aviso = try { KDrive.save(ctx, token, unidad); KDrive.test(ctx); conectado = true; token = ""; SubirRomsWorker.programar(ctx); withContext(Dispatchers.IO) { runCatching { Actualizador.comprueba(ctx, manual = true) } }; null }
                     catch (e: Exception) { KDrive.forget(ctx); e.message ?: "No se pudo conectar" }
                     ocupado = false
                 }
