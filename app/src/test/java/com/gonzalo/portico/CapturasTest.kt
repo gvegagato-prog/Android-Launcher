@@ -144,4 +144,18 @@ class CapturasTest {
         montar(oscuro = true)
         foto("18_invertido_oscuro_portada")
     }
+
+    @Test
+    fun coloresDeAtrioInvertidos() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        // Un Atrio de mentira con el acento azul que el usuario habría elegido
+        org.robolectric.Robolectric.setupContentProvider(TemaAtrioTest.AtrioFalso::class.java, "com.gonzalo.gamerate.tema")
+        TemaAtrio.refrescar(ctx)
+        Skin.origenAtrio = true; Skin.invertido = true
+        montar(oscuro = false)
+        foto("19_atrio_invertido_portada")
+        rule.onNodeWithContentDescription("Ajustes").performClick()
+        rule.onNodeWithText("COLORES DE").performScrollTo(); foto("20_ajustes_colores_atrio")
+    }
 }

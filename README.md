@@ -39,7 +39,8 @@ Pórtico usa la interfaz «Revista» de Atrio, con sus mismas piezas (copiadas d
 papel crema (o oscuro), Fraunces para los titulares, filetes gruesos y finos, antetítulos con cuadradito de acento, pestañas subrayadas,
 enlaces con flecha, cifras enormes y puntos guía. No hay dock: se navega desde el menú de la portada y con «← Pórtico».
 Los temas, paletas, acentos y estilos son los mismos que los de Atrio (Ajustes → Apariencia).
-**Colores invertidos** (Ajustes → Apariencia → Colores): el fondo toma el color del texto y el texto el del fondo; el acento se mantiene. Vale en claro y en oscuro.
+**Colores de Atrio** (Ajustes → Apariencia → Colores de): Pórtico lee los colores que tienes puestos en Atrio (paleta, fondo de color, colores a mano, acento, claro u oscuro) y los usa; con **Invertir** los pone del revés: el fondo con el color del texto y el texto con el del fondo, y el acento se mantiene.
+Para eso Atrio 1.0.7 (o más nueva) ofrece sus colores en `content://com.gonzalo.gamerate.tema/colores` (solo colores, ningún dato tuyo). Sin esa versión, o sin Atrio, Pórtico usa su propia paleta y te lo dice en Ajustes.
 
 ## Cómo funciona el lanzamiento (y qué no está probado)
 

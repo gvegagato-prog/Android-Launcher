@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 /** Arranca los datos de la app (una vez). */
 fun iniciar(c: Context) {
     Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); Biblioteca.cargar(c)
+    TemaAtrio.cargarGuardado(c)
 }
 
 /** Dónde estás: la portada y sus secciones (se llega a ellas desde el menú de la portada, como en Atrio). */

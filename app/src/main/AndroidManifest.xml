@@ -8,6 +8,7 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
         <package android:name="com.gonzalo.gamerate" />
+        <provider android:authorities="com.gonzalo.gamerate.tema" />
         <package android:name="Ali.Xanite" />
         <package android:name="Ali.Xanite.green" />
         <package android:name="aenu.aps3e" />

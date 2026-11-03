@@ -28,5 +28,10 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Volver a Pórtico después de jugar: se apunta el tiempo que has estado fuera. */
-    override fun onStart() { super.onStart(); Sesion.cerrar(this) }
+    override fun onStart() {
+        super.onStart(); Sesion.cerrar(this)
+        // Los colores de Atrio pueden haber cambiado mientras estabas en ella: se vuelven a leer
+        val c = applicationContext
+        kotlin.concurrent.thread { TemaAtrio.refrescar(c) }
+    }
 }
