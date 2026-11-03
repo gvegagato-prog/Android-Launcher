@@ -81,12 +81,16 @@ object SincroP {
             val ts = Cuenta.db("GET", "${Cuenta.raiz}/dev/${Cuenta.dispositivo}/updated", null)?.toLongOrNull() ?: throw Cuenta.Fail("Firebase no ha guardado la copia.")
             Cuenta.db("PUT", "${Cuenta.raiz}/stamps/${Cuenta.dispositivo}", ts.toString(), "print=silent")
             p.edit().putString("hash", hash).apply()
+            runCatching { portadas(c) }
             // Mi propio sello ya lo conozco: no hace falta bajarlo
             guardaVistos(c, vistos(c).put(Cuenta.dispositivo, ts))
             bien(c)
             true
         } catch (e: Exception) { mal(c, e); false }
     }
+
+    /** Las portadas que elegiste: van a tu kDrive (si está conectado), como las imágenes de Atrio. Errores aparte: no estropean la sincronización. */
+    private fun portadas(c: Context) { if (KDrive.on(c)) runCatching { NubeP.portadas(c) } }
 
     /** Baja y mezcla lo nuevo de tus otros dispositivos. Devuelve true si ha cambiado algo aquí. */
     suspend fun bajar(c: Context): Boolean = candado.withLock {
@@ -121,7 +125,9 @@ object SincroP {
     suspend fun sincronizar(c: Context, desdeCero: Boolean = false): Boolean {
         if (desdeCero) olvidarVistos()
         bajar(c)
-        return subir(c, forzar = true)
+        val ok = subir(c, forzar = true)
+        portadas(c)
+        return ok
     }
 
     /** Varias avisos de la escucha seguidos se juntan en una sola bajada. */

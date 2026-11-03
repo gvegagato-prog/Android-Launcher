@@ -56,7 +56,7 @@ Pórtico no crea cuentas. Lo que se sincroniza, **solo entre tus Pórticos** (no
 juegos (por clave: sistema + nombre de archivo, paquete o web), favorito, terminado, nota, apuntes, nombre y diseño de la ficha. Gana el cambio más reciente; lo que quitas viaja como «borrado»;
 las **horas y las veces se suman** (cada dispositivo sube las suyas). Una ROM que viene de otro móvil aparece «en otro dispositivo» hasta que la añades aquí (se une sola por sistema y nombre de archivo).
 Tu pareja de Atrio puede leer esa parte de la cuenta (las reglas de Atrio dejan leer a la pareja todo `/users/<uid>`).
-**Todavía no se sincronizan** las ROMs, los guardados ni las imágenes (siguiente fase). Probado en el ordenador contra el Firebase de mentira de Atrio (`SincroTest`) y las reglas de mezcla (`MezclaTest`); no con tu cuenta real.
+Las ROMs, los guardados y las portadas van por kDrive (siguiente sección). Probado en el ordenador contra el Firebase de mentira de Atrio (`SincroTest`) y las reglas de mezcla (`MezclaTest`); no con tu cuenta real.
 
 ## Actualizaciones automáticas (kDrive, como Atrio)
 
@@ -65,6 +65,20 @@ Se mira al abrir, cada minuto mientras se ve y, con la app cerrada, cada 4 horas
 **sin preguntar** cuando no la usas (Android 12+, con el permiso de instalar apps); si Android no lo deja, te pregunta, y al terminar se vuelve a abrir (con «Mostrar sobre otras apps») o te avisa.
 Ajustes → **Actualizaciones**: interruptor, token y número de tu kDrive (el token de Atrio es solo de Atrio y no se comparte: hay que pegarlo aquí una vez; se guarda solo en el móvil), «Buscar ahora» y el estado de la última comprobación.
 La primera vez que se instala una versión con esto hay que hacerlo a mano; a partir de ahí, sola. Probado contra el kDrive de mentira de Atrio (`ActualizadorTest`), no contra tu kDrive ni instalando de verdad en un móvil.
+
+## Guardados, ROMs y portadas en tu kDrive
+
+Con la cuenta de Atrio vinculada y el kDrive conectado (Ajustes), en la ficha de una ROM aparece **En la nube**:
+- **Guardados**: eliges la carpeta donde el emulador deja los `.srm`/`.sav`/`.dsv`/… de ese sistema (la misma para todos sus juegos; se busca por el nombre del archivo de la ROM, también en subcarpetas).
+  **Antes de jugar**, Pórtico mira si en la nube hay un guardado distinto del tuyo y que no sea el que ya habías sincronizado; si lo hay, lo baja (comprobando que llega entero) y lo pone en su sitio, dejando antes una copia de lo que sustituye (`copias_guardados`, las 5 últimas).
+  **Al volver a Pórtico**, si el guardado de este móvil ha cambiado, lo sube. Si los dos móviles cambiaron el mismo guardado sin sincronizar entre medias, gana el de la nube y la copia te protege.
+  No hay vigilancia mientras juegas (Android no avisa de cuándo un emulador escribe un archivo): se mira al lanzar y al volver.
+- **ROMs**: «Subir la ROM a mi kDrive» (a trozos, como en Atrio) y, en el otro móvil, «Descargar la ROM» a la carpeta que elijas; se une sola al juego. Solo a tu kDrive; qué ROMs subes es cosa tuya.
+- **Portadas** que elegiste: se suben solas y las bajan tus otros móviles si no tienen portada (si ya tienen otra, no se pisa).
+- El índice (hash, id de kDrive y nombre de archivo, nunca rutas de tu móvil) viaja en tu cuenta: `/users/<uid>/portico/nube/…`; los archivos, en «Mi carpeta/Portico/…».
+
+**Límite importante**: Android no deja a una app leer las carpetas privadas de otra (`Android/data/<emulador>/…`; el permiso «todos los archivos» tampoco las incluye, según la FAQ oficial de Android 11). Muchos emuladores guardan ahí por defecto (según guías de terceros, Pizza Boy y My Boy!).
+Pórtico solo puede sincronizar guardados que estén en una carpeta que Android te deje elegir: configura el emulador para guardar en una carpeta normal del almacenamiento (RetroArch permite cambiar la carpeta de «Savefile» en Ajustes → Directorio). Probado con carpetas normales y los servidores de mentira de Atrio (`NubePTest`); **no con SAF real ni con ningún emulador en un móvil**.
 
 ## Widgets
 
@@ -105,4 +119,4 @@ Necesita JDK 17+ y el SDK de Android (`local.properties` con `sdk.dir`). El APK 
 - Portadas automáticas: pide `thumbnails.libretro.com/<sistema>/Named_Boxarts/<nombre del archivo>.png`, es decir, **el nombre
   de tus archivos** llega a ese servidor. Se apaga en Estilo → «Portadas automáticas».
 - Los juegos web guardan cookies (también de terceros: muchos inician sesión en otro dominio) dentro del WebView de Pórtico.
-- Si vinculas tu cuenta de Atrio, tu biblioteca (títulos, notas, horas, favoritos…, no las ROMs) se sube a tu base de datos de Firebase, legible por ti y por tu pareja de Atrio. Sin vincular, nada más sale del móvil.
+- Si vinculas tu cuenta de Atrio, tu biblioteca (títulos, notas, horas, favoritos…) se sube a tu base de datos de Firebase, legible por ti y por tu pareja de Atrio. Sin vincular, nada más sale del móvil.

@@ -154,6 +154,7 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
             }
         }
         MagPage(j, defs(j, ctx, { selector = true }, { editarWeb = true }, { editarHoras = true }), disenando)
+        if (!disenando) SeccionNube(j)
         if (disenando) MagFooter("Listo") { disenando = false } else MagFooter { disenando = true }
         Spacer(Modifier.height(20.dp))
     }
@@ -346,3 +347,63 @@ private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: (
         }
     },
 )
+
+
+/** «En la nube» (solo ROMs): carpeta de guardados del sistema, subir la ROM a tu kDrive y bajarla en otro móvil. */
+@Composable
+private fun SeccionNube(j: Juego) {
+    if (j.tipo != Tipo.ROM) return
+    val ctx = LocalContext.current
+    val sistema = Catalogo.sistema(j.sistema)
+    val listo = Cuenta.vinculada && KDrive.on(ctx)
+    var mensaje by remember(j.id) { mutableStateOf<String?>(null) }
+    var ocupado by remember(j.id) { mutableStateOf(false) }
+    var nube by remember(j.id, j.uri) { mutableStateOf<NubeP.Ficha?>(null) }
+    LaunchedEffect(j.id, j.uri, listo) { if (listo) nube = withContext(Dispatchers.IO) { NubeP.romEnNube(j) } }
+    val carpeta = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { u -> if (u != null) NubeP.ponCarpeta(ctx, j.sistema, u) }
+    val destinoRom = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { u ->
+        val f = nube
+        if (u != null && f != null && !ocupado) {
+            runCatching { ctx.contentResolver.takePersistableUriPermission(u, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+            ocupado = true; mensaje = "Bajando la ROM…"
+            kotlin.concurrent.thread {
+                val r = runCatching {
+                    val a = NubeP.bajarRom(ctx.applicationContext, j, f, DocCarpeta(ctx.applicationContext, androidx.documentfile.provider.DocumentFile.fromTreeUri(ctx, u)!!))
+                    val doc = runCatching { android.provider.DocumentsContract.getDocumentId(android.net.Uri.parse(a.uri)) }.getOrDefault("")
+                    Biblioteca.por(j.id)?.let { Biblioteca.poner(it.copy(uri = a.uri, ruta = Comando.rutaDeDocId(doc, "/storage/emulated/0").orEmpty())) }
+                }
+                android.os.Handler(android.os.Looper.getMainLooper()).post { mensaje = r.fold({ "ROM descargada" }, { "No se pudo bajar: ${it.message}" }); ocupado = false }
+            }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Filete(2.dp)
+    Spacer(Modifier.height(12.dp))
+    Antetitulo("En la nube", Modifier.padding(bottom = 4.dp))
+    if (!listo) {
+        Cuerpo("Para llevarte la partida a otro móvil: vincula tu cuenta de Atrio y conecta tu kDrive (Ajustes). Pórtico sube el guardado al volver de jugar y baja el último antes de jugar.", tam = 12)
+    } else {
+        val car = NubeP.carpetas[j.sistema]
+        MagLink(if (car == null) "Elegir la carpeta de guardados de ${sistema?.corto ?: j.sistema}" else "Carpeta de guardados elegida · cambiar",
+            "La carpeta donde ${sistema?.corto ?: "el emulador"} deja los .srm / .sav. Solo se sincronizan los de esta ROM (mismo nombre que el archivo).") { carpeta.launch(null) }
+        Filete(1.dp, Line)
+        when {
+            j.enOtroDispositivo && nube != null -> MagLink(if (ocupado) "Descargando…" else "Descargar la ROM de mi kDrive", "Elige la carpeta del móvil donde dejarla") { if (!ocupado) destinoRom.launch(null) }
+            j.enOtroDispositivo -> Cuerpo("Esta ROM está en otro de tus móviles y todavía no se ha subido a tu kDrive.", tam = 12)
+            nube != null -> Cuerpo("La ROM ya está en tu kDrive.", tam = 12)
+            else -> MagLink(if (ocupado) "Subiendo…" else "Subir la ROM a mi kDrive", "Solo a tu kDrive, para tenerla en tus otros móviles") {
+                if (!ocupado && j.uri.isNotBlank()) {
+                    ocupado = true; mensaje = "Subiendo la ROM…"
+                    kotlin.concurrent.thread {
+                        val r = runCatching {
+                            val d = androidx.documentfile.provider.DocumentFile.fromSingleUri(ctx, android.net.Uri.parse(j.uri)) ?: error("no encuentro el archivo")
+                            NubeP.subirRom(ctx.applicationContext, j, DocArch(ctx.applicationContext, d))
+                        }
+                        android.os.Handler(android.os.Looper.getMainLooper()).post { mensaje = r.fold({ "ROM subida a tu kDrive" }, { "No se pudo subir: ${it.message}" }); ocupado = false; nube = null }
+                    }
+                }
+            }
+        }
+    }
+    mensaje?.let { Text(it, color = Acento, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp)) }
+}

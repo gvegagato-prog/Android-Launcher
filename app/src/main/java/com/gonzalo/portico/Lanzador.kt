@@ -68,7 +68,28 @@ object Lanzador {
     }
 
     /** Lanza el juego. Devuelve null si salió bien o el texto del problema. */
-    fun lanzar(c: Context, j: Juego): String? {
+    fun lanzar(c: Context, j: Juego, alTerminar: () -> Unit = {}): String? {
+        // Con guardados en la nube: antes de abrir el emulador se mira si hay uno más reciente en otro móvil (en segundo plano; se abre al acabar)
+        if (j.tipo == Tipo.ROM && NubeP.activo(c, j)) {
+            val e = elegir(c, j)
+            if (e != null && e.resultado is Resultado.Ok) {
+                val app = c.applicationContext
+                val principal = android.os.Handler(android.os.Looper.getMainLooper())
+                kotlin.concurrent.thread {
+                    val texto = runCatching { NubeP.carpetaReal(app, NubeP.carpetas[j.sistema]!!)?.let { NubeP.antes(app, j, it) } }.getOrNull()
+                    principal.post {
+                        texto?.let { aviso(app, it) }
+                        lanzarYa(c, j)?.let { aviso(app, it) }
+                        alTerminar()
+                    }
+                }
+                return null
+            }
+        }
+        return lanzarYa(c, j).also { alTerminar() }
+    }
+
+    private fun lanzarYa(c: Context, j: Juego): String? {
         val error: String? = try {
             when (j.tipo) {
                 Tipo.ROM -> {
@@ -121,6 +142,11 @@ object Sesion {
         val desde = p.getLong("desde", 0L); p.edit().clear().apply()
         val ms = (System.currentTimeMillis() - desde).coerceAtMost(12L * 3600_000)
         if (ms >= 20_000) Biblioteca.por(id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms)) }
+        // Volver de jugar: si el guardado de este móvil ha cambiado, se sube a la nube
+        Biblioteca.por(id)?.takeIf { NubeP.activo(c, it) }?.let { j ->
+            val app = c.applicationContext
+            kotlin.concurrent.thread { runCatching { NubeP.carpetaReal(app, NubeP.carpetas[j.sistema]!!)?.let { NubeP.despues(app, j, it) } } }
+        }
     }
 
     fun sumar(j: Juego, ms: Long) { if (ms >= 5_000) Biblioteca.por(j.id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms)) } }

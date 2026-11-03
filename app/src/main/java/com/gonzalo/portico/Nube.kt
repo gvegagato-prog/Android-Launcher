@@ -7,6 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -99,6 +100,86 @@ object KDrive {
             ?: throw Fail("No encuentro tu carpeta privada en el kDrive (hay: ${root.joinToString { it.name }.ifBlank { "nada" }})")
         prefs(ctx).edit().putLong("home", h.id).apply()
         return h.id
+    }
+
+    /** Archivos de más de 5 MB: a trozos (como la app oficial). */
+    private const val CHUNKED = 5L * 1024 * 1024
+    private const val PARALLEL = 4
+
+    /**
+     * Sube un archivo a «Mi carpeta/[path]/[name]» (kDrive crea las carpetas que falten). Si ya hay uno con ese
+     * nombre, queda como versión nueva del mismo (nada de «libro (1).epub»). Devuelve su id.
+     */
+    fun upload(ctx: Context, path: String, name: String, size: Long, onProgress: (Long) -> Unit = {}, input: () -> InputStream): Long {
+        val d = drive(ctx)
+        val home = home(ctx)
+        val enc = { v: String -> URLEncoder.encode(v, "UTF-8").replace("+", "%20") }
+        if (size <= CHUNKED) {
+            val q = "directory_id=$home&directory_path=${enc(path)}&file_name=${enc(name)}&total_size=$size&conflict=version"
+            val c = URL("$api/3/drive/$d/upload?$q").openConnection() as HttpURLConnection
+            c.requestMethod = "POST"
+            c.connectTimeout = 20000; c.readTimeout = 300000
+            c.doOutput = true
+            c.setFixedLengthStreamingMode(size)
+            c.setRequestProperty("Authorization", "Bearer ${token(ctx)}")
+            c.setRequestProperty("Content-Type", "application/octet-stream")
+            c.outputStream.use { out -> input().use { it.copyTo(out) } }
+            return answer(c).optJSONObject("data")?.optLong("id")?.takeIf { it > 0 }.also { onProgress(size) } ?: throw Fail("kDrive no ha devuelto el archivo subido")
+        }
+        // Trozos de al menos 1 MB, unos 200 por archivo (los mismos números que la app oficial)
+        val chunk = maxOf(1L * 1024 * 1024, (size + 199) / 200)
+        val total = ((size + chunk - 1) / chunk).toInt()
+        val start = call(ctx, "POST", "/3/drive/$d/upload/session/start", JSONObject()
+            .put("conflict", "version").put("directory_id", home).put("directory_path", path).put("file_name", name)
+            .put("last_modified_at", System.currentTimeMillis() / 1000).put("total_chunks", total).put("total_size", size).toString())
+            .optJSONObject("data") ?: throw Fail("kDrive no ha abierto la subida")
+        val tok = start.optString("token").ifBlank { throw Fail("kDrive no ha abierto la subida") }
+        val host = start.optString("upload_url").ifBlank { api }.trimEnd('/')
+        // Cuatro trozos a la vez (como la app oficial): se aprovecha mucho mejor la subida que de uno en uno
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(PARALLEL)
+        val slots = java.util.concurrent.Semaphore(PARALLEL)
+        val sent = java.util.concurrent.atomic.AtomicLong(0)
+        val failed = java.util.concurrent.atomic.AtomicReference<Throwable?>(null)
+        try {
+            input().use { inp ->
+                for (n in 1..total) {
+                    val len = if (n == total) (size - chunk * (total - 1)).toInt() else chunk.toInt()
+                    slots.acquire()
+                    failed.get()?.let { throw it }
+                    val buf = ByteArray(len)
+                    var r = 0
+                    while (r < len) { val k = inp.read(buf, r, len - r); if (k < 0) throw Fail("El archivo se ha acabado antes de tiempo"); r += k }
+                    pool.execute {
+                        try {
+                            var tries = 0
+                            while (true) {
+                                try {
+                                    val c = URL("$host/3/drive/$d/upload/session/$tok/chunk?chunk_number=$n&chunk_size=$len").openConnection() as HttpURLConnection
+                                    c.requestMethod = "POST"
+                                    c.connectTimeout = 20000; c.readTimeout = 300000
+                                    c.doOutput = true
+                                    c.setFixedLengthStreamingMode(len)
+                                    c.setRequestProperty("Authorization", "Bearer ${token(ctx)}")
+                                    c.setRequestProperty("Content-Type", "application/octet-stream")
+                                    c.outputStream.use { it.write(buf) }
+                                    answer(c)
+                                    break
+                                } catch (e: IOException) {
+                                    // Un corte de red en un trozo: se reintenta ese trozo (no todo el archivo)
+                                    if (e is Fail || ++tries >= 3) throw e
+                                    Thread.sleep(1500L * tries)
+                                }
+                            }
+                            onProgress(sent.addAndGet(len.toLong()))
+                        } catch (e: Throwable) { failed.compareAndSet(null, e) } finally { slots.release() }
+                    }
+                }
+            }
+            slots.acquire(PARALLEL) // espera a que acaben todos
+            failed.get()?.let { throw it }
+        } finally { pool.shutdownNow() }
+        val fin = call(ctx, "POST", "/3/drive/$d/upload/session/$tok/finish").optJSONObject("data")
+        return fin?.optJSONObject("file")?.optLong("id")?.takeIf { it > 0 } ?: throw Fail("kDrive no ha cerrado la subida")
     }
 
     /** Los archivos de «Mi carpeta/versiones» (nombre, id): ahí se sube cada versión de la app para que se actualice sola. */
@@ -194,4 +275,9 @@ object KDrive {
 
     /** ¿Responde tu kDrive con este token? (lista su raíz; falla si el número o el token no valen). */
     fun reach(ctx: Context) { children(ctx, 1) }
+
+    /** Borra un archivo de tu kDrive (a la papelera). Un archivo que ya no está no es un fallo. */
+    fun delete(ctx: Context, file: Long) {
+        try { call(ctx, "DELETE", "/2/drive/${drive(ctx)}/files/$file") } catch (e: Fail) { if (e.message?.startsWith("No encuentro") != true) throw e }
+    }
 }

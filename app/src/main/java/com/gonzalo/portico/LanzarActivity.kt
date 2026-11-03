@@ -9,11 +9,10 @@ import android.os.Bundle
 class LanzarActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Biblioteca.cargar(this); Catalogo.cargar(this); Ajustes.cargar(this)
+        Biblioteca.cargar(this); Catalogo.cargar(this); Ajustes.cargar(this); NubeP.cargar(this)
         val j = intent.getStringExtra("id")?.let { Biblioteca.por(it) }
-        if (j == null) Lanzador.aviso(this, "Ese juego ya no está en Pórtico")
-        else Lanzador.lanzar(this, j)?.let { Lanzador.aviso(this, it) }
-        finish()
+        if (j == null) { Lanzador.aviso(this, "Ese juego ya no está en Pórtico"); finish() }
+        else Lanzador.lanzar(this, j) { finish() }?.let { Lanzador.aviso(this, it) }
     }
 
     companion object {
