@@ -293,6 +293,8 @@ class PantallaTest {
     }
 
     @Test fun sePuedeLlevarAlHuecoCualquierParteDeLaFoto() {
+        // (necesita capturar la pantalla: solo con -Proborazzi.test.record=true, como las capturas)
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         // Foto de 400×200 en franjas (rojo | verde | azul: 0-100, 100-300, 300-400) en un hueco cuadrado de 100 dp: tiene que dibujarse ENTERA
         // (200×100 dp, con su forma) y poder moverse para enseñar cualquier parte; no recortada a un cuadrado ni deformada.
         coil.Coil.setImageLoader(coil.ImageLoader.Builder(ctx).dispatcher(kotlinx.coroutines.Dispatchers.Unconfined).allowHardware(false).build())
