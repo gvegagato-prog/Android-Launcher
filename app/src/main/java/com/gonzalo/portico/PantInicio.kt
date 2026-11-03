@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -318,9 +319,11 @@ fun DialogoColor(inicial: Int, alCerrar: () -> Unit, alElegir: (Int) -> Unit) {
     var h by remember(inicial) { mutableStateOf(hsv[0]) }
     var sat by remember(inicial) { mutableStateOf(hsv[1]) }
     var v by remember(inicial) { mutableStateOf(hsv[2]) }
-    val color = android.graphics.Color.HSVToColor(floatArrayOf(h, sat, v))
+    // El color escrito (o pegado) como código vale tal cual: no pasa por las barras (que podrían moverlo una cifra al redondear)
+    var exacto by remember(inicial) { mutableStateOf<Int?>(null) }
+    val color = exacto ?: android.graphics.Color.HSVToColor(floatArrayOf(h, sat, v))
     var hex by remember(inicial) { mutableStateOf(colorAHex(inicial)) }
-    fun muestra(nh: Float, ns: Float, nv: Float) { hex = colorAHex(android.graphics.Color.HSVToColor(floatArrayOf(nh, ns, nv))) }
+    fun muestra(nh: Float, ns: Float, nv: Float) { exacto = null; hex = colorAHex(android.graphics.Color.HSVToColor(floatArrayOf(nh, ns, nv))) }
     val colores = androidx.compose.material3.SliderDefaults.colors(thumbColor = Acento, activeTrackColor = Acento, inactiveTrackColor = Sand)
     AlertDialog(
         onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
@@ -334,10 +337,10 @@ fun DialogoColor(inicial: Int, alCerrar: () -> Unit, alElegir: (Int) -> Unit) {
                 androidx.compose.material3.Slider(sat, { sat = it; muestra(h, it, v) }, valueRange = 0f..1f, colors = colores)
                 Etiqueta("Brillo")
                 androidx.compose.material3.Slider(v, { v = it; muestra(h, sat, it) }, valueRange = 0f..1f, colors = colores)
-                Campo(hex, "#RRGGBB", { t ->
+                CampoCodigo(hex) { t, c ->
                     hex = t
-                    hexAColor(t)?.let { rgb -> val f = FloatArray(3); android.graphics.Color.colorToHSV(rgb, f); h = f[0]; sat = f[1]; v = f[2] }
-                })
+                    if (c != null) { exacto = c.toArgb(); val f = FloatArray(3); android.graphics.Color.colorToHSV(c.toArgb(), f); h = f[0]; sat = f[1]; v = f[2] }
+                }
             }
         },
         confirmButton = { TextButton({ alElegir(color) }) { Text("USAR", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },

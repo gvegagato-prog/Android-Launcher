@@ -68,7 +68,7 @@ class CopiaAtrioTest {
         assertEquals(20L, a.at)
         val filas = CopiaAtrio.filas(a).associateBy { it.id }
         assertEquals("Oscuro", filas["tema"]!!.valor); assertEquals("Granate", filas["fondo"]!!.valor); assertEquals("Verde", filas["acento"]!!.valor)
-        assertTrue(filas["manera"]!!.valor, filas["manera"]!!.valor.contains("#101820") && filas["manera"]!!.valor.contains("#06D6A0"))
+        assertTrue(filas["c_fondo"]!!.valor, filas["c_fondo"]!!.valor.contains("#101820")); assertTrue(filas["c_acento"]!!.valor, filas["c_acento"]!!.valor.contains("#06D6A0"))
         assertTrue(filas["letras"]!!.valor.contains("Playfair Display")); assertEquals("Grande", filas["tamano"]!!.valor)
 
         // Copiar solo lo marcado: el tema y las letras; lo demás de Pórtico queda como estaba

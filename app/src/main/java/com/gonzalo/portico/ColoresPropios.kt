@@ -28,7 +28,7 @@ private fun largo(c: Color) = c.toArgb().toLong() and 0xFFFFFFFFL
 
 /** Un color elegido a mano: la muestra y su código; al tocarlo se abren el tono, la saturación, el brillo y el código. */
 @Composable
-fun SelectorColor(nombre: String, valor: Long, actual: Color, onCambia: (Long) -> Unit, onGuarda: () -> Unit) {
+fun SelectorColor(nombre: String, valor: Long, actual: Color, onCambia: (Long) -> Unit, onGuarda: () -> Unit, copiar: (() -> Unit)? = null) {
     var abierto by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clickable { abierto = !abierto }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(36.dp).background(actual).border(1.dp, Charcoal))
@@ -37,6 +37,7 @@ fun SelectorColor(nombre: String, valor: Long, actual: Color, onCambia: (Long) -
             Text(nombre, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = Charcoal)
             Text(if (valor == 0L) "Automático" else hexDe(Color(valor)), color = Muted, fontFamily = Body, fontSize = 12.sp)
         }
+        if (copiar != null) EnlaceRevista("Copiar de Atrio", Modifier.padding(end = 12.dp)) { copiar() }
         if (valor != 0L) EnlaceRevista("Quitar", Modifier.padding(end = 12.dp)) { onCambia(0L); onGuarda(); abierto = false }
         Text(if (abierto) "▴" else "▾", color = Muted, fontSize = 16.sp)
     }
@@ -53,14 +54,13 @@ fun SelectorColor(nombre: String, valor: Long, actual: Color, onCambia: (Long) -
         Barra("Saturación", s, Brush.horizontalGradient(listOf(Color.hsv(h, 0f, v), Color.hsv(h, 1f, v))), { s = it; pon() }, onGuarda)
         Barra("Brillo", v, Brush.horizontalGradient(listOf(Color.Black, Color.hsv(h, s, 1f))), { v = it; pon() }, onGuarda)
         Etiqueta("Código (#RRGGBB)", Modifier.padding(top = 6.dp))
-        Campo(texto, "#RRGGBB", { t ->
-            texto = t.uppercase().take(7)
-            Regex("^#?([0-9A-F]{6})$").find(texto)?.let { m ->
-                val c = Color(("FF" + m.groupValues[1]).toLong(16))
+        CampoCodigo(texto) { t, c ->
+            texto = t
+            if (c != null) {
                 FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }.let { x -> h = x[0]; s = x[1]; v = x[2] }
                 onCambia(largo(c)); onGuarda()
             }
-        })
+        }
     }
 }
 
@@ -74,5 +74,43 @@ private fun Barra(nombre: String, valor: Float, fondo: Brush, onCambia: (Float) 
             Slider(valor, onCambia, onValueChangeFinished = onSuelta, modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(thumbColor = Charcoal, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent))
         }
+    }
+}
+
+/** Lo que vale como código de color: «#RRGGBB», «RRGGBB», «#RGB» o con la opacidad delante («#FFRRGGBB»); null si no es un color. */
+fun colorDeCodigo(t: String): Color? {
+    val limpio = t.trim().removePrefix("#").removePrefix("0x").removePrefix("0X").uppercase()
+    if (limpio.isEmpty() || limpio.any { it !in "0123456789ABCDEF" }) return null
+    val seis = when (limpio.length) {
+        3 -> limpio.map { "$it$it" }.joinToString("")
+        6 -> limpio
+        8 -> limpio.drop(2)
+        else -> return null
+    }
+    return Color(("FF$seis").toLong(16))
+}
+
+/**
+ * El campo del código de un color: acepta lo que escribas o pegues (mayúsculas o minúsculas, con o sin #, también de 3 cifras) y aplica el color
+ * en cuanto es válido. Sin tocar lo que escribes mientras tanto (así el teclado no se lía) y sin límite que impida corregir.
+ */
+@Composable
+fun CampoCodigo(valor: String, alCambiar: (String, Color?) -> Unit) {
+    var campo by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(valor)) }
+    // Si el color cambia desde fuera (las barras), el campo enseña su código
+    LaunchedEffect(valor) { if (valor != campo.text && colorDeCodigo(campo.text)?.let { hexDe(it) } != valor) campo = androidx.compose.ui.text.input.TextFieldValue(valor) }
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            if (campo.text.isEmpty()) Text("#RRGGBB", color = Muted, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 18.sp)
+            androidx.compose.foundation.text.BasicTextField(
+                campo, { n -> campo = n; alCambiar(n.text, colorDeCodigo(n.text)) }, singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = Charcoal, fontFamily = Display, fontSize = 18.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Acento),
+                keyboardOptions = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Characters, keyboardType = androidx.compose.ui.text.input.KeyboardType.Ascii, autoCorrect = false),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Filete(1.5.dp)
+        Text(if (colorDeCodigo(campo.text) != null) "Aplicado" else "Escribe o pega un código de 3, 6 u 8 cifras", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
     }
 }

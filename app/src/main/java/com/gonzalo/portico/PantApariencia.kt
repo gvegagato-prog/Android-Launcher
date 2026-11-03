@@ -110,11 +110,26 @@ fun SeccionApariencia() {
     // ---- A tu manera
     Seccion("A tu manera")
     Text("El color que quieras para el fondo, el texto y el acento, y la letra de los títulos y del texto. Mandan sobre lo de arriba; «Quitar» vuelve a ello.", color = Muted, fontFamily = Body, fontSize = 13.sp)
-    SelectorColor("Fondo", Skin.fondoPropio, Paper, { Skin.fondoPropio = it }) { guarda() }
+    // Cada color se puede copiar de Atrio por separado (el del fondo, el del texto o el del acento)
+    val ambito = rememberCoroutineScope()
+    var avisoCopia by remember { mutableStateOf<String?>(null) }
+    fun copiaDe(que: String, nombre: String) {
+        if (!Cuenta.vinculada) { avisoCopia = "Primero vincula tu cuenta de Atrio (en «Cuenta de Atrio»)."; return }
+        avisoCopia = "Leyendo lo de Atrio…"
+        ambito.launch {
+            avisoCopia = try {
+                val a = withContext(Dispatchers.IO) { CopiaAtrio.leer() }
+                if (a == null) "Atrio todavía no ha subido su apariencia a tu cuenta (ábrelo y espera a que sincronice)."
+                else "Copiado el color del $nombre de Atrio: " + "#%06X".format(CopiaAtrio.copiarColor(ctx, a, que) and 0xFFFFFF)
+            } catch (e: Exception) { e.message ?: "No se pudo leer" }
+        }
+    }
+    SelectorColor("Fondo", Skin.fondoPropio, Paper, { Skin.fondoPropio = it }, { guarda() }, copiar = { copiaDe("fondo", "fondo") })
     Filete(1.dp, Line)
-    SelectorColor("Texto", Skin.tintaPropia, Charcoal, { Skin.tintaPropia = it }) { guarda() }
+    SelectorColor("Texto", Skin.tintaPropia, Charcoal, { Skin.tintaPropia = it }, { guarda() }, copiar = { copiaDe("texto", "texto") })
     Filete(1.dp, Line)
-    SelectorColor("Acento", Skin.acentoPropio, Acento, { Skin.acentoPropio = it }) { guarda() }
+    SelectorColor("Acento", Skin.acentoPropio, Acento, { Skin.acentoPropio = it }, { guarda() }, copiar = { copiaDe("acento", "acento") })
+    avisoCopia?.let { Text(it, color = Acento, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp)) }
     Filete(1.dp, Line)
     val letras = remember { (DISPLAY_FONTS + BODY_FONTS).map { it.name }.distinct() }
     SelectorLetra("Letra de los títulos", Skin.display.takeIf { it != "Atrio" }.orEmpty(), letras) { Skin.display = it.ifBlank { "Atrio" }; guarda() }
