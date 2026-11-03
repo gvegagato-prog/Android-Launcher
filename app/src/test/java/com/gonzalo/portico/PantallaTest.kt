@@ -1,6 +1,6 @@
 package com.gonzalo.portico
 
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
@@ -107,11 +107,31 @@ class PantallaTest {
         assertTrue("cambió su hora de modificación", Pantalla.items[0].mod > 1)
     }
 
-    @Test fun arrastrarSobreOtroNoLoPisa() {
+    @Test fun arrastrarSobreOtroLoEmpujaHaciaAbajo() {
         montarEditando(e("e1", 0, 0, 1, 1), e("e2", 1, 0, 1, 1))
         rule.onNodeWithTag("el-e1").performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(celdaPx, 0f)); up() }
         rule.waitForIdle()
-        assertEquals(0 to 0, Pantalla.items.first { it.id == "e1" }.let { it.x to it.y })
+        assertEquals(1 to 0, Pantalla.items.first { it.id == "e1" }.let { it.x to it.y })
+        assertEquals(1 to 1, Pantalla.items.first { it.id == "e2" }.let { it.x to it.y })
+        assertTrue(Pantalla.items.none { a -> Pantalla.items.any { b -> a.id != b.id && a.cabe(b) } })
+    }
+
+    @Test fun agrandarConVecinosLosEmpuja() {
+        montarEditando(e("e1", 0, 0, 1, 1), e("e2", 0, 1, 1, 1), e("e3", 0, 2, 1, 1))
+        rule.onNodeWithTag("asa-e1").performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 1.05f, celdaPx * 1.05f)); up() }
+        rule.waitForIdle()
+        assertEquals(2 to 2, Pantalla.items.first { it.id == "e1" }.let { it.w to it.h })
+        assertEquals(2, Pantalla.items.first { it.id == "e2" }.y); assertEquals(3, Pantalla.items.first { it.id == "e3" }.y)
+        assertTrue("sin solapes", Pantalla.items.none { a -> Pantalla.items.any { b -> a.id != b.id && a.cabe(b) } })
+    }
+
+    @Test fun elTamanoFuncionConUnDedoRealConVariosPasos() {
+        montarEditando(e("e1", 0, 0, 1, 1), e("e2", 0, 1, 1, 1))
+        rule.onNodeWithTag("asa-e1").performTouchInput {
+            down(center); repeat(12) { moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 1.1f / 12, celdaPx * 1.1f / 12)) }; up()
+        }
+        rule.waitForIdle()
+        assertEquals(2 to 2, Pantalla.items.first { it.id == "e1" }.let { it.w to it.h })
     }
 
     @Test fun elCirculoCambiaElTamano() {
@@ -123,5 +143,26 @@ class PantallaTest {
         rule.onNodeWithTag("asa-e1").performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 9f, 0f)); up() }
         rule.waitForIdle()
         assertEquals(4, Pantalla.items[0].w)
+    }
+
+    @Test fun moverConUnDedoRealConVariosPasos() {
+        montarEditando(e("e1", 0, 0, 1, 1))
+        rule.onNodeWithTag("el-e1").performTouchInput {
+            down(center); repeat(15) { moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 2f / 15, celdaPx * 1f / 15)) }; up()
+        }
+        rule.waitForIdle()
+        assertEquals(2 to 1, Pantalla.items[0].let { it.x to it.y })
+    }
+
+    @Test fun sondaLienzoSolo() {
+        Catalogo.cargar(ctx); Skin.cargar(ctx)
+        Biblioteca.juegos.add(Juego("1", "Zelda de prueba", Tipo.ROM, sistema = "gba", archivo = "Zelda", uri = "content://x"))
+        Pantalla.items.add(e("e1", 0, 0, 1, 1).copy(ref = Biblioteca.juegos[0].clave))
+        rule.setContent { PorticoTheme { Box(Modifier.fillMaxSize().padding(20.dp)) { Lienzo(true, {}, {}, {}) } } }
+        rule.onNodeWithTag("asa-e1").performTouchInput {
+            down(center); repeat(12) { moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 1.1f / 12, celdaPx * 1.1f / 12)) }; up()
+        }
+        rule.waitForIdle()
+        assertEquals(2 to 2, Pantalla.items.first { it.id == "e1" }.let { it.w to it.h })
     }
 }

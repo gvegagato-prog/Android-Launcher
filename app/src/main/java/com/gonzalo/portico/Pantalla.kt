@@ -81,6 +81,28 @@ object Pantalla {
         guardar()
     }
 
+    /**
+     * Pone [n] donde dice (moviéndolo o cambiándole el tamaño) y, si pisa a otros, los empuja hacia abajo (y a los que estos pisen, y así),
+     * como en la pantalla de inicio del móvil: nunca se rechaza un cambio por falta de sitio.
+     */
+    fun colocar(n: Elemento) {
+        val ahora = System.currentTimeMillis()
+        val lista = items.toMutableList()
+        val base = n.copy(x = n.x.coerceIn(0, COLUMNAS - n.w.coerceAtMost(COLUMNAS)), y = n.y.coerceAtLeast(0), mod = ahora)
+        val i = lista.indexOfFirst { it.id == base.id }
+        if (i >= 0) lista[i] = base else lista.add(base)
+        val cola = ArrayDeque<Elemento>().apply { add(base) }
+        var vueltas = 0
+        while (cola.isNotEmpty() && vueltas++ < 2000) {
+            val f = cola.removeFirst()
+            for (k in lista.indices) {
+                val o = lista[k]
+                if (o.id != f.id && f.cabe(o)) { val m = o.copy(y = f.y + f.h, mod = ahora); lista[k] = m; cola.add(m) }
+            }
+        }
+        items.clear(); items.addAll(lista); borrados.remove(base.id); guardar()
+    }
+
     fun quitar(id: String) {
         if (items.removeAll { it.id == id }) { borrados[id] = System.currentTimeMillis(); guardar() }
     }

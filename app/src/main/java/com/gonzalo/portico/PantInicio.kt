@@ -136,6 +136,8 @@ fun PantInicio(
     var editando by rememberSaveable { mutableStateOf(false) }
     var elegido by remember { mutableStateOf<Elemento?>(null) }
     var anadiendo by remember { mutableStateOf(false) }
+    var internet by remember { mutableStateOf(false) }
+    val idInternet = remember(internet) { Pantalla.nuevoId() }
     LaunedInicial()
 
     val imagen = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
@@ -212,7 +214,19 @@ fun PantInicio(
     }
 
     elegido?.let { e -> DialogoElemento(e, alCerrar = { elegido = null }, alFicha = { clave -> Biblioteca.juegos.firstOrNull { it.clave == clave }?.let { alAbrir(it) } }) }
-    if (anadiendo) DialogoAnadirElemento(alCerrar = { anadiendo = false }, alImagen = { anadiendo = false; imagen.launch("image/*") })
+    if (anadiendo) DialogoAnadirElemento(alCerrar = { anadiendo = false }, alImagen = { anadiendo = false; imagen.launch("image/*") }, alInternet = { anadiendo = false; internet = true })
+    // La misma búsqueda de imágenes que en las portadas (Google Imágenes, Pinterest, ArtStation, Newgrounds)
+    if (internet) InternetPicker(
+        initialQuery = "", idJuego = idInternet,
+        onPick = { ruta ->
+            val nombre = "$idInternet.jpg"
+            val dest = java.io.File(Pantalla.dirImagenes(ctx), nombre)
+            runCatching { java.io.File(ruta).copyTo(dest, true); java.io.File(ruta).delete() }
+            if (dest.exists()) { val (x, y) = Pantalla.hueco(2, 2); Pantalla.poner(Elemento(idInternet, Elemento.IMAGEN, nombre, x, y, 2, 2)) }
+            internet = false
+        },
+        onDismiss = { internet = false }
+    )
 }
 
 @Composable
@@ -249,7 +263,7 @@ private fun DialogoElemento(e: Elemento, alCerrar: () -> Unit, alFicha: (String)
 
 /** Añadir al lienzo: un juego de tu biblioteca o una imagen. */
 @Composable
-private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit) {
+private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit, alInternet: () -> Unit) {
     var busca by remember { mutableStateOf("") }
     val q = Catalogo.norm(busca)
     val lista = remember(busca) { recientes(Biblioteca.juegos.toList()).filter { q.isEmpty() || Catalogo.norm(it.titulo).contains(q) }.take(40) }
@@ -258,7 +272,9 @@ private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit) {
         title = { Text("Añadir a la pantalla", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                MagLink("Una imagen", "De tu galería, del tamaño que quieras") { alImagen() }
+                MagLink("Una imagen de internet", "Buscar en Google Imágenes, Pinterest, ArtStation…") { alInternet() }
+                Filete(1.dp, Line)
+                MagLink("Una imagen de la galería", "Del tamaño que quieras") { alImagen() }
                 Filete(1.dp, Line)
                 CampoBusqueda(busca) { busca = it }
                 Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {

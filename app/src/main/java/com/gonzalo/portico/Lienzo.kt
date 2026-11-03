@@ -12,7 +12,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
-import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -118,13 +118,13 @@ fun Lienzo(editando: Boolean, alJugar: (Juego) -> Unit, alAbrir: (Juego) -> Unit
                     val primero = awaitTouchSlopOrCancellation(down.id) { ch, sobre -> ch.consume(); total += sobre } ?: return@awaitEachGesture
                     arrastre = Arrastre(objetivo.first.id, objetivo.second, total)
                     hf.performHapticFeedback(HapticFeedbackType.LongPress)
-                    val fin = drag(primero.id) { ch -> ch.consume(); total += ch.positionChange(); arrastre = Arrastre(objetivo.first.id, objetivo.second, total) }
+                    val fin = drag(primero.id) { ch -> total += ch.positionChangeIgnoreConsumed(); ch.consume(); arrastre = Arrastre(objetivo.first.id, objetivo.second, total) }
                     if (fin) {
                         val e = Pantalla.items.firstOrNull { it.id == objetivo.first.id }
                         if (e != null) {
                             val n = if (objetivo.second) e.copy(w = ((e.w * px + total.x) / px).roundToInt().coerceIn(1, Pantalla.COLUMNAS - e.x), h = ((e.h * px + total.y) / px).roundToInt().coerceIn(1, 12))
                             else e.copy(x = ((e.x * px + total.x) / px).roundToInt().coerceIn(0, Pantalla.COLUMNAS - e.w), y = ((e.y * px + total.y) / px).roundToInt().coerceAtLeast(0))
-                            if (n != e) { if (Pantalla.libre(n)) Pantalla.poner(n) else hf.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                            if (n != e) Pantalla.colocar(n)
                         }
                     }
                     arrastre = null
