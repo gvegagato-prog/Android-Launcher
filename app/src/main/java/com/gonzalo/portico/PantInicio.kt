@@ -125,7 +125,7 @@ fun BaldosaAnadir(alAnadir: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * La pantalla de inicio de Pórtico, como la portada de Atrio: cabecera de revista, el menú de secciones (Recientes, Favoritos, ROMs…) y,
+ * La pantalla de inicio de Carmesí, como la portada de Atrio: cabecera de revista, el menú de secciones (Recientes, Favoritos, ROMs…) y,
  * debajo, tu lienzo: casillas invisibles donde colocas juegos e imágenes con el tamaño y el color que quieras (se sincroniza entre tus móviles).
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -156,8 +156,7 @@ fun PantInicio(
     }
 
     val secciones = listOf<Pair<String, () -> Unit>>(
-        "Recientes" to { alIr(Destino.Recientes) }, "Favoritos" to { alIr(Destino.Favoritos) }, "ROMs" to { alIr(Destino.Roms) },
-        "Android" to { alIr(Destino.Android) }, "Web" to { alIr(Destino.Web) }, "Todo" to { alIr(Destino.Juegos) }, "Sistemas" to { alIr(Destino.Sistemas) }
+        "Jugando" to { alIr(Destino.Jugando) }, "Pendiente" to { alIr(Destino.Pendiente) }, "Pasado" to { alIr(Destino.Pasado) }, "Abandonado" to { alIr(Destino.Abandonado) }
     )
 
     // La cabecera y el menú, exactamente como en la portada de Atrio (RevistaHome): mismos márgenes, mismo tamaño de cabecera, de filetes y de letra
@@ -180,6 +179,7 @@ fun PantInicio(
             Text(SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "ES")).format(hoy.time).uppercase(), color = Charcoal, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
         Filete(1.dp)
+        BarrasJuego(Biblioteca.juegos.toList())
         // Las secciones, como el menú de la portada de Atrio (RevistaMenu): sin título, entre dos filetes, versalitas de 12 sp
         Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
             Filete(1.dp)
@@ -202,7 +202,7 @@ fun PantInicio(
         Lienzo(editando, alJugar = alJugar, alAbrir = alAbrir, alEditar = { elegido = it })
         if (Pantalla.items.isEmpty() && !editando) {
             Column {
-                Text(if (Biblioteca.juegos.isEmpty()) "Pórtico no es un emulador: es la puerta desde la que abres los que ya tienes, los juegos de Android y los de navegador." else "Tu pantalla está vacía: toca «Editar» y añade juegos o imágenes donde quieras.", color = Muted, fontFamily = Body, fontSize = 15.sp, lineHeight = 22.sp)
+                Text(if (Biblioteca.juegos.isEmpty()) "Carmesí no es un emulador: es la puerta desde la que abres los que ya tienes, los juegos de Android y los de navegador." else "Tu pantalla está vacía: toca «Editar» y añade juegos o imágenes donde quieras.", color = Muted, fontFamily = Body, fontSize = 15.sp, lineHeight = 22.sp)
                 if (Biblioteca.juegos.isEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     MagLink("ROMs y emuladores", "GBA, DS, SNES, PSP… con el emulador que elijas", accent = true) { alAnadir(Tipo.ROM) }
@@ -220,7 +220,7 @@ fun PantInicio(
                 Filete(1.dp, Line)
                 MagLink("Abrir Atrio", "Valora lo que acabas de jugar") { ctx.startActivity(atrio.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
-            Text("Pórtico · hecho en casa", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 14.dp))
+            Text("Carmesí · hecho en casa", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 14.dp))
             Spacer(Modifier.height(24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
         }
     }
@@ -397,7 +397,7 @@ private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit, al
             Column {
                 // Los widgets de fuera, aquí dentro (con los colores que quieras)
                 Etiqueta("Widgets")
-                listOf(WTipo.JUGANDO to "Sigue jugando", WTipo.ESTANTE to "Recientes", WTipo.PORTADA to "En portada", WTipo.SIGUIENTE to "¿Y ahora qué?", WTipo.MARCA to "PÓRTICO", WTipo.MARCA_PAPEL to "PÓRTICO en papel").forEach { (t, n) ->
+                listOf(WTipo.JUGANDO to "Sigue jugando", WTipo.ESTANTE to "Recientes", WTipo.PORTADA to "En portada", WTipo.SIGUIENTE to "¿Y ahora qué?", WTipo.MARCA to "CARMESÍ", WTipo.MARCA_PAPEL to "CARMESÍ en papel").forEach { (t, n) ->
                     MagLink(n) { alWidget(t) }
                 }
                 Filete(1.dp, Line)

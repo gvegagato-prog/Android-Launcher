@@ -14,7 +14,7 @@ import java.net.URLEncoder
 
 /**
  * Tu kDrive (API de Infomaniak), la misma que usa Atrio: por ahora para lo que hace falta aquí, que es leer la carpeta
- * «Mi carpeta/versiones» y bajar de ella las versiones nuevas de Pórtico. El token (y el número del kDrive) se guardan solo
+ * «Mi carpeta/versiones» y bajar de ella las versiones nuevas de Carmesí. El token (y el número del kDrive) se guardan solo
  * en este móvil, como en Atrio: Atrio no los comparte con otras apps, así que hay que pegarlos aquí una vez.
  */
 object KDrive {

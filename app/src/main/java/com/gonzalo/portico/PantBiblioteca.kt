@@ -25,19 +25,20 @@ enum class Orden(val nombre: String) { Recientes("Recientes"), Nombre("Nombre"),
 
 /** Los filtros de la biblioteca (viven en la raíz: el menú de la portada los pone). */
 class FiltroBib {
+    var estado by mutableStateOf<Estado?>(null)
     var tipo by mutableStateOf<Tipo?>(null)
     var sistema by mutableStateOf<String?>(null)
     var favoritos by mutableStateOf(false)
     var busca by mutableStateOf("")
     var orden by mutableStateOf(Orden.Recientes)
     var buscando by mutableStateOf(false)
-    fun limpiar() { tipo = null; sistema = null; favoritos = false; busca = "" }
+    fun limpiar() { estado = null; tipo = null; sistema = null; favoritos = false; busca = "" }
 }
 
 fun filtrar(todos: List<Juego>, f: FiltroBib): List<Juego> {
     val q = Catalogo.norm(f.busca)
     val l = todos.filter { j ->
-        (f.tipo == null || j.tipo == f.tipo) && (f.sistema == null || j.sistema == f.sistema) && (!f.favoritos || j.favorito) &&
+        (f.estado == null || j.estado == f.estado) && (f.tipo == null || j.tipo == f.tipo) && (f.sistema == null || j.sistema == f.sistema) && (!f.favoritos || j.favorito) &&
             (q.isEmpty() || Catalogo.norm(j.titulo).contains(q) || Catalogo.norm(etiquetaDe(j)).contains(q))
     }
     return when (f.orden) {
@@ -54,24 +55,26 @@ fun filtrar(todos: List<Juego>, f: FiltroBib): List<Juego> {
 fun PantBiblioteca(f: FiltroBib, alVolver: () -> Unit, alAbrir: (Juego) -> Unit, alJugar: (Juego) -> Unit, alAnadir: () -> Unit) {
     val todos = Biblioteca.juegos.toList()
     val lista = filtrar(todos, f)
-    val sistemas = todos.filter { it.tipo == Tipo.ROM }.groupBy { it.sistema }.entries.sortedByDescending { it.value.size }
-    val pestanas = listOf("Todo", "ROMs", "Android", "Web", "Favoritos")
-    val sel = when { f.favoritos -> 4; f.tipo == Tipo.ROM -> 1; f.tipo == Tipo.APP -> 2; f.tipo == Tipo.WEB -> 3; else -> 0 }
-    val cuentas = listOf(todos.size, todos.count { it.tipo == Tipo.ROM }, todos.count { it.tipo == Tipo.APP }, todos.count { it.tipo == Tipo.WEB }, todos.count { it.favorito })
+    val delEstado = todos.filter { f.estado == null || it.estado == f.estado }
+    val sistemas = delEstado.filter { it.tipo == Tipo.ROM }.groupBy { it.sistema }.entries.sortedByDescending { it.value.size }
+    // Los menús pequeños: de dónde viene el juego (Emulación, Android, Web)
+    val pestanas = listOf("Todos", "Emulación", "Android", "Web")
+    val sel = when (f.tipo) { Tipo.ROM -> 1; Tipo.APP -> 2; Tipo.WEB -> 3; else -> 0 }
+    val cuentas = listOf(delEstado.size, delEstado.count { it.tipo == Tipo.ROM }, delEstado.count { it.tipo == Tipo.APP }, delEstado.count { it.tipo == Tipo.WEB })
     val foco = remember { FocusRequester() }
     LaunchedEffect(f.buscando) { if (f.buscando) runCatching { foco.requestFocus() } }
     LazyColumn(Modifier.fillMaxSize().background(Paper).statusBarsPadding(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 40.dp)) {
         item {
             Column {
-                RevistaTopBar(alVolver, "Pórtico") {
+                RevistaTopBar(alVolver, "Carmesí") {
                     EnlaceRevista("Buscar") { f.buscando = !f.buscando; if (!f.buscando) f.busca = "" }
                     EnlaceRevista("+ Añadir", acento = true, onClick = alAnadir)
                 }
-                Antetitulo("Sección · ${todos.size} ${if (todos.size == 1) "ficha" else "fichas"}", Modifier.padding(top = 10.dp), color = Acento, conCuadro = false)
-                FitTitle("Juegos", 52.sp, 56.sp, letterSpacing = (-1.5).sp, modifier = Modifier.padding(top = 2.dp), unaLinea = true)
+                Antetitulo("Sección · ${delEstado.size} ${if (delEstado.size == 1) "ficha" else "fichas"}", Modifier.padding(top = 10.dp), color = Acento, conCuadro = false)
+                FitTitle(f.estado?.nombre ?: "Juegos", 52.sp, 56.sp, letterSpacing = (-1.5).sp, modifier = Modifier.padding(top = 2.dp), unaLinea = true)
                 Filete(3.dp)
                 PestanasRevista(pestanas, sel, cuentas = cuentas) { i ->
-                    f.sistema = null; f.favoritos = i == 4
+                    f.sistema = null
                     f.tipo = when (i) { 1 -> Tipo.ROM; 2 -> Tipo.APP; 3 -> Tipo.WEB; else -> null }
                 }
                 // Orden y sistemas
@@ -94,7 +97,7 @@ fun PantBiblioteca(f: FiltroBib, alVolver: () -> Unit, alAbrir: (Juego) -> Unit,
             }
         }
         items(lista, key = { it.id }) { j ->
-            FilaRevista(j.titulo, listOf(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "", if (j.terminado) "terminado" else "", if (j.enOtroDispositivo) "en otro dispositivo" else "").filter { it.isNotBlank() }.joinToString(" · "),
+            FilaRevista(j.titulo, listOf(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "", if (f.estado == null && j.estado != Estado.PENDIENTE) j.estado.nombre.lowercase() else "", if (j.enOtroDispositivo) "en otro dispositivo" else "").filter { it.isNotBlank() }.joinToString(" · "),
                 derecha = {
                     if (j.terminado && j.nota > 0f) Text(notaTexto(j.nota), color = Muted, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 34.sp, modifier = Modifier.padding(start = 10.dp))
                     Text("JUGAR →", color = Acento, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp,

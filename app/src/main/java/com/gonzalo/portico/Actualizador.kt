@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  * Actualizarse sola desde tu kDrive (igual que Atrio). Cada versión se sube a «Mi carpeta/versiones» (Portico-<versión>.apk, junto a las de Atrio). Se mira si hay
  * una más nueva al abrir la app, cada minuto mientras se ve (cualquier pantalla suya, también el lector) y, con la app
  * cerrada, cada pocas horas en segundo plano. Si la hay, se baja (con wifi o con datos móviles) y se comprueba que es
- * Pórtico y que está firmada con la misma clave. Se instala:
+ * Carmesí y que está firmada con la misma clave. Se instala:
  *  - sin preguntar, cuando no la estás usando (al salir de la app, o en segundo plano): Android lo permite a una app que
  *    se actualiza a sí misma (Android 12 o más, con el permiso de instalar apps y apuntando a una versión reciente);
  *  - si Android no lo deja, con un aviso para actualizar ahora (Android pide su confirmación), y al terminar se vuelve a
@@ -33,7 +33,7 @@ object Actualizador {
 
     /** La versión descargada y lista (la pantalla pregunta si no puede instalarse sola). */
     var nueva by mutableStateOf<Nueva?>(null)
-    /** Falta el permiso de «instalar apps desconocidas» para Pórtico. */
+    /** Falta el permiso de «instalar apps desconocidas» para Carmesí. */
     var faltaPermiso by mutableStateOf(false)
     /** La app está delante (si no, un aviso en lugar de abrir pantallas). */
     @Volatile var primerPlano = false
@@ -56,7 +56,7 @@ object Actualizador {
 
     /** «Portico-0.8.0.apk» → [0, 8, 0]. */
     fun versionDe(nombre: String): List<Int>? =
-        Regex("""^Portico-(\d+(?:\.\d+)*)\.apk$""").find(nombre)?.groupValues?.get(1)?.split('.')?.map { it.toInt() }
+        Regex("""^(?:Portico|Carmesi)-(\d+(?:\.\d+)*)\.apk$""").find(nombre)?.groupValues?.get(1)?.split('.')?.map { it.toInt() }
 
     /** ¿[a] es más nueva que [b]? («6.67» > «6.9» > «6.10» como números, no como texto). */
     fun mayor(a: List<Int>, b: List<Int>): Boolean {
@@ -78,7 +78,7 @@ object Actualizador {
     @Suppress("DEPRECATION")
     private fun instalada(ctx: Context) = ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
 
-    /** Que el archivo bajado sea de verdad una versión más nueva de Pórtico, firmada con la misma clave que la instalada. */
+    /** Que el archivo bajado sea de verdad una versión más nueva de Carmesí, firmada con la misma clave que la instalada. */
     @Suppress("DEPRECATION")
     fun valida(ctx: Context, f: File): Long? {
         val pm = ctx.packageManager
@@ -134,7 +134,7 @@ object Actualizador {
                             primerPlano = false
                             bucle?.cancel(); bucle = null
                             // Se espera un poco: si solo has ido a la galería o al selector de archivos (otra app encima),
-                            // al volver se cancela; instalar ahí cerraría Pórtico a mitad de elegir una foto. (Con WorkManager y
+                            // al volver se cancela; instalar ahí cerraría Carmesí a mitad de elegir una foto. (Con WorkManager y
                             // no con una espera aquí: Android congela las apps que no se ven, y su tarea llega igual.)
                             if (nueva?.silenciosa == true) programaAlSalir(app)
                         }
@@ -188,7 +188,7 @@ object Actualizador {
         if (!ctx.packageManager.canRequestPackageInstalls()) {
             faltaPermiso = true
             runCatching { ctx.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            return "Permite a Pórtico instalar apps y vuelve a pulsar «Actualizar ahora»"
+            return "Permite a Carmesí instalar apps y vuelve a pulsar «Actualizar ahora»"
         }
         return try { instala(ctx, n); "Instalando la ${n.nombre.removeSuffix(".apk")}…" } catch (e: Throwable) { "No se pudo instalar: ${e.message ?: e.javaClass.simpleName}" }
     }
@@ -232,7 +232,7 @@ object Actualizador {
         ctx.getSharedPreferences("portico_act", Context.MODE_PRIVATE).edit().putLong("act_reabrir", if (si) System.currentTimeMillis() else 0L).apply()
     }
 
-    /** Lo llama el receptor de «app actualizada»: reabre Pórtico si la actualización se hizo con ella delante. */
+    /** Lo llama el receptor de «app actualizada»: reabre Carmesí si la actualización se hizo con ella delante. */
     fun reabre(ctx: Context) {
         val sp = ctx.getSharedPreferences("portico_act", Context.MODE_PRIVATE)
         val t = sp.getLong("act_reabrir", 0L)
@@ -242,10 +242,10 @@ object Actualizador {
         // Con el permiso «Mostrar sobre otras apps», Android deja abrirla directamente; sin él (o si el móvil lo bloquea), queda el aviso
         if (puedeReabrirSola(ctx)) runCatching { ctx.startActivity(abrir) }
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel("reabrir", "Pórtico actualizada", NotificationManager.IMPORTANCE_HIGH))
+        nm.createNotificationChannel(NotificationChannel("reabrir", "Carmesí actualizada", NotificationManager.IMPORTANCE_HIGH))
         val pi = PendingIntent.getActivity(ctx, 2006, abrir, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         nm.notify(AVISO_REABRIR, Notification.Builder(ctx, "reabrir").setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("Pórtico se ha actualizado").setContentText("Toca para abrirla").setContentIntent(pi).setAutoCancel(true).build())
+            .setContentTitle("Carmesí se ha actualizado").setContentText("Toca para abrirla").setContentIntent(pi).setAutoCancel(true).build())
     }
 
     const val AVISO_REABRIR = 2006
@@ -283,10 +283,10 @@ class ActualizadorReceiver : BroadcastReceiver() {
         conf.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Actualizador.primerPlano) { runCatching { ctx.startActivity(conf) }; return }
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel("actualizar", "Actualizaciones de Pórtico", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel("actualizar", "Actualizaciones de Carmesí", NotificationManager.IMPORTANCE_DEFAULT))
         val pi = PendingIntent.getActivity(ctx, 2005, conf, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         nm.notify(2005, Notification.Builder(ctx, "actualizar").setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("Pórtico tiene una versión nueva").setContentText("Toca para actualizar").setContentIntent(pi).setAutoCancel(true).build())
+            .setContentTitle("Carmesí tiene una versión nueva").setContentText("Toca para actualizar").setContentIntent(pi).setAutoCancel(true).build())
     }
 }
 

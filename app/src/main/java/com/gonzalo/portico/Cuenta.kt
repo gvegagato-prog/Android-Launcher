@@ -15,11 +15,11 @@ import java.net.URLEncoder
 import java.util.UUID
 
 /**
- * La cuenta de Atrio, vinculada a Pórtico. Es la misma cuenta (usuario y contraseña de Firebase Authentication, por su API REST),
+ * La cuenta de Atrio, vinculada a Carmesí. Es la misma cuenta (usuario y contraseña de Firebase Authentication, por su API REST),
  * y se usa igual que Atrio: cada dispositivo escribe solo en su hueco, bajo /users/<tu uid>/portico/:
  *   dev/<dispositivo>     { name, device, updated, data }   — la biblioteca de ese dispositivo (ver [Mezcla])
  *   stamps/<dispositivo>  hora de su última subida (para mirar novedades con una consulta mínima y para escuchar en directo)
- * Pórtico no crea cuentas: entra en la que ya tienes en Atrio. La contraseña no se guarda; solo el pase de acceso (se renueva solo).
+ * Carmesí no crea cuentas: entra en la que ya tienes en Atrio. La contraseña no se guarda; solo el pase de acceso (se renueva solo).
  */
 object Cuenta {
     const val DEFAULT_DB = "https://app-ratear-default-rtdb.europe-west1.firebasedatabase.app"

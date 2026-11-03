@@ -47,15 +47,15 @@ fun PantSistemas(alVolver: () -> Unit, alAnadirCarpeta: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize().background(Paper).statusBarsPadding(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 40.dp)) {
         item {
             Column {
-                RevistaTopBar(alVolver, "Pórtico") { EnlaceRevista("+ Carpeta", acento = true, onClick = alAnadirCarpeta) }
+                RevistaTopBar(alVolver, "Carmesí") { EnlaceRevista("+ Carpeta", acento = true, onClick = alAnadirCarpeta) }
                 Antetitulo("Sección · ${Catalogo.sistemas.size} sistemas", Modifier.padding(top = 10.dp), color = Acento, conCuadro = false)
                 FitTitle("Sistemas", 52.sp, 56.sp, letterSpacing = (-1.5).sp, modifier = Modifier.padding(top = 2.dp), unaLinea = true)
                 Filete(3.dp)
-                Text("Cada consola, con el emulador que tú elijas. Pórtico no incluye emuladores: abre los que ya tienes instalados.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp, lineHeight = 22.sp, modifier = Modifier.padding(vertical = 12.dp))
+                Text("Cada consola, con el emulador que tú elijas. Carmesí no incluye emuladores: abre los que ya tienes instalados.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp, lineHeight = 22.sp, modifier = Modifier.padding(vertical = 12.dp))
                 Filete(2.dp)
                 Spacer(Modifier.height(12.dp))
                 Antetitulo("Carpetas de ROMs", Modifier.padding(bottom = 6.dp))
-                if (Biblioteca.carpetas.isEmpty()) Text("Todavía no has añadido ninguna. Añade la carpeta donde guardas tus ROMs y Pórtico la recorre.", color = Muted, fontFamily = Body, fontSize = 14.sp, lineHeight = 20.sp)
+                if (Biblioteca.carpetas.isEmpty()) Text("Todavía no has añadido ninguna. Añade la carpeta donde guardas tus ROMs y Carmesí la recorre.", color = Muted, fontFamily = Body, fontSize = 14.sp, lineHeight = 20.sp)
                 else Biblioteca.carpetas.forEach { c ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(c.nombre, color = Charcoal, fontFamily = Display, fontSize = 19.sp, modifier = Modifier.weight(1f))

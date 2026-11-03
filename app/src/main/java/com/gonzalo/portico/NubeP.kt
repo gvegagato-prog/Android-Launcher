@@ -15,11 +15,11 @@ import java.security.MessageDigest
  * Guardados, ROMs y portadas en tu kDrive, con el índice en tu cuenta (como los libros en Atrio: el archivo va a kDrive y
  * lo que dice qué hay y dónde viaja con la cuenta, en /users/<uid>/portico/nube/<tipo>/<juego>/f/<archivo>).
  *
- * GUARDADOS. Eliges, para cada sistema, la carpeta donde su emulador deja los guardados (solo ahí puede mirar Pórtico: Android no
+ * GUARDADOS. Eliges, para cada sistema, la carpeta donde su emulador deja los guardados (solo ahí puede mirar Carmesí: Android no
  * deja a una app leer las carpetas privadas de otra, y la mayoría de emuladores guardan ahí por defecto; ver README).
  *  - Antes de jugar: si en la nube hay un guardado distinto del que tienes y que no es el que ya habías sincronizado, se baja
  *    (se comprueba que llega entero) y se pone en su sitio. Lo que sustituya se guarda antes en una copia.
- *  - Al volver a Pórtico: si el guardado de este móvil ha cambiado, se sube.
+ *  - Al volver a Carmesí: si el guardado de este móvil ha cambiado, se sube.
  * No hay vigilancia mientras juegas (Android no avisa de cuándo un emulador escribe un archivo): se mira al lanzar y al volver.
  */
 object NubeP {

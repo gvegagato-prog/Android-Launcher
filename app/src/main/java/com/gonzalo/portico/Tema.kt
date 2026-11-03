@@ -22,7 +22,7 @@ import androidx.compose.ui.text.googlefonts.Font as GFont
 import androidx.compose.ui.text.googlefonts.GoogleFont
 
 /*
- * El tema de Pórtico es el de Atrio: las mismas paletas (cada una con su versión clara y oscura), las mismas letras
+ * El tema de Carmesí es el de Atrio: las mismas paletas (cada una con su versión clara y oscura), las mismas letras
  * (las que van dentro de la app y las de Google Fonts) y las mismas combinaciones listas («estilos»).
  * Así las dos apps se ven de la misma familia, como dos programas de la misma suite.
  * Las paletas y los estilos de abajo son una copia de los de Atrio (Skin.kt); si añades uno allí, copia aquí la línea.

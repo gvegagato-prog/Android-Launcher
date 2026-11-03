@@ -94,7 +94,7 @@ object Lanzador {
             when (j.tipo) {
                 Tipo.ROM -> {
                     if (j.enOtroDispositivo) return "Esta ROM está en otro de tus dispositivos: añádela aquí (mismo sistema y mismo nombre de archivo) y se unirá sola."
-                    val e = elegir(c, j) ?: return "Pórtico no sabe lanzar «${j.sistema}»"
+                    val e = elegir(c, j) ?: return "Carmesí no sabe lanzar «${j.sistema}»"
                     when (val r = e.resultado) {
                         is Resultado.Ok -> { c.startActivity(aIntent(r.spec)); null }
                         is Resultado.Falta -> "${e.etiqueta}: ${r.motivo}"
@@ -124,24 +124,47 @@ object Lanzador {
 }
 
 /**
- * Tiempo de juego aproximado. Cuando lanzas un juego (ROM o app) se apunta la hora; cuando vuelves a Pórtico, lo que ha pasado
+ * Tiempo de juego aproximado. Cuando lanzas un juego (ROM o app) se apunta la hora; cuando vuelves a Carmesí, lo que ha pasado
  * se suma al juego (con un máximo de 12 h por sesión; menos de 20 s no cuenta). Es una aproximación: Android no dice cuándo
  * cierras un emulador. Los juegos web se miden dentro de su propia pantalla.
  */
 object Sesion {
     private fun p(c: Context) = c.getSharedPreferences("portico_sesion", Context.MODE_PRIVATE)
 
+    /** Reparte un tiempo de juego entre los días que abarca (una sesión que cruza la medianoche cuenta en los dos). */
+    fun repartir(fin: Long, ms: Long, zona: java.util.TimeZone = java.util.TimeZone.getDefault()): Map<String, Long> {
+        val out = LinkedHashMap<String, Long>()
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).apply { timeZone = zona }
+        var hasta = fin; var resto = ms
+        while (resto > 0) {
+            val cal = java.util.Calendar.getInstance(zona).apply { timeInMillis = hasta - 1 }
+            val inicioDia = cal.apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+            val enDia = minOf(resto, hasta - inicioDia)
+            val k = f.format(java.util.Date(hasta - 1))
+            out[k] = (out[k] ?: 0L) + enDia
+            resto -= enDia; hasta = inicioDia
+        }
+        return out
+    }
+
+    fun conDias(j: Juego, fin: Long, ms: Long): Map<String, Long> {
+        val d = HashMap(j.diasPropios)
+        repartir(fin, ms).forEach { (k, v) -> d[k] = (d[k] ?: 0L) + v }
+        return d.entries.sortedByDescending { it.key }.take(400).associate { it.key to it.value }
+    }
+
     fun empezar(c: Context, j: Juego) {
-        Biblioteca.poner(j.copy(ultima = System.currentTimeMillis(), veces = j.veces + 1, vecesPropias = j.vecesPropias + 1))
+        val k = if (j.estado == Estado.PENDIENTE) j.conEstado(Estado.JUGANDO) else j
+        Biblioteca.poner(k.copy(ultima = System.currentTimeMillis(), veces = j.veces + 1, vecesPropias = j.vecesPropias + 1))
         if (j.tipo != Tipo.WEB) p(c).edit().putString("id", j.id).putLong("desde", System.currentTimeMillis()).apply()
     }
 
-    /** Al volver a Pórtico: suma el tiempo de la sesión que había abierta. */
+    /** Al volver a Carmesí: suma el tiempo de la sesión que había abierta. */
     fun cerrar(c: Context) {
         val p = p(c); val id = p.getString("id", null) ?: return
         val desde = p.getLong("desde", 0L); p.edit().clear().apply()
         val ms = (System.currentTimeMillis() - desde).coerceAtMost(12L * 3600_000)
-        if (ms >= 20_000) Biblioteca.por(id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms)) }
+        if (ms >= 20_000) Biblioteca.por(id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms, diasPropios = conDias(it, System.currentTimeMillis(), ms))) }
         // Volver de jugar: si el guardado de este móvil ha cambiado, se sube a la nube
         Biblioteca.por(id)?.takeIf { NubeP.activo(c, it) }?.let { j ->
             val app = c.applicationContext
@@ -149,5 +172,5 @@ object Sesion {
         }
     }
 
-    fun sumar(j: Juego, ms: Long) { if (ms >= 5_000) Biblioteca.por(j.id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms)) } }
+    fun sumar(j: Juego, ms: Long) { if (ms >= 5_000) Biblioteca.por(j.id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms, diasPropios = conDias(it, System.currentTimeMillis(), ms))) } }
 }

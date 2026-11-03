@@ -109,7 +109,7 @@ fun HojaAnadir(inicial: Tipo?, alCerrar: () -> Unit) {
                 FitTitle("Juegos", 44.sp, 46.sp, letterSpacing = (-1).sp, unaLinea = true)
                 Filete(3.dp)
                 Cuerpo("Elige de dónde vienen.", tam = 13, modifier = Modifier.padding(vertical = 8.dp))
-                Entrada("Carpeta de ROMs", "Pórtico busca dentro y reconoce el sistema por la extensión o por el nombre de la carpeta") { carpeta.launch(null) }
+                Entrada("Carpeta de ROMs", "Carmesí busca dentro y reconoce el sistema por la extensión o por el nombre de la carpeta") { carpeta.launch(null) }
                 Entrada("ROMs sueltas", "Elige uno o varios archivos (.gba, .nds, .sfc…)") { archivos.launch(arrayOf("*/*")) }
                 Entrada("Juego de Android", "De los que ya tienes instalados") { paso = Paso.Apps }
                 Entrada("Juego de navegador", "Una dirección web: PokéRogue y similares") { web = true }

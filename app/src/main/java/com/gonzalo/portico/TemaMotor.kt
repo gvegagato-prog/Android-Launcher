@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Formas: cómo dibuja cada estilo las esquinas y los bordes. Son las mismas ideas que las «formas» de Atrio, más simples:
- * en Pórtico la portada es un ARCO (la puerta de Atrio, repetida), y según la forma el arco es redondo, biselado o recto.
+ * en Carmesí la portada es un ARCO (la puerta de Atrio, repetida), y según la forma el arco es redondo, biselado o recto.
  */
 enum class Esq { Redonda, Cortada, Recta }
 data class Forma(val id: String, val esq: Esq, val radio: Float, val borde: Dp, val bordeTinta: Boolean, val sombraDura: Boolean, val arco: Float)
@@ -81,7 +81,7 @@ fun pildora(): Shape = when (Skin.forma.esq) {
 }
 
 /**
- * La portada de Pórtico: un arco. Arriba, media circunferencia (o menos, según la forma); abajo, esquinas pequeñas.
+ * La portada de Carmesí: un arco. Arriba, media circunferencia (o menos, según la forma); abajo, esquinas pequeñas.
  * En las formas rectas es un rectángulo con borde; en las biseladas, el arco es un chaflán.
  */
 class ArcoShape(private val f: Forma) : Shape {
@@ -127,7 +127,7 @@ object Skin {
     var escala by mutableStateOf(100)
     /** Colores invertidos: el fondo con el color del texto y el texto con el del fondo; el acento se mantiene. */
     var invertido by mutableStateOf(true)
-    /** Colores de Atrio (los que tienes puestos allí) en lugar de los de la paleta de Pórtico. */
+    /** Colores de Atrio (los que tienes puestos allí) en lugar de los de la paleta de Carmesí. */
     var origenAtrio by mutableStateOf(true)
     /** Colores elegidos a mano, como «A tu manera» de Atrio (0 = automático): por encima de todo lo demás. */
     var fondoPropio by mutableStateOf(0L)
@@ -153,14 +153,14 @@ object Skin {
         return r
     }
 
-    /** La paleta de Pórtico (con su acento elegido), en claro o en oscuro. */
+    /** La paleta de Carmesí (con su acento elegido), en claro o en oscuro. */
     private fun propiosPara(noche: Boolean): Tones = (if (noche) palette.dark else palette.light).let { b ->
         ACCENT_COLORS.firstOrNull { it.id == accentId }?.let { a -> b.copy(general = (if (noche) a.dark else a.light) or 0xFF000000) } ?: b
     }
 
     /**
      * Los colores que se ven en claro o en oscuro ([noche]): los de Atrio (si se piden y se han leído; ya vienen en el modo que
-     * tengas allí) o los de Pórtico, y al revés si está «invertidos». Los widgets los piden de las dos maneras.
+     * tengas allí) o los de Carmesí, y al revés si está «invertidos». Los widgets los piden de las dos maneras.
      */
     fun tonosPara(noche: Boolean): Tones {
         val fondo = FONDOS.firstOrNull { it.id == fondoId }
@@ -229,10 +229,10 @@ object Skin {
         fondoPropio = p.getLong("fondo_propio", 0L); tintaPropia = p.getLong("tinta_propia", 0L); acentoPropio = p.getLong("acento_propio", 0L)
     }
 
-    /** Cuándo se cambió la apariencia (milisegundos): al sincronizar con tus otros Pórticos gana la más reciente. */
+    /** Cuándo se cambió la apariencia (milisegundos): al sincronizar con tus otros Carmesís gana la más reciente. */
     var ajustesAt = 0L
 
-    /** Guarda la apariencia (y la marca como cambiada ahora, para que viaje a tus otros Pórticos). */
+    /** Guarda la apariencia (y la marca como cambiada ahora, para que viaje a tus otros Carmesís). */
     fun guardar(c: Context) {
         ajustesAt = System.currentTimeMillis()
         persistir(c)
@@ -245,7 +245,7 @@ object Skin {
         .put("invertido", invertido).put("origenAtrio", origenAtrio).put("modo", Modo.eleccion)
         .put("fondoId", fondoId).put("fondoPropio", fondoPropio).put("tintaPropia", tintaPropia).put("acentoPropio", acentoPropio))
 
-    /** Aplica la apariencia de otro de tus Pórticos si es más nueva que la de aquí. Devuelve true si ha cambiado algo. */
+    /** Aplica la apariencia de otro de tus Carmesís si es más nueva que la de aquí. Devuelve true si ha cambiado algo. */
     fun aplicarAjustes(c: Context, o: JSONObject): Boolean {
         val at = o.optLong("at", 0L)
         if (at <= ajustesAt) return false

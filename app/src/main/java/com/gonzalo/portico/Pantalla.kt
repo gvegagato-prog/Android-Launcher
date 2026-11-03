@@ -7,7 +7,7 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * La pantalla de inicio de Pórtico: un lienzo de [COLUMNAS] columnas de casillas cuadradas (invisibles) donde colocas lo que quieras,
+ * La pantalla de inicio de Carmesí: un lienzo de [COLUMNAS] columnas de casillas cuadradas (invisibles) donde colocas lo que quieras,
  * con el tamaño que quieras: juegos (se enlazan por su clave, así que valen en todos tus móviles) e imágenes tuyas.
  * Cada elemento tiene su color de fondo (0 = el del tema). Se sincroniza con la cuenta: gana el cambio más reciente de cada elemento
  * y lo que quitas viaja como «borrado», como en la biblioteca.
@@ -26,7 +26,7 @@ data class Elemento(
 ) {
     val esJuego get() = tipo == JUEGO
     val esImagen get() = tipo == IMAGEN
-    /** Un widget de Pórtico dentro de la pantalla (ref = su nombre: JUGANDO, ESTANTE…). */
+    /** Un widget de Carmesí dentro de la pantalla (ref = su nombre: JUGANDO, ESTANTE…). */
     val esWidget get() = tipo == WIDGET
     fun cabe(o: Elemento) = x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h
 

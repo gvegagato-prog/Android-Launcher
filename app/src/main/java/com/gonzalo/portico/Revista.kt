@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
 /*
  * Las piezas de la interfaz «Revista» de Atrio (RevistaUI.kt, Revista.kt, Ediciones.kt, Vitrina.kt), tal cual y con los mismos
  * nombres: papel, serif, filetes, antetítulos en versalitas con su cuadradito de acento, pestañas subrayadas, enlaces con flecha,
- * cifras enormes y puntos guía. Todas las pantallas de Pórtico usan estas, para que se vean como las de Atrio.
+ * cifras enormes y puntos guía. Todas las pantallas de Carmesí usan estas, para que se vean como las de Atrio.
  */
 
 /** Filete de la revista (horizontal). */
@@ -66,7 +66,7 @@ fun EnlaceRevista(texto: String, modifier: Modifier = Modifier, acento: Boolean 
         modifier = modifier.semantics { role = Role.Button }.clickable(onClick = onClick).padding(vertical = 10.dp))
 }
 
-/** «← VOLVER» (o «← PÓRTICO» en lo que cuelga de la portada). */
+/** «← VOLVER» (o «← CARMESÍ» en lo que cuelga de la portada). */
 @Composable
 fun VolverRevista(onClick: () -> Unit, texto: String = "Volver") = EnlaceRevista("← $texto", onClick = onClick)
 
@@ -138,7 +138,7 @@ fun RevistaHeadline(title: String, overline: String?) {
 
 /** La cabecera de la revista (el nombre, enorme) en una sola línea. */
 @Composable
-fun Cabecera(tam: TextUnit, modifier: Modifier = Modifier, color: Color = Charcoal, texto: String = "PÓRTICO") {
+fun Cabecera(tam: TextUnit, modifier: Modifier = Modifier, color: Color = Charcoal, texto: String = "CARMESÍ") {
     Box(modifier.fillMaxWidth()) {
         FitTitle(texto, tam, tam, color = color, letterSpacing = (-0.03).em, maxLines = 1, modifier = Modifier.fillMaxWidth(), minSize = 12f, unaLinea = true)
     }

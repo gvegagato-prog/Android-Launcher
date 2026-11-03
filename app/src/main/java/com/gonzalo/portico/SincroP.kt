@@ -19,9 +19,9 @@ import org.json.JSONTokener
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * La sincronización de Pórtico con tu cuenta de Atrio, como la de Atrio entre sus dispositivos:
+ * La sincronización de Carmesí con tu cuenta de Atrio, como la de Atrio entre sus dispositivos:
  *  - lo que cambias aquí (un juego, tus horas, una nota…) se sube en cuanto pasan [ESPERA] ms (por si llegan varios cambios seguidos);
- *  - mientras Pórtico se ve, se escucha tu cuenta en directo: lo que sube otro de tus Pórticos se baja y se mezcla al momento;
+ *  - mientras Carmesí se ve, se escucha tu cuenta en directo: lo que sube otro de tus Carmesís se baja y se mezcla al momento;
  *  - una sola subida o mezcla a la vez; sin conexión se reintenta solo.
  * Lo que se mezcla y cómo, en [Mezcla].
  */
@@ -111,7 +111,7 @@ object SincroP {
                 vistosNuevos.put(dev, ts)
             }
             var cambio = false
-            // La apariencia (tema, fondo, acento, colores a mano, letras…) más reciente de tus otros Pórticos
+            // La apariencia (tema, fondo, acento, colores a mano, letras…) más reciente de tus otros Carmesís
             nuevos.mapNotNull { b -> b.ajustes.takeIf { it.isNotBlank() }?.let { runCatching { JSONObject(it) }.getOrNull() } }.maxByOrNull { it.optLong("at") }
                 ?.let { if (Skin.aplicarAjustes(c, it)) cambio = true }
             if (nuevos.isNotEmpty()) {
@@ -144,12 +144,12 @@ object SincroP {
         }
     }
 
-    /** Mientras Pórtico se ve: escucha tu cuenta en directo (lo que suba otro dispositivo se baja al momento). */
+    /** Mientras Carmesí se ve: escucha tu cuenta en directo (lo que suba otro dispositivo se baja al momento). */
     fun escuchar(c: Context) {
         iniciar(c)
         if (!Cuenta.vinculada) { parar(); return }
         if (escucha != null) return
-        // Al volver a Pórtico: se mira lo que haya pasado mientras tanto
+        // Al volver a Carmesí: se mira lo que haya pasado mientras tanto
         bajarPronto()
         val f = FbStream("portico", { renovar -> Cuenta.urlFlujo("${Cuenta.raiz}/stamps", renovar) }, { _, _ -> bajarPronto() }, { })
         escucha = f

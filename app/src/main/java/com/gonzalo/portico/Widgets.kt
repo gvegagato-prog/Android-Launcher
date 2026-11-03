@@ -59,10 +59,10 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /*
- * Widgets de la pantalla de inicio de Pórtico: los de Atrio (Widgets.kt) con la misma estética de revista — papel y tinta,
+ * Widgets de la pantalla de inicio de Carmesí: los de Atrio (Widgets.kt) con la misma estética de revista — papel y tinta,
  * titulares grandes en Fraunces, portadas recortadas, esquinas redondas y el reborde fino de tinta — pero con los juegos.
  * Cada widget se dibuja entero (así la letra y las portadas quedan como en la app) y encima lleva zonas transparentes para
- * tocar. Los colores son los del tema que tengas puesto: los de Pórtico o los de Atrio (invertidos o no).
+ * tocar. Los colores son los del tema que tengas puesto: los de Carmesí o los de Atrio (invertidos o no).
  */
 
 /** Los widgets que hay. */
@@ -139,7 +139,7 @@ class Hoja(val ctx: Context, val w: Float, val h: Float, val noche: Boolean, s: 
     val bm: Bitmap = Bitmap.createBitmap(max(1, (w * s).roundToInt()), max(1, (h * s).roundToInt()), Bitmap.Config.ARGB_8888)
     val c = Canvas(bm).apply { scale(bm.width / w, bm.height / h) }
 
-    // Los colores del tema que tengas (los de Pórtico o los de Atrio, invertidos o no), en claro o en oscuro
+    // Los colores del tema que tengas (los de Carmesí o los de Atrio, invertidos o no), en claro o en oscuro
     private val tonos = Skin.tonosPara(noche)
     // Con un color propio (el que elegiste para este widget dentro de la app): ese es el papel y la tinta, el gris y las líneas se sacan de los dos
     private fun mezcla(a: Int, b: Int, t: Float): Int {
@@ -510,7 +510,7 @@ object Widgets {
         return PendingIntent.getBroadcast(ctx, id, i, PI)
     }
 
-    /** Abre Pórtico en su portada. */
+    /** Abre Carmesí en su portada. */
     fun abrirApp(ctx: Context): PendingIntent {
         val i = Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         return PendingIntent.getActivity(ctx, 1, i, PI)
@@ -580,7 +580,7 @@ object Widgets {
     private suspend fun jugando(d: WDatos, id: Int, w: Float, h: Float, fijo: Juego? = null, propio: Boolean = false, dentro: Boolean = false): Pagina {
         val ctx = d.ctx
         val lista = if (fijo != null) listOf(fijo) else d.recientes
-        if (lista.isEmpty()) return vacio(ctx, "Sigue jugando", "Nada que jugar todavía", "Añade un juego a Pórtico y lo tendrás aquí, a un toque de jugar.", w, h)
+        if (lista.isEmpty()) return vacio(ctx, "Sigue jugando", "Nada que jugar todavía", "Añade un juego a Carmesí y lo tendrás aquí, a un toque de jugar.", w, h)
         val i = Math.floorMod(estado(ctx, id, "i", 0), lista.size)
         val e = lista[i]
         val compacto = w < 200f && h < 200f
@@ -682,14 +682,14 @@ object Widgets {
         val ch = h - top - pad - textos
         val imgs = items.map { imagen(ctx, it, px(ctx, ch)) }
         val zonas = listOf(
-            Zona(0f, 0f, w, top, abrirApp(ctx), "Abrir Pórtico"),
+            Zona(0f, 0f, w, top, abrirApp(ctx), "Abrir Carmesí"),
             // Tocar un juego lo lanza: es un launcher
             Zona(pad, top, w - 2 * pad, h - top, null, "", listOf(items.map { jugar(ctx, it.id) to "Jugar a ${it.titulo}" }))
         )
         return Pagina(zonas) {
             fondo(); if (dentro) lavado()
             seccion("Recientes", pad, pad, w - 2 * pad, tinta, acento)
-            pon(capa("Pórtico", tp(fTitular, 13f, tinta), 80f, 1, 1f, Layout.Alignment.ALIGN_OPPOSITE), w - pad - 80f, pad - 3f)
+            pon(capa("Carmesí", tp(fTitular, 13f, tinta), 80f, 1, 1f, Layout.Alignment.ALIGN_OPPOSITE), w - pad - 80f, pad - 3f)
             c.drawRect(pad, pad + 14.5f, w - pad, pad + 15.2f, lleno(linea))
             items.forEachIndexed { k, e ->
                 val gap = 5f
@@ -737,7 +737,7 @@ object Widgets {
                 velo(h * 0.18f, h, 0x00000000, 0xF2000000.toInt(), 0x99000000.toInt())
             } else { fondo(0xFF15120F.toInt()); reborde = 0xCCFFFFFF.toInt() }
             // Cabecera de la revista
-            val mast = capa("Pórtico", tp(fTitular, if (h < 180f) 22f else 28f, blanco, -0.02f), w * 0.6f, 1)
+            val mast = capa("Carmesí", tp(fTitular, if (h < 180f) 22f else 28f, blanco, -0.02f), w * 0.6f, 1)
             pon(mast, pad, pad - 4f)
             val fw = w - 2 * pad - mast.getLineWidth(0) - 8f
             ante(if (fw < anchoAnte(fecha, 8.5f)) fecha.substringBeforeLast(' ') else fecha, w - pad - fw, pad, fw, 0xDDFFFFFF.toInt(), 8.5f, Layout.Alignment.ALIGN_OPPOSITE)
@@ -766,7 +766,7 @@ object Widgets {
         // Algo de tu biblioteca que no hayas terminado (mejor si aún no lo has abierto), en un orden revuelto pero fijo
         val sinProbar = d.sinTerminar.filter { it.veces == 0 }
         val lista = (sinProbar.ifEmpty { d.sinTerminar }).sortedBy { (it.id.hashCode().toLong() * 2654435761L) and 0xFFFFFF }
-        if (lista.isEmpty()) return vacio(ctx, "¿Y ahora qué?", "Nada pendiente", "Añade juegos a Pórtico y aquí te propondré cuál empezar.", w, h)
+        if (lista.isEmpty()) return vacio(ctx, "¿Y ahora qué?", "Nada pendiente", "Añade juegos a Carmesí y aquí te propondré cuál empezar.", w, h)
         // Una propuesta distinta cada día (y la que quieras con «Otra»)
         val i = Math.floorMod(LocalDate.now().toEpochDay() + estado(ctx, id, "i", 0), lista.size.toLong()).toInt()
         val e = lista[i]
@@ -813,24 +813,24 @@ object Widgets {
         val ctx = d.ctx
         val hoy = LocalDate.now()
         val fecha = "${hoy.dayOfWeek.getDisplayName(TextStyle.FULL, ES)} ${hoy.dayOfMonth} de ${hoy.month.getDisplayName(TextStyle.FULL, ES)}"
-        return Pagina(listOf(Zona(0f, 0f, w, h, abrirApp(ctx), "Abrir Pórtico"))) {
+        return Pagina(listOf(Zona(0f, 0f, w, h, abrirApp(ctx), "Abrir Carmesí"))) {
             // Solo la palabra, sobre el fondo de pantalla (con una sombra suave para que se lea en cualquiera)
             val color = if (noche) 0xFFF6F1E7.toInt() else tinta
             val sombra = if (noche) 0x99000000.toInt() else 0x55FFFFFF
             val pie = if (h >= 84f) 16f else 0f
             val p = tp(fTitular, 10f, color, -0.03f)
-            val ancho = p.measureText("PÓRTICO")
+            val ancho = p.measureText("CARMESÍ")
             val cuadro = 0.16f
             var s = min((w - 8f) / (ancho / 10f * (1f + cuadro)), (h - pie - 4f) / 0.95f)
             s = s.coerceAtLeast(10f)
             val tpa = tp(fTitular, s, color, -0.03f).apply { setShadowLayer(s * 0.06f, 0f, s * 0.02f, sombra) }
             val fm = tpa.fontMetrics
-            val tw = tpa.measureText("PÓRTICO")
+            val tw = tpa.measureText("CARMESÍ")
             val total = tw + s * cuadro
             val x = (w - total) / 2
             val capH = s * 0.72f
             val base = (h - pie) / 2 + capH / 2
-            c.drawText("PÓRTICO", x, base, tpa)
+            c.drawText("CARMESÍ", x, base, tpa)
             // El punto de la revista: un cuadradito de acento
             val q = s * 0.12f
             c.drawRect(x + tw + s * 0.03f, base - q, x + tw + s * 0.03f + q, base, lleno(acento).apply { setShadowLayer(s * 0.04f, 0f, s * 0.015f, sombra) })
@@ -841,12 +841,12 @@ object Widgets {
         }.transparente()
     }
 
-    /** PÓRTICO en papel: la cabecera de la portada (el nombre, el número del día y la fecha), con su papel de fondo. */
+    /** CARMESÍ en papel: la cabecera de la portada (el nombre, el número del día y la fecha), con su papel de fondo. */
     private fun marcaPapel(d: WDatos, w: Float, h: Float, dentro: Boolean = false): Pagina {
         val ctx = d.ctx
         val hoy = LocalDate.now()
         val fecha = "${hoy.dayOfWeek.getDisplayName(TextStyle.FULL, ES)} ${hoy.dayOfMonth} de ${hoy.month.getDisplayName(TextStyle.FULL, ES)}"
-        return Pagina(listOf(Zona(0f, 0f, w, h, abrirApp(ctx), "Abrir Pórtico"))) {
+        return Pagina(listOf(Zona(0f, 0f, w, h, abrirApp(ctx), "Abrir Carmesí"))) {
             fondo()
             val pad = if (dentro) padDe(h) else if (h < 90f) 12f else 16f
             // Lo de debajo del nombre, según el sitio: la línea del número y la fecha; y la entradilla si cabe
@@ -855,14 +855,14 @@ object Widgets {
             val bajo = (if (conLinea) 22f else 0f) + (if (conEntradilla) 24f else 0f)
             val alto = h - 2 * pad - bajo
             val p = tp(fTitular, 10f, tinta, -0.03f)
-            val s = min((w - 2 * pad) / (p.measureText("PÓRTICO") / 10f), alto / 0.78f).coerceAtLeast(10f)
+            val s = min((w - 2 * pad) / (p.measureText("CARMESÍ") / 10f), alto / 0.78f).coerceAtLeast(10f)
             val tpa = tp(fTitular, s, tinta, -0.03f)
             val capH = s * 0.72f
             // Todo el bloque centrado en el widget (el nombre se mide por sus mayúsculas, no por la caja de la letra)
             val bloque = capH + s * 0.08f + 4f + bajo
             val base = max(pad, (h - bloque) / 2) + capH
-            val tw = tpa.measureText("PÓRTICO")
-            c.drawText("PÓRTICO", (w - tw) / 2, base, tpa)
+            val tw = tpa.measureText("CARMESÍ")
+            c.drawText("CARMESÍ", (w - tw) / 2, base, tpa)
             var y = base + s * 0.08f + 4f
             if (conLinea) {
                 c.drawRect(pad, y, w - pad, y + 1.6f, lleno(tinta))

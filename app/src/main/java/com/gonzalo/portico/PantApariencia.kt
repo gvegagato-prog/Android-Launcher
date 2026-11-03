@@ -146,8 +146,8 @@ fun SeccionApariencia() {
         MagChoice(listOf("No", "Sí"), if (Skin.invertido) 1 else 0) { i -> Skin.invertido = i == 1; guarda() }
         LaunchedEffect(Unit) { kotlin.concurrent.thread { TemaAtrio.refrescar(ctx.applicationContext) } }
         Text(
-            if (TemaAtrio.aviso.isNotBlank()) TemaAtrio.aviso + (if (TemaAtrio.tonos != null) " Se usan los últimos colores que se leyeron." else " Mientras tanto, los de Pórtico.")
-            else "Pórtico lee los colores que tienes ahora en Atrio" + (if (Skin.invertido) " y los pone del revés: el fondo con el color del texto y el texto con el del fondo; el acento se mantiene." else "."),
+            if (TemaAtrio.aviso.isNotBlank()) TemaAtrio.aviso + (if (TemaAtrio.tonos != null) " Se usan los últimos colores que se leyeron." else " Mientras tanto, los de Carmesí.")
+            else "Carmesí lee los colores que tienes ahora en Atrio" + (if (Skin.invertido) " y los pone del revés: el fondo con el color del texto y el texto con el del fondo; el acento se mantiene." else "."),
             color = if (TemaAtrio.aviso.isNotBlank()) Acento else Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 14.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 4.dp)
         )
     }
@@ -197,8 +197,8 @@ private fun SeccionCopiar() {
             }
             Filete(1.dp, Line)
         }
-        MagLink("Copiar lo marcado", "Se aplica a Pórtico ahora", accent = true) {
-            if (marcadas.isNotEmpty()) { CopiaAtrio.aplicar(ctx, a, marcadas); aviso = "Copiado a Pórtico." }
+        MagLink("Copiar lo marcado", "Se aplica a Carmesí ahora", accent = true) {
+            if (marcadas.isNotEmpty()) { CopiaAtrio.aplicar(ctx, a, marcadas); aviso = "Copiado a Carmesí." }
         }
     }
     aviso?.let { Text(it, color = Acento, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -212,7 +212,7 @@ fun SelectorLetra(nombre: String, valor: String, opciones: List<String>, onCambi
         Text("Aa", fontFamily = valor.takeIf { it.isNotBlank() }?.let { Skin.family(it) } ?: Display, fontSize = 28.sp, color = Charcoal, modifier = Modifier.width(50.dp))
         Column(Modifier.weight(1f)) {
             Text(nombre, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = Charcoal)
-            Text(valor.ifEmpty { "La de Pórtico" }, color = Muted, fontFamily = Body, fontSize = 12.sp)
+            Text(valor.ifEmpty { "La de Carmesí" }, color = Muted, fontFamily = Body, fontSize = 12.sp)
         }
         if (valor.isNotEmpty()) EnlaceRevista("Quitar", Modifier.padding(end = 12.dp)) { onCambia("") }
         Text("▾", color = Muted, fontSize = 16.sp)
@@ -223,7 +223,7 @@ fun SelectorLetra(nombre: String, valor: String, opciones: List<String>, onCambi
         text = {
             LazyColumn(Modifier.heightIn(max = 460.dp)) {
                 item {
-                    Text("La de Pórtico", fontSize = 18.sp, color = if (valor.isEmpty()) Acento else Charcoal, modifier = Modifier.fillMaxWidth().clickable { onCambia(""); abierto = false }.padding(vertical = 10.dp))
+                    Text("La de Carmesí", fontSize = 18.sp, color = if (valor.isEmpty()) Acento else Charcoal, modifier = Modifier.fillMaxWidth().clickable { onCambia(""); abierto = false }.padding(vertical = 10.dp))
                 }
                 items(opciones) { o ->
                     // (cada letra se baja de Google Fonts la primera vez: hasta entonces sale con la del sistema)

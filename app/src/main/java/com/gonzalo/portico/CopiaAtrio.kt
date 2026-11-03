@@ -6,7 +6,7 @@ import org.json.JSONTokener
 
 /**
  * Copiar la apariencia de Atrio. Atrio guarda su apariencia (tema, fondo, acento, colores a mano, letras y tamaño del texto) y la sube a tu
- * cuenta junto con sus datos (/users/<uid>/dev/<dispositivo>/data → "ajustes" → "skin"). Pórtico lee de ahí lo más reciente, enseña qué tiene
+ * cuenta junto con sus datos (/users/<uid>/dev/<dispositivo>/data → "ajustes" → "skin"). Carmesí lee de ahí lo más reciente, enseña qué tiene
  * Atrio y copia lo que marques. No hace falta que Atrio esté instalado en este móvil; sí la cuenta vinculada. Solo se lee: no se cambia nada en Atrio.
  */
 object CopiaAtrio {
@@ -65,7 +65,7 @@ object CopiaAtrio {
         return when (que) { "fondo" -> t.paper; "texto" -> t.ink; else -> t.general } and 0xFFFFFFFFL
     }
 
-    /** Copia a Pórtico SOLO ese color de Atrio ([que]: fondo, texto o acento); lo demás de Pórtico no se toca. Devuelve el color copiado. */
+    /** Copia a Carmesí SOLO ese color de Atrio ([que]: fondo, texto o acento); lo demás de Carmesí no se toca. Devuelve el color copiado. */
     fun copiarColor(ctx: Context, a: Ajustes, que: String): Long {
         val c = colorEfectivo(a, que)
         when (que) { "fondo" -> Skin.fondoPropio = c; "texto" -> Skin.tintaPropia = c; else -> Skin.acentoPropio = c }
@@ -73,7 +73,7 @@ object CopiaAtrio {
         return c
     }
 
-    /** Copia a Pórtico lo marcado en [ids]. Pórtico deja de seguir los colores de Atrio en directo (ahora tiene los suyos, iguales). */
+    /** Copia a Carmesí lo marcado en [ids]. Carmesí deja de seguir los colores de Atrio en directo (ahora tiene los suyos, iguales). */
     fun aplicar(ctx: Context, a: Ajustes, ids: Set<String>) {
         val s = a.skin
         if ("tema" in ids && s.has("theme31")) Modo.eleccion = s.optInt("theme31").coerceIn(0, 2)

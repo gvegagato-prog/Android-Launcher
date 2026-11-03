@@ -101,7 +101,7 @@ private fun ImagenEnCadena(datos: List<Any>, modifier: Modifier, escala: Content
 }
 
 /**
- * La portada de Pórtico: un arco (la puerta de Atrio). Un degradado con la inicial, y encima la imagen: la que elegiste, la de
+ * La portada de Carmesí: un arco (la puerta de Atrio). Un degradado con la inicial, y encima la imagen: la que elegiste, la de
  * libretro (ROMs), el icono (apps) o la de la propia web. Abajo, el título; y un botón de jugar si se da [alJugar].
  */
 @Composable

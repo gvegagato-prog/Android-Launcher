@@ -9,6 +9,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/** En qué punto estás con el juego. «Pasado» = terminado; «Abandonado» = lo dejaste. */
+enum class Estado(val nombre: String) { JUGANDO("Jugando"), PENDIENTE("Pendiente"), PASADO("Pasado"), ABANDONADO("Abandonado") }
+
 /** De dónde sale el juego: una ROM (con su emulador), una app/juego de Android o un juego de navegador. */
 enum class Tipo { ROM, APP, WEB }
 
@@ -55,11 +58,27 @@ data class Juego(
     val vecesPropias: Int = 0,
     val ajenosMs: Map<String, Long> = emptyMap(),
     val ajenosVeces: Map<String, Int> = emptyMap(),
+    /** Jugando, pendiente, pasado o abandonado. */
+    val estado: Estado = Estado.PENDIENTE,
+    /** Lo jugado cada día («AAAA-MM-DD» → ms): el de ESTE dispositivo y, por dispositivo, el de los demás. Para las barras y el Diario. */
+    val diasPropios: Map<String, Long> = emptyMap(),
+    val ajenosDias: Map<String, Map<String, Long>> = emptyMap(),
 ) {
     /** Lo que identifica a este juego en todos tus dispositivos (el id de cada uno es distinto). */
     val clave: String get() = claveDe(this)
     /** Una ROM que viene de otro dispositivo y todavía no tienes en este. */
     val enOtroDispositivo: Boolean get() = tipo == Tipo.ROM && uri.isBlank()
+}
+
+/** Cambia el estado (y lo que va con él: «Pasado» es lo mismo que terminado, con su fecha). */
+fun Juego.conEstado(e: Estado, ahora: Long = System.currentTimeMillis()): Juego =
+    copy(estado = e, terminado = e == Estado.PASADO, finalizado = if (e == Estado.PASADO) (if (terminado && finalizado > 0) finalizado else ahora) else 0L)
+
+/** Lo jugado cada día, sumando este dispositivo y los demás. */
+fun Juego.dias(): Map<String, Long> {
+    val out = HashMap(diasPropios)
+    ajenosDias.values.forEach { d -> d.forEach { (k, v) -> out[k] = (out[k] ?: 0L) + v } }
+    return out
 }
 
 /** Corrige las horas jugadas a mano: lo que falta o sobra lo pone este dispositivo (nunca por debajo de lo que sumen los demás). */
@@ -70,7 +89,7 @@ fun Juego.conTotalMs(total: Long): Juego {
 }
 
 /** Lo que se edita de un juego y viaja con la cuenta (gana el cambio más reciente). */
-fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion)
+fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.estado, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion)
 
 /** La clave de un juego: ROM = sistema + nombre del archivo; app = paquete; web = dirección. */
 fun claveDe(j: Juego): String = when (j.tipo) {
@@ -160,7 +179,9 @@ object Biblioteca {
         put("id", j.id); put("titulo", j.titulo); put("tipo", j.tipo.name); put("sistema", j.sistema); put("uri", j.uri); put("ruta", j.ruta)
         put("archivo", j.archivo); put("paquete", j.paquete); put("url", j.url); put("portada", j.portada); put("emulador", j.emulador)
         put("favorito", j.favorito); put("terminado", j.terminado); put("fin", j.finalizado); put("nota", j.nota.toDouble()); put("notas", j.notas); put("maqueta", j.maqueta); put("anadido", j.anadido); put("ultima", j.ultima); put("veces", j.veces); put("ms", j.msJugados); put("orient", j.orientacion)
-        put("mod", j.mod); put("msp", j.msPropios); put("vp", j.vecesPropias)
+        put("mod", j.mod); put("msp", j.msPropios); put("vp", j.vecesPropias); put("est", j.estado.name)
+        put("dp", JSONObject().also { o -> j.diasPropios.forEach { (k, v) -> o.put(k, v) } })
+        put("ajd", JSONObject().also { o -> j.ajenosDias.forEach { (dev, m) -> o.put(dev, JSONObject().also { x -> m.forEach { (k, v) -> x.put(k, v) } }) } })
         put("ajms", JSONObject().also { o -> j.ajenosMs.forEach { (k, v) -> o.put(k, v) } }); put("ajv", JSONObject().also { o -> j.ajenosVeces.forEach { (k, v) -> o.put(k, v) } })
     }
 
@@ -174,13 +195,17 @@ object Biblioteca {
         mod = o.optLong("mod"), msPropios = if (o.has("msp")) o.optLong("msp") else o.optLong("ms"), vecesPropias = if (o.has("vp")) o.optInt("vp") else o.optInt("veces"),
         ajenosMs = o.optJSONObject("ajms")?.let { a -> a.keys().asSequence().associateWith { k -> a.optLong(k) } } ?: emptyMap(),
         ajenosVeces = o.optJSONObject("ajv")?.let { a -> a.keys().asSequence().associateWith { k -> a.optInt(k) } } ?: emptyMap(),
-        terminado = o.optBoolean("terminado"), finalizado = o.optLong("fin"), nota = o.optDouble("nota", 0.0).toFloat(), notas = o.optString("notas"), maqueta = o.optString("maqueta")
+        terminado = o.optBoolean("terminado"), finalizado = o.optLong("fin"), nota = o.optDouble("nota", 0.0).toFloat(), notas = o.optString("notas"), maqueta = o.optString("maqueta"),
+        // (lo guardado antes de los estados: terminado = pasado, el resto = pendiente)
+        estado = Estado.entries.firstOrNull { it.name == o.optString("est") } ?: if (o.optBoolean("terminado")) Estado.PASADO else Estado.PENDIENTE,
+        diasPropios = o.optJSONObject("dp")?.let { a -> a.keys().asSequence().associateWith { k -> a.optLong(k) } } ?: emptyMap(),
+        ajenosDias = o.optJSONObject("ajd")?.let { a -> a.keys().asSequence().associateWith { dev -> a.optJSONObject(dev)?.let { x -> x.keys().asSequence().associateWith { k -> x.optLong(k) } } ?: emptyMap() } } ?: emptyMap()
     )
 
     fun nuevoId(): String = java.util.UUID.randomUUID().toString().take(12)
 }
 
-/** Ajustes de Pórtico que no son del tema. */
+/** Ajustes de Carmesí que no son del tema. */
 object Ajustes {
     /** Emulador elegido por sistema: la etiqueta del comando; sin entrada = automático. */
     val emuladorPorSistema = HashMap<String, String>()

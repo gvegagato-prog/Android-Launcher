@@ -4,7 +4,7 @@
     <!-- Actualizarse sola desde tu kDrive (Actualizador.kt): instalar la versión nueva de sí misma, y reabrirse después -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <!-- Para que Android deje a Pórtico ver qué emuladores hay instalados (los de ES-DE) y qué apps se pueden abrir -->
+    <!-- Para que Android deje a Carmesí ver qué emuladores hay instalados (los de ES-DE) y qué apps se pueden abrir -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -142,7 +142,7 @@
         <package android:name="xyz.aethersx2.tturnip" />
     </queries>
     <application
-        android:label="Pórtico"
+        android:label="Carmesí"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/Portico"
@@ -155,7 +155,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Pórtico como pantalla de inicio de Android: apagado hasta que lo activas en Estilo -->
+        <!-- Carmesí como pantalla de inicio de Android: apagado hasta que lo activas en Estilo -->
         <activity-alias android:name=".InicioAlias" android:targetActivity=".MainActivity" android:enabled="false" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

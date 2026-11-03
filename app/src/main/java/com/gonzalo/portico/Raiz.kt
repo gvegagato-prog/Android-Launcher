@@ -22,7 +22,7 @@ fun iniciar(c: Context) {
 }
 
 /** Dónde estás: la portada y sus secciones (se llega a ellas desde el menú de la portada, como en Atrio). */
-enum class Destino { Portada, Juegos, Roms, Android, Web, Favoritos, Sistemas, Ajustes, Recientes }
+enum class Destino { Portada, Jugando, Pendiente, Pasado, Abandonado, Todo, Sistemas, Ajustes }
 
 /** La app: portada de revista y sus secciones, la ficha de un juego por encima y la hoja de «añadir». */
 @Composable
@@ -41,12 +41,11 @@ fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
     fun abrirAnadir(t: Tipo?) { tipoInicial = t; anadir = true }
     fun ir(x: Destino) {
         when (x) {
-            Destino.Juegos -> filtro.limpiar()
-            Destino.Roms -> { filtro.limpiar(); filtro.tipo = Tipo.ROM }
-            Destino.Android -> { filtro.limpiar(); filtro.tipo = Tipo.APP }
-            Destino.Web -> { filtro.limpiar(); filtro.tipo = Tipo.WEB }
-            Destino.Favoritos -> { filtro.limpiar(); filtro.favoritos = true }
-            Destino.Recientes -> { filtro.limpiar(); filtro.orden = Orden.Recientes }
+            Destino.Jugando -> { filtro.limpiar(); filtro.estado = Estado.JUGANDO }
+            Destino.Pendiente -> { filtro.limpiar(); filtro.estado = Estado.PENDIENTE }
+            Destino.Pasado -> { filtro.limpiar(); filtro.estado = Estado.PASADO }
+            Destino.Abandonado -> { filtro.limpiar(); filtro.estado = Estado.ABANDONADO }
+            Destino.Todo -> filtro.limpiar()
             else -> {}
         }
         destino = x.ordinal
@@ -60,10 +59,10 @@ fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
         when (d) {
             Destino.Portada -> PantInicio(
                 alAbrir = { fichaId = it.id }, alJugar = ::jugar, alAnadir = { abrirAnadir(it) },
-                alIr = { ir(it) }, alBuscar = { ir(Destino.Juegos); filtro.buscando = true }
+                alIr = { ir(it) }, alBuscar = { ir(Destino.Todo); filtro.buscando = true }
             )
             Destino.Sistemas -> PantSistemas(alVolver = { destino = 0 }, alAnadirCarpeta = { abrirAnadir(null) })
-            Destino.Ajustes -> PantEstilo(alVolver = { destino = 0 })
+            Destino.Ajustes -> PantEstilo(alVolver = { destino = 0 }, alSistemas = { destino = Destino.Sistemas.ordinal })
             else -> PantBiblioteca(filtro, alVolver = { destino = 0 }, alAbrir = { fichaId = it.id }, alJugar = ::jugar, alAnadir = { abrirAnadir(null) })
         }
         AnimatedVisibility(fichaId != null, enter = slideInVertically { it / 8 } + fadeIn(), exit = slideOutVertically { it / 8 } + fadeOut()) {

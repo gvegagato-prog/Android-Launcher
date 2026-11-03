@@ -11,7 +11,7 @@ class LanzarActivity : Activity() {
         super.onCreate(savedInstanceState)
         Biblioteca.cargar(this); Catalogo.cargar(this); Ajustes.cargar(this); NubeP.cargar(this); Pantalla.cargar(this)
         val j = intent.getStringExtra("id")?.let { Biblioteca.por(it) }
-        if (j == null) { Lanzador.aviso(this, "Ese juego ya no está en Pórtico"); finish() }
+        if (j == null) { Lanzador.aviso(this, "Ese juego ya no está en Carmesí"); finish() }
         else Lanzador.lanzar(this, j) { finish() }?.let { Lanzador.aviso(this, it) }
     }
 

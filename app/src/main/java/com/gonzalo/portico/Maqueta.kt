@@ -58,13 +58,12 @@ data class MagRowSpec(val cells: List<MagCell>, val split: Float = 0.5f, val hei
 
 object MagLayouts {
     /** Los módulos que se pueden poner en una casilla (aparte de texto libre, imagen y vacía). */
-    val MODULOS = listOf("horas", "veces", "estado", "valoracion", "apuntes", "lanzamiento")
+    val MODULOS = listOf("horas", "veces", "estado", "valoracion", "lanzamiento")
 
     /** El diseño de siempre. */
     fun defaults(tipo: Tipo): List<MagRowSpec> = listOf(
         MagRowSpec(listOf(MagCell("horas"), MagCell("veces"))),
         MagRowSpec(listOf(MagCell("estado"), MagCell("valoracion"))),
-        MagRowSpec(listOf(MagCell("apuntes"))),
         MagRowSpec(listOf(MagCell("lanzamiento"))),
     )
 
@@ -105,7 +104,7 @@ class MagDef(val label: String, val action: Pair<String, () -> Unit>? = null, va
 
 val MAG_NOMBRES = mapOf(
     "horas" to "Horas jugadas", "veces" to "Veces y última vez", "estado" to "Estado", "valoracion" to "Valoración",
-    "apuntes" to "Apuntes", "lanzamiento" to "Cómo se abre"
+    "lanzamiento" to "Cómo se abre"
 )
 
 @Composable
@@ -147,7 +146,7 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
     var galeriaPara by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var aviso by remember { mutableStateOf("") }
 
-    fun visible(c: MagCell) = c.type == "texto" || c.type == "imagen" || c.type == "vacio" || defs.containsKey(c.type)
+    fun visible(c: MagCell) = c.type == "imagen" || c.type == "vacio" || defs.containsKey(c.type)
     fun celda(p: Pair<Int, Int>) = rows.getOrNull(p.first)?.cells?.getOrNull(p.second)
     fun ponCelda(p: Pair<Int, Int>, c: MagCell) = poner(rows.mapIndexed { i, r -> if (i != p.first) r else r.copy(cells = r.cells.mapIndexed { j, x -> if (j == p.second) c else x }) })
 
@@ -271,7 +270,6 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     if (cur?.type == "imagen") { Opcion2("Cambiar la imagen", false) { eligiendo = null; imagenPara = p }; Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Line)) }
                     MagLayouts.MODULOS.filter { it in defs }.forEach { t -> Opcion2(MAG_NOMBRES[t] ?: t, cur?.type == t) { ponCelda(p, MagCell(t)); eligiendo = null } }
-                    Opcion2("Texto libre (título y texto)", cur?.type == "texto") { eligiendo = null; editandoTexto = p }
                     Opcion2("Imagen", cur?.type == "imagen") { eligiendo = null; imagenPara = p }
                     Opcion2("Vacía", cur?.type == "vacio") { ponCelda(p, MagCell("vacio")); eligiendo = null }
                 }

@@ -46,7 +46,7 @@ object Comando {
     /** Nombres de las reglas de emulador que usa el comando (RETROARCH, MELONDS…). */
     fun emuladoresDe(p: String): List<String> = Regex("%EMULATOR_([^%]+)%").findAll(p).map { it.groupValues[1] }.toList()
 
-    /** ¿Puede Pórtico interpretarlo? (algunos comandos de ES-DE usan cosas solo de su aplicación) */
+    /** ¿Puede Carmesí interpretarlo? (algunos comandos de ES-DE usan cosas solo de su aplicación) */
     fun soportado(p: String): Boolean =
         TOKEN.findAll(p).none { it.groupValues[1] in NO_SOPORTADOS || it.groupValues[1].startsWith("EXTRAARRAY") }
 

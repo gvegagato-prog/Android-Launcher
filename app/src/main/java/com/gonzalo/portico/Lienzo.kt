@@ -204,7 +204,7 @@ private fun BoxScope.Asa(e: Elemento) {
 }
 
 /**
- * Un juego o un widget de Pórtico, dibujado con el código de los widgets de fuera (mismo papel, tinta, letras, portadas y reborde) y con el color
+ * Un juego o un widget de Carmesí, dibujado con el código de los widgets de fuera (mismo papel, tinta, letras, portadas y reborde) y con el color
  * que le hayas dado. Tocar un juego lo lanza (mantener pulsado, su ficha); en un widget, lo mismo que haría fuera.
  */
 @Composable

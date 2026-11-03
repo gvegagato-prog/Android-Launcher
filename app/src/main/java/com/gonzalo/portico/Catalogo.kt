@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 import org.json.JSONObject
 import java.text.Normalizer
 
-/** Un sistema con lo que Pórtico sabe de él: nombre corto, color y carpeta de portadas de libretro. */
+/** Un sistema con lo que Carmesí sabe de él: nombre corto, color y carpeta de portadas de libretro. */
 class Sistema(
     val id: String, val nombre: String, val corto: String, val color: Color,
     /** Carpeta de https://thumbnails.libretro.com/ (null = no hay portadas automáticas para este sistema). */

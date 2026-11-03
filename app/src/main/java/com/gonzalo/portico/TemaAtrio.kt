@@ -9,7 +9,7 @@ import org.json.JSONObject
 
 /**
  * Los colores que tienes puestos en Atrio. Atrio los ofrece en content://com.gonzalo.gamerate.tema/colores (solo colores:
- * fondo, texto, acento…, ya mezclados con tu fondo de color, tus colores a mano y claro/oscuro) y Pórtico los lee cada vez
+ * fondo, texto, acento…, ya mezclados con tu fondo de color, tus colores a mano y claro/oscuro) y Carmesí los lee cada vez
  * que se abre. Se guarda la última lectura, así se siguen viendo aunque Atrio no conteste.
  */
 object TemaAtrio {
@@ -22,10 +22,10 @@ object TemaAtrio {
     /** Si no se han podido leer: por qué (texto para Ajustes). Vacío: bien. */
     var aviso by mutableStateOf("")
 
-    /** Los tonos de Pórtico a partir de los nueve colores que da Atrio (ARGB), en este orden: [COLUMNAS]. */
+    /** Los tonos de Carmesí a partir de los nueve colores que da Atrio (ARGB), en este orden: [COLUMNAS]. */
     fun tonosDe(v: List<Int>): Tones {
         fun l(i: Int) = v[i].toLong() and 0xFFFFFFFFL
-        // criterios (gráficos, historia…): Pórtico no los usa; se rellenan con tinta, gris y acento
+        // criterios (gráficos, historia…): Carmesí no los usa; se rellenan con tinta, gris y acento
         return Tones(paper = l(0), crudo = l(1), ink = l(2), general = l(3), gfx = l(2), story = l(7), music = l(7), gameplay = l(3), gold = l(8),
             sand = l(4), line = l(5), edge = l(6), muted = l(7))
     }
