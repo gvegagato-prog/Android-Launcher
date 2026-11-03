@@ -20,7 +20,7 @@ class JuegoSync(
 )
 
 /** La biblioteca de un dispositivo, tal como la sube a la cuenta. */
-class Blob(val dev: String, val juegos: List<JuegoSync>, val borrados: Map<String, Long>)
+class Blob(val dev: String, val juegos: List<JuegoSync>, val borrados: Map<String, Long>, val pantalla: List<Elemento> = emptyList(), val pBorrados: Map<String, Long> = emptyMap())
 
 class ResMezcla(val juegos: List<Juego>, val borrados: Map<String, Long>, val cambio: Boolean)
 
@@ -28,11 +28,11 @@ object Mezcla {
     /** Los borrados se olvidan a los 180 días (un dispositivo que lleve más sin conectar ya no los verá). */
     const val OLVIDO = 180L * 86_400_000L
 
-    fun aBlob(dev: String, juegos: List<Juego>, borrados: Map<String, Long>): Blob = Blob(dev,
+    fun aBlob(dev: String, juegos: List<Juego>, borrados: Map<String, Long>, pantalla: List<Elemento> = emptyList(), pBorrados: Map<String, Long> = emptyMap()): Blob = Blob(dev,
         juegos.filter { it.titulo.isNotBlank() }.distinctBy { it.clave }.map { j ->
             JuegoSync(j.clave, j.titulo, j.tipo, j.sistema, j.paquete, j.url, j.archivo, j.favorito, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta,
                 j.orientacion, j.anadido, j.mod, j.msPropios, j.vecesPropias, j.ultima)
-        }, borrados)
+        }, borrados, pantalla, pBorrados)
 
     fun aJson(b: Blob): String = JSONObject().put("v", 1).put("dev", b.dev)
         .put("borrados", JSONObject().also { o -> b.borrados.forEach { (k, v) -> o.put(k, v) } })
@@ -42,7 +42,9 @@ object Mezcla {
                     .put("f", g.favorito).put("te", g.terminado).put("fi", g.finalizado).put("n", g.nota.toDouble()).put("no", g.notas).put("m", g.maqueta)
                     .put("o", g.orientacion).put("an", g.anadido).put("mod", g.mod).put("msp", g.msp).put("vp", g.vp).put("ul", g.ultima))
             }
-        }).toString()
+        })
+        .put("pe", JSONArray().also { a -> b.pantalla.forEach { a.put(elementoAJson(it)) } })
+        .put("pb", JSONObject().also { o -> b.pBorrados.forEach { (k, v) -> o.put(k, v) } }).toString()
 
     fun deJson(s: String?): Blob? = try {
         if (s.isNullOrBlank()) null else {
@@ -55,7 +57,9 @@ object Mezcla {
                 JuegoSync(g.getString("k"), g.optString("t"), tipo, g.optString("s"), g.optString("pk"), g.optString("u"), g.optString("a"),
                     g.optBoolean("f"), g.optBoolean("te"), g.optLong("fi"), g.optDouble("n", 0.0).toFloat(), g.optString("no"), g.optString("m"), g.optInt("o"),
                     g.optLong("an"), g.optLong("mod"), g.optLong("msp"), g.optInt("vp"), g.optLong("ul"))
-            }, bo?.keys()?.asSequence()?.associateWith { bo.optLong(it) } ?: emptyMap())
+            }, bo?.keys()?.asSequence()?.associateWith { bo.optLong(it) } ?: emptyMap(),
+                o.optJSONArray("pe")?.let { a -> (0 until a.length()).mapNotNull { elementoDeJson(a.getJSONObject(it)) } } ?: emptyList(),
+                o.optJSONObject("pb")?.let { pb -> pb.keys().asSequence().associateWith { pb.optLong(it) } } ?: emptyMap())
         }
     } catch (e: Exception) { null }
 

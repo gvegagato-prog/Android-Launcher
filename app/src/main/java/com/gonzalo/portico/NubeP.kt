@@ -202,6 +202,31 @@ object NubeP {
     private val hashes = HashMap<String, String>()
     private fun hashPortada(f: File): String = hashes.getOrPut("${f.path}|${f.length()}|${f.lastModified()}") { hashDe(f.inputStream()) }
 
+    /** Las imágenes de la pantalla de inicio: las de este móvil se suben; las de otro móvil que aquí faltan se bajan (por el id del elemento). */
+    fun imagenes(c: Context): Boolean {
+        if (!Cuenta.vinculada || !KDrive.on(c)) return false
+        val dir = Pantalla.dirImagenes(c)
+        val remoto = Cuenta.db("GET", "${Cuenta.raiz}/nube/imagenes", null)?.let { JSONObject(it) }
+        var cambio = false
+        for (e in Pantalla.items.toList().filter { it.esImagen }) {
+            val f = File(dir, e.ref)
+            val cloud = remoto?.optJSONObject(e.id)?.optJSONObject("f")?.let { deJson(it)["img"] }
+            if (f.exists()) {
+                val h = hashPortada(f)
+                if (h == ultimo(c, e.id, "img") || cloud?.h == h) { anota(c, e.id, "img", h); continue }
+                val id = KDrive.upload(c, "Portico/Imagenes", e.ref, f.length()) { f.inputStream() }
+                escribe("imagenes", e.id, "img", e.ref, id, h, f.length()); anota(c, e.id, "img", h)
+            } else if (cloud != null) {
+                try {
+                    KDrive.download(c, cloud.id, f)
+                    if (hashPortada(f) != cloud.h) { f.delete(); continue }
+                    anota(c, e.id, "img", cloud.h); cambio = true
+                } catch (ex: Exception) { f.delete() }
+            }
+        }
+        return cambio
+    }
+
     /** Portadas elegidas por ti: las de este móvil se suben; las que otro de tus móviles subió y aquí faltan, se bajan. */
     fun portadas(c: Context): Boolean {
         if (!Cuenta.vinculada || !KDrive.on(c)) return false

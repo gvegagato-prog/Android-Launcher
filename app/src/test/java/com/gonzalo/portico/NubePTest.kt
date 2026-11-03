@@ -133,6 +133,14 @@ class NubePTest {
         assertTrue(pb, pb.isNotBlank()); assertArrayEquals(ByteArray(900) { 9 }, File(pb).readBytes())
         assertFalse("no se vuelve a bajar", NubeP.portadas(ctx))
 
+        // Imágenes de la pantalla de inicio: A la sube, B la baja
+        movil("A"); Pantalla.items.clear(); Pantalla.items.add(Elemento("img1", Elemento.IMAGEN, "img1.jpg", 0, 0, 2, 2, 0, 1))
+        File(Pantalla.dirImagenes(ctx), "img1.jpg").apply { writeBytes(ByteArray(1500) { 7 }) }
+        assertFalse(NubeP.imagenes(ctx))
+        movil("B"); File(Pantalla.dirImagenes(ctx), "img1.jpg").delete()
+        assertTrue(NubeP.imagenes(ctx)); assertArrayEquals(ByteArray(1500) { 7 }, File(Pantalla.dirImagenes(ctx), "img1.jpg").readBytes())
+        assertFalse(NubeP.imagenes(ctx)); Pantalla.items.clear()
+
         // Subida automática de las ROMs que faltan: sube solo las que no están, una vez
         movil("A"); Biblioteca.juegos.clear(); Biblioteca.borrados.clear()
         val m = Juego("a2", "Metroid", Tipo.ROM, sistema = "gba", uri = "content://m", archivo = "Metroid", mod = 1)

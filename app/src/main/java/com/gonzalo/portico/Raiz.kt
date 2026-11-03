@@ -16,13 +16,13 @@ import androidx.compose.ui.platform.LocalContext
 
 /** Arranca los datos de la app (una vez). */
 fun iniciar(c: Context) {
-    Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); NubeP.cargar(c); Biblioteca.cargar(c)
+    Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); NubeP.cargar(c); Biblioteca.cargar(c); Pantalla.cargar(c)
     TemaAtrio.cargarGuardado(c)
     Cuenta.cargar(c); SincroP.iniciar(c)
 }
 
 /** Dónde estás: la portada y sus secciones (se llega a ellas desde el menú de la portada, como en Atrio). */
-enum class Destino { Portada, Juegos, Roms, Android, Web, Favoritos, Sistemas, Ajustes }
+enum class Destino { Portada, Juegos, Roms, Android, Web, Favoritos, Sistemas, Ajustes, Recientes }
 
 /** La app: portada de revista y sus secciones, la ficha de un juego por encima y la hoja de «añadir». */
 @Composable
@@ -46,6 +46,7 @@ fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
             Destino.Android -> { filtro.limpiar(); filtro.tipo = Tipo.APP }
             Destino.Web -> { filtro.limpiar(); filtro.tipo = Tipo.WEB }
             Destino.Favoritos -> { filtro.limpiar(); filtro.favoritos = true }
+            Destino.Recientes -> { filtro.limpiar(); filtro.orden = Orden.Recientes }
             else -> {}
         }
         destino = x.ordinal

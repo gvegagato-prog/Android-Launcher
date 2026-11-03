@@ -14,7 +14,15 @@ La interfaz es la «Revista» de Atrio. Generadas en el ordenador con datos de e
 [ficha editando casillas](docs/capturas/13_ficha_editando.png) · [sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) ·
 [añadir](docs/capturas/9_anadir.png)
 
-## La pantalla de inicio es un launcher
+## La pantalla de inicio es tu lienzo
+
+Como la portada de Atrio: cabecera de revista, el **menú de secciones** (Recientes, Favoritos, ROMs, Android, Web, Todo, Sistemas) y, debajo, **tu lienzo**: una cuadrícula de 4 columnas de casillas invisibles donde colocas lo que quieras con el tamaño que quieras.
+- **Editar**: arrastra un elemento para moverlo (se encaja en las casillas; si pisa a otro, vuelve), arrastra el **círculo** de su esquina para hacerlo grande o pequeño, toca para elegir su **color de fondo** (solo el de ese elemento; «T» = el del tema) o quitarlo. «+ Añadir»: un juego o una imagen de la galería.
+- Según su tamaño, un juego es solo la portada (1×1), la baldosa de portada + nombre (ancho, 1 alto) o una portada grande con el nombre debajo (2 o más de alto).
+- **Sincronizado entre tus móviles** (por elemento, gana el cambio más reciente; lo quitado se quita en todos). Los juegos se enlazan por su clave, las imágenes viajan por kDrive. La cuadrícula tiene 4 columnas en todos los móviles para que la disposición sea la misma.
+- La primera vez (sin cuenta vinculada) se rellena con tus últimos juegos. Capturas: [lienzo](docs/capturas/20_lienzo.png) · [editando](docs/capturas/21_lienzo_editando.png).
+
+## (Antes) La pantalla de inicio era un launcher de baldosas
 
 Cabecera de revista compacta y, debajo, **baldosas** con la misma disposición que los widgets (portada a la izquierda, nombre a la derecha, el papel de la revista y
 su reborde fino de tinta). **Un toque juega; mantener pulsado abre la ficha.** Pestañas: Recientes, Favoritos, ROMs (con filtro por sistema), Android, Web y Todo;

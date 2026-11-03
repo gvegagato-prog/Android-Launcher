@@ -76,11 +76,26 @@ class CapturasTest {
         siembra()
         montar(oscuro = false)
         foto("2_portada")
-        ir("LISTA"); foto("3_juegos")
+        ir("TODO"); foto("3_juegos")
         ir("← PÓRTICO"); ir("SISTEMAS"); foto("4_sistemas")
         ir("← PÓRTICO"); rule.onNodeWithContentDescription("Ajustes").performClick(); foto("5_ajustes")
-        ir("← PÓRTICO"); ir("LISTA")
+        ir("← PÓRTICO"); ir("TODO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick(); foto("6_ficha")
+    }
+
+    @Test
+    fun lienzo() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        Pantalla.items.clear(); Pantalla.borrados.clear()
+        fun j(i: Int) = Biblioteca.juegos[i].clave
+        Pantalla.items.addAll(listOf(
+            Elemento("a", Elemento.JUEGO, j(0), 0, 0, 2, 2, 0xFFC8362B.toInt(), 1), Elemento("b", Elemento.JUEGO, j(1), 2, 0, 2, 1, 0, 1),
+            Elemento("c", Elemento.JUEGO, j(4), 2, 1, 1, 1, 0xFF2F5D8A.toInt(), 1), Elemento("d", Elemento.JUEGO, j(8), 3, 1, 1, 1, 0xFFE3B53B.toInt(), 1),
+            Elemento("e", Elemento.JUEGO, j(2), 0, 2, 4, 1, 0xFF15120F.toInt(), 1), Elemento("f", Elemento.JUEGO, j(3), 0, 3, 2, 1, 0, 1)))
+        montar(oscuro = false)
+        foto("20_lienzo")
+        rule.onNodeWithText("EDITAR").performClick(); foto("21_lienzo_editando")
     }
 
     @Test
@@ -89,7 +104,7 @@ class CapturasTest {
         siembra()
         montar(oscuro = true)
         foto("7_portada_oscuro")
-        ir("LISTA"); foto("8_juegos_oscuro")
+        ir("TODO"); foto("8_juegos_oscuro")
     }
 
     @Test
@@ -105,7 +120,7 @@ class CapturasTest {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
         montar(oscuro = false)
-        ir("LISTA")
+        ir("TODO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("12_ficha_casillas")
         rule.onNodeWithText("EDITAR").performClick()
@@ -118,7 +133,7 @@ class CapturasTest {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
         montar(oscuro = false)
-        ir("LISTA")
+        ir("TODO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("PORTADA\u00A0→").performScrollTo().performClick(); foto("10_portada_opciones")
         rule.onNodeWithText("Buscar en internet\u00A0→").performClick(); foto("11_buscador")
@@ -131,7 +146,7 @@ class CapturasTest {
         Skin.invertido = true
         montar(oscuro = false)
         foto("15_invertido_portada")
-        ir("LISTA"); foto("16_invertido_juegos")
+        ir("TODO"); foto("16_invertido_juegos")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("17_invertido_ficha")
     }

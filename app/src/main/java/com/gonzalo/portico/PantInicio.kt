@@ -1,6 +1,17 @@
 package com.gonzalo.portico
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -56,7 +67,7 @@ fun ImagenJuego(j: Juego, modifier: Modifier = Modifier, tamLetra: Int = 64) {
 }
 
 /** Lo de debajo del nombre en una baldosa: «GBA · 3 h». */
-private fun metaCorta(j: Juego): String {
+fun metaCorta(j: Juego): String {
     val h = if (j.terminado) "terminado" else if (j.msJugados >= 60_000) tiempoDe(j.msJugados).replace(" min", " m").replace(" h ", " h ") else ""
     return listOf(etiquetaDe(j), if (j.enOtroDispositivo) "en otro móvil" else h).filter { it.isNotBlank() }.joinToString(" · ")
 }
@@ -109,97 +120,159 @@ fun BaldosaAnadir(alAnadir: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * La pantalla de inicio de Pórtico: un launcher. Cabecera de revista, pestañas (Recientes, Favoritos, ROMs, Android, Web, Todo)
- * y una rejilla de baldosas con lo que toca. Un toque juega; mantener pulsado abre la ficha.
+ * La pantalla de inicio de Pórtico, como la portada de Atrio: cabecera de revista, el menú de secciones (Recientes, Favoritos, ROMs…) y,
+ * debajo, tu lienzo: casillas invisibles donde colocas juegos e imágenes con el tamaño y el color que quieras (se sincroniza entre tus móviles).
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun PantInicio(
     alAbrir: (Juego) -> Unit, alJugar: (Juego) -> Unit, alAnadir: (Tipo?) -> Unit,
     alIr: (Destino) -> Unit, alBuscar: () -> Unit
 ) {
     val ctx = LocalContext.current
-    val todos = Biblioteca.juegos.toList()
+    val scope = rememberCoroutineScope()
     val hoy = remember { Calendar.getInstance() }
     val atrio = remember { runCatching { ctx.packageManager.getLaunchIntentForPackage(ATRIO) }.getOrNull() }
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    var sistema by rememberSaveable { mutableStateOf<String?>(null) }
-    var buscando by rememberSaveable { mutableStateOf(false) }
-    var busca by rememberSaveable { mutableStateOf("") }
-    val foco = remember { FocusRequester() }
-    LaunchedEffect(buscando) { if (buscando) runCatching { foco.requestFocus() } }
+    var editando by rememberSaveable { mutableStateOf(false) }
+    var elegido by remember { mutableStateOf<Elemento?>(null) }
+    var anadiendo by remember { mutableStateOf(false) }
+    LaunedInicial()
 
-    val pestanas = listOf("Recientes", "Favoritos", "ROMs", "Android", "Web", "Todo")
-    val cuentas = listOf(todos.count { it.ultima > 0 }, todos.count { it.favorito }, todos.count { it.tipo == Tipo.ROM }, todos.count { it.tipo == Tipo.APP }, todos.count { it.tipo == Tipo.WEB }, todos.size)
-    val q = Catalogo.norm(busca)
-    val base = when (tab) {
-        0 -> recientes(todos.filter { it.ultima > 0 }.ifEmpty { todos })
-        1 -> todos.filter { it.favorito }.sortedBy { it.titulo.lowercase() }
-        2 -> todos.filter { it.tipo == Tipo.ROM && (sistema == null || it.sistema == sistema) }.sortedBy { it.titulo.lowercase() }
-        3 -> todos.filter { it.tipo == Tipo.APP }.sortedBy { it.titulo.lowercase() }
-        4 -> todos.filter { it.tipo == Tipo.WEB }.sortedBy { it.titulo.lowercase() }
-        else -> todos.sortedBy { it.titulo.lowercase() }
+    val imagen = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
+        if (u != null) scope.launch {
+            val id = Pantalla.nuevoId()
+            guardarImagenPantalla(ctx, id, u)?.let { nombre ->
+                val (x, y) = Pantalla.hueco(2, 2)
+                Pantalla.poner(Elemento(id, Elemento.IMAGEN, nombre, x, y, 2, 2))
+            }
+        }
     }
-    // (buscando, se mira en todo lo que tienes, no solo en la pestaña)
-    val lista = if (q.isEmpty()) base else todos.filter { Catalogo.norm(it.titulo).contains(q) || Catalogo.norm(etiquetaDe(it)).contains(q) }.sortedBy { it.titulo.lowercase() }
-    val sistemas = todos.filter { it.tipo == Tipo.ROM }.groupBy { it.sistema }.entries.sortedByDescending { it.value.size }
 
-    LazyVerticalGrid(
-        GridCells.Adaptive(150.dp), Modifier.fillMaxSize().background(Paper),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Column(Modifier.statusBarsPadding()) {
-                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    EnlaceRevista("Buscar") { buscando = !buscando; if (!buscando) busca = "" }
-                    EnlaceRevista("Lista") { alIr(Destino.Juegos) }
-                    EnlaceRevista("Sistemas") { alIr(Destino.Sistemas) }
-                    Spacer(Modifier.weight(1f))
-                    Icon(Icons.Filled.Settings, "Ajustes", tint = Charcoal, modifier = Modifier.combinedClickable(onClick = { alIr(Destino.Ajustes) }).padding(8.dp).size(22.dp))
-                }
-                // Cabecera de revista, compacta: es un launcher, lo que importa son las baldosas
-                Cabecera(64.sp, Modifier.padding(top = 2.dp))
-                FileteCabecera(3.dp)
-                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                    Text("Nº ${hoy.get(Calendar.DAY_OF_YEAR)}", color = Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                    Spacer(Modifier.weight(1f))
-                    Text(SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "ES")).format(hoy.time).uppercase(), color = Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                }
-                Filete(1.dp)
-                PestanasRevista(pestanas, tab, cuentas = cuentas) { tab = it; sistema = null }
-                if (tab == 2 && sistemas.size > 1) FiltrosRevista(listOf("Todos") + sistemas.map { (Catalogo.sistema(it.key)?.corto ?: it.key) + " " + it.value.size }, sistemas.indexOfFirst { it.key == sistema } + 1) { i ->
-                    sistema = if (i == 0) null else sistemas[i - 1].key
-                }
-                if (buscando) CampoBusquedaRevista(busca, "Buscar en todos tus juegos", foco) { busca = it }
-                Spacer(Modifier.height(12.dp))
-                if (todos.isEmpty()) {
-                    Antetitulo("Para empezar", Modifier.padding(bottom = 8.dp))
-                    Text("Pórtico no es un emulador: es la puerta desde la que abres los que ya tienes, los juegos de Android y los de navegador.", color = Muted, fontFamily = Body, fontSize = 15.sp, lineHeight = 22.sp)
+    val secciones = listOf<Pair<String, () -> Unit>>(
+        "Recientes" to { alIr(Destino.Recientes) }, "Favoritos" to { alIr(Destino.Favoritos) }, "ROMs" to { alIr(Destino.Roms) },
+        "Android" to { alIr(Destino.Android) }, "Web" to { alIr(Destino.Web) }, "Todo" to { alIr(Destino.Juegos) }, "Sistemas" to { alIr(Destino.Sistemas) }
+    )
+
+    Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            EnlaceRevista("Buscar") { alBuscar() }
+            EnlaceRevista("Añadir") { alAnadir(null) }
+            EnlaceRevista(if (editando) "Listo" else "Editar", acento = editando) { editando = !editando }
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Filled.Settings, "Ajustes", tint = Charcoal, modifier = Modifier.combinedClickable(onClick = { alIr(Destino.Ajustes) }).padding(8.dp).size(22.dp))
+        }
+        Cabecera(64.sp, Modifier.padding(top = 2.dp))
+        FileteCabecera(3.dp)
+        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+            Text("Nº ${hoy.get(Calendar.DAY_OF_YEAR)}", color = Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Spacer(Modifier.weight(1f))
+            Text(SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "ES")).format(hoy.time).uppercase(), color = Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        }
+        Filete(1.dp)
+        // Las secciones, como el menú de la portada de Atrio: versalitas entre dos filetes
+        FlowRow(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            secciones.forEach { (t, f) ->
+                Text(t.uppercase(), color = Charcoal, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, maxLines = 1,
+                    modifier = Modifier.clickable(onClick = f).padding(vertical = 9.dp))
+            }
+        }
+        Filete(1.dp)
+        Spacer(Modifier.height(10.dp))
+
+        if (editando) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Arrastra para mover, el círculo ⤡ de la esquina para el tamaño, toca para el color.", color = Muted, fontFamily = Body, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.weight(1f))
+                EnlaceRevista("+ Añadir", acento = true) { anadiendo = true }
+            }
+        }
+        Lienzo(editando, alJugar = alJugar, alAbrir = alAbrir, alEditar = { elegido = it })
+        if (Pantalla.items.isEmpty() && !editando) {
+            Column {
+                Text(if (Biblioteca.juegos.isEmpty()) "Pórtico no es un emulador: es la puerta desde la que abres los que ya tienes, los juegos de Android y los de navegador." else "Tu pantalla está vacía: toca «Editar» y añade juegos o imágenes donde quieras.", color = Muted, fontFamily = Body, fontSize = 15.sp, lineHeight = 22.sp)
+                if (Biblioteca.juegos.isEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     MagLink("ROMs y emuladores", "GBA, DS, SNES, PSP… con el emulador que elijas", accent = true) { alAnadir(Tipo.ROM) }
                     Filete(1.dp, Line)
                     MagLink("Juegos de Android", "Los que ya tienes instalados") { alAnadir(Tipo.APP) }
                     Filete(1.dp, Line)
                     MagLink("Juegos de navegador", "PokéRogue y otros, a pantalla completa") { alAnadir(Tipo.WEB) }
-                    Spacer(Modifier.height(6.dp))
-                } else if (lista.isEmpty()) {
-                    Text(if (q.isNotEmpty()) "Nada con esa búsqueda." else if (tab == 1) "Aún no tienes favoritos: márcalos con ★ en su ficha." else "Aquí no hay nada todavía.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 17.sp, modifier = Modifier.padding(vertical = 4.dp))
                 }
             }
         }
-        items(lista, key = { it.id }) { j -> Baldosa(j, alJugar = { alJugar(j) }, alAbrir = { alAbrir(j) }) }
-        item { BaldosaAnadir({ alAnadir(null) }) }
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Column(Modifier.padding(top = 10.dp)) {
-                if (todos.isNotEmpty()) Text("Un toque juega · mantén pulsado para ver la ficha", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-                if (atrio != null) {
-                    Spacer(Modifier.height(10.dp))
-                    Filete(1.dp, Line)
-                    MagLink("Abrir Atrio", "Valora lo que acabas de jugar") { ctx.startActivity(atrio.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                }
-                Text("Pórtico · hecho en casa", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 14.dp))
+        Column(Modifier.padding(top = 10.dp)) {
+            if (!editando && Pantalla.items.isNotEmpty()) Text("Un toque juega · mantén pulsado para ver la ficha", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+            if (atrio != null) {
+                Spacer(Modifier.height(10.dp))
+                Filete(1.dp, Line)
+                MagLink("Abrir Atrio", "Valora lo que acabas de jugar") { ctx.startActivity(atrio.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
+            Text("Pórtico · hecho en casa", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 14.dp))
+            Spacer(Modifier.height(24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
         }
     }
+
+    elegido?.let { e -> DialogoElemento(e, alCerrar = { elegido = null }, alFicha = { clave -> Biblioteca.juegos.firstOrNull { it.clave == clave }?.let { alAbrir(it) } }) }
+    if (anadiendo) DialogoAnadirElemento(alCerrar = { anadiendo = false }, alImagen = { anadiendo = false; imagen.launch("image/*") })
+}
+
+@Composable
+private fun LaunedInicial() { val c = LocalContext.current; LaunchedEffect(Unit) { Pantalla.inicial(c) } }
+
+/** Color y quitar (y la ficha, si es un juego) de un elemento del lienzo. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DialogoElemento(e: Elemento, alCerrar: () -> Unit, alFicha: (String) -> Unit) {
+    val actual = Pantalla.items.firstOrNull { it.id == e.id } ?: e
+    AlertDialog(
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
+        title = { Text(if (e.esJuego) (Biblioteca.juegos.firstOrNull { it.clave == e.ref }?.titulo ?: "Juego") else "Imagen", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Etiqueta("Color de fondo")
+                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    COLORES_ELEMENTO.forEach { c ->
+                        val col = if (c == 0) Crudo else Color(c)
+                        Box(Modifier.size(34.dp).clip(CircleShape).background(col).border(if (actual.color == c) 3.dp else 1.dp, if (actual.color == c) Acento else Line, CircleShape)
+                            .clickable { Pantalla.poner(actual.copy(color = c)) }, contentAlignment = Alignment.Center) {
+                            if (c == 0) Text("T", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                        }
+                    }
+                }
+                Text("«T» es el color del tema.", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+                if (e.esJuego) { Spacer(Modifier.height(8.dp)); MagLink("Ver la ficha") { alCerrar(); alFicha(e.ref) } }
+            }
+        },
+        confirmButton = { TextButton({ alCerrar() }) { Text("LISTO", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton({ Pantalla.quitar(e.id); alCerrar() }) { Text("QUITAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
+    )
+}
+
+/** Añadir al lienzo: un juego de tu biblioteca o una imagen. */
+@Composable
+private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit) {
+    var busca by remember { mutableStateOf("") }
+    val q = Catalogo.norm(busca)
+    val lista = remember(busca) { recientes(Biblioteca.juegos.toList()).filter { q.isEmpty() || Catalogo.norm(it.titulo).contains(q) }.take(40) }
+    AlertDialog(
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
+        title = { Text("Añadir a la pantalla", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                MagLink("Una imagen", "De tu galería, del tamaño que quieras") { alImagen() }
+                Filete(1.dp, Line)
+                CampoBusqueda(busca) { busca = it }
+                Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
+                    lista.forEach { j ->
+                        Text(j.titulo, color = Charcoal, fontFamily = Display, fontSize = 18.sp, maxLines = 1,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                val (x, y) = Pantalla.hueco(2, 1); Pantalla.poner(Elemento(Pantalla.nuevoId(), Elemento.JUEGO, j.clave, x, y, 2, 1)); alCerrar()
+                            }.padding(vertical = 10.dp))
+                        Filete(1.dp, Line)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(alCerrar) { Text("CERRAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
+    )
 }

@@ -72,7 +72,7 @@ object SincroP {
     suspend fun subir(c: Context, forzar: Boolean = false): Boolean = candado.withLock {
         if (!Cuenta.vinculada) return@withLock true
         try {
-            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados)))
+            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), Pantalla.items.toList(), HashMap(Pantalla.borrados)))
             val hash = blob.hashCode().toString() + ":" + blob.length
             val p = prefs(c)
             if (!forzar && p.getString("hash", "") == hash) return@withLock true
@@ -90,7 +90,7 @@ object SincroP {
     }
 
     /** Las portadas que elegiste: van a tu kDrive (si está conectado), como las imágenes de Atrio. Errores aparte: no estropean la sincronización. */
-    private fun portadas(c: Context) { if (KDrive.on(c)) { runCatching { NubeP.portadas(c) }; runCatching { SubirRomsWorker.programar(c) } } }
+    private fun portadas(c: Context) { if (KDrive.on(c)) { runCatching { NubeP.portadas(c) }; runCatching { NubeP.imagenes(c) }; runCatching { SubirRomsWorker.programar(c) } } }
 
     /** Baja y mezcla lo nuevo de tus otros dispositivos. Devuelve true si ha cambiado algo aquí. */
     suspend fun bajar(c: Context): Boolean = candado.withLock {
@@ -107,13 +107,15 @@ object SincroP {
                 if (dev == Cuenta.dispositivo || ts <= vistas.optLong(dev, 0L) || ahora - ts > Cuenta.STALE) continue
                 val raw = Cuenta.db("GET", "${Cuenta.raiz}/dev/$dev/data", null) ?: continue
                 val datos = JSONTokener(raw).nextValue() as? String ?: continue
-                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados) }
+                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados, it.pantalla, it.pBorrados) }
                 vistosNuevos.put(dev, ts)
             }
             var cambio = false
             if (nuevos.isNotEmpty()) {
                 val r = Mezcla.mezclar(Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), nuevos, Cuenta.dispositivo)
                 if (r.cambio) { Biblioteca.aplicarMezcla(r.juegos, r.borrados); cambio = true }
+                val rp = MezclaPantalla.mezclar(Pantalla.items.toList(), HashMap(Pantalla.borrados), nuevos.map { it.pantalla to it.pBorrados })
+                if (rp.cambio) { Pantalla.aplicarMezcla(rp.items, rp.borrados); cambio = true }
             }
             guardaVistos(c, vistosNuevos)
             bien(c)

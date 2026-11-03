@@ -1,0 +1,127 @@
+package com.gonzalo.portico
+
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/** La pantalla de inicio como lienzo: colocar, mezclar entre móviles y las pantallas de verdad. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+class PantallaTest {
+    @get:Rule val rule = createComposeRule()
+    private val ctx get() = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    @Before fun limpia() {
+        Pantalla.items.clear(); Pantalla.borrados.clear()
+        Biblioteca.cargada = true; Biblioteca.juegos.clear(); Biblioteca.borrados.clear()
+    }
+
+    private fun e(id: String, x: Int, y: Int, w: Int = 1, h: Int = 1, mod: Long = 1, color: Int = 0, ref: String = "web:a") = Elemento(id, Elemento.JUEGO, ref, x, y, w, h, color, mod)
+
+    @Test fun huecosYColisiones() {
+        Pantalla.items.addAll(listOf(e("a", 0, 0, 2, 1), e("b", 2, 0, 2, 2)))
+        assertEquals(0 to 1, Pantalla.hueco(2, 1)); assertEquals(0 to 1, Pantalla.hueco(1, 1))
+        assertEquals(0 to 2, Pantalla.hueco(4, 1))
+        assertTrue(Pantalla.libre(e("a", 0, 0, 2, 2).copy(w = 2, h = 1)))
+        assertFalse("pisa a b", Pantalla.libre(e("a", 1, 0, 2, 1)))
+        assertFalse("se sale por la derecha", Pantalla.libre(e("a", 3, 2, 2, 1)))
+        assertFalse("se sale por la izquierda", Pantalla.libre(e("a", -1, 2, 1, 1)))
+        assertTrue(Pantalla.libre(e("c", 0, 1, 2, 1)))
+    }
+
+    @Test fun mezclaPorElementoGanaElMasReciente() {
+        val loc = listOf(e("a", 0, 0, mod = 100), e("b", 1, 0, mod = 100, color = 5))
+        val rem = listOf(e("a", 3, 3, mod = 200), e("b", 0, 1, mod = 50), e("c", 2, 2, mod = 10)) to mapOf("z" to 5L)
+        val r = MezclaPantalla.mezclar(loc, emptyMap(), listOf(rem), ahora = 1000)
+        assertEquals(3, r.items.size)
+        assertEquals(3 to 3, r.items.first { it.id == "a" }.let { it.x to it.y })        // el remoto era más nuevo
+        assertEquals(5, r.items.first { it.id == "b" }.color)                              // el local era más nuevo
+        assertTrue(r.cambio); assertEquals(5L, r.borrados["z"])
+        // quitar en un móvil quita en el otro; pero un cambio posterior al borrado lo mantiene
+        val q = MezclaPantalla.mezclar(loc, emptyMap(), listOf(emptyList<Elemento>() to mapOf("a" to 150L)), ahora = 1000)
+        assertEquals(listOf("a" to false).size, 1); assertEquals(setOf("a", "b").minus("a"), q.items.map { it.id }.toSet())
+        val q2 = MezclaPantalla.mezclar(listOf(e("a", 0, 0, mod = 300)), emptyMap(), listOf(emptyList<Elemento>() to mapOf("a" to 150L)), ahora = 1000)
+        assertEquals(1, q2.items.size)
+        assertFalse(MezclaPantalla.mezclar(r.items, r.borrados, listOf(rem), ahora = 1000).cambio)
+    }
+
+    @Test fun viajaEnLaCopiaDelDispositivo() {
+        val b = Mezcla.deJson(Mezcla.aJson(Mezcla.aBlob("A", emptyList(), emptyMap(), listOf(e("a", 1, 2, 2, 3, color = 0xFFC8362B.toInt())), mapOf("x" to 9L))))!!
+        assertEquals(1, b.pantalla.size); assertEquals(3, b.pantalla[0].h); assertEquals(0xFFC8362B.toInt(), b.pantalla[0].color); assertEquals(9L, b.pBorrados["x"])
+        // Una copia vieja (sin pantalla) sigue leyéndose
+        assertTrue(Mezcla.deJson("""{"v":1,"dev":"B","juegos":[],"borrados":{}}""")!!.pantalla.isEmpty())
+    }
+
+    @Test fun laPrimeraVezSeRellenaConLosRecientes() {
+        Biblioteca.juegos.add(Juego("1", "Zelda", Tipo.ROM, sistema = "gba", archivo = "Zelda", uri = "content://x", ultima = 5))
+        Biblioteca.juegos.add(Juego("2", "Metroid", Tipo.ROM, sistema = "gba", archivo = "Metroid", uri = "content://y", ultima = 9))
+        Pantalla.cargar(ctx); Pantalla.inicial(ctx)
+        assertEquals(2, Pantalla.items.size); assertEquals(Biblioteca.juegos[1].clave, Pantalla.items[0].ref)   // el más reciente primero
+        assertTrue(Pantalla.items.all { it.w == 2 && it.h == 1 })
+        Pantalla.inicial(ctx); assertEquals("solo una vez", 2, Pantalla.items.size)
+    }
+
+    @Test fun laPantallaDeInicioMuestraElMenuYElLienzo() {
+        Catalogo.cargar(ctx); Skin.cargar(ctx)
+        Biblioteca.juegos.add(Juego("1", "Zelda de prueba", Tipo.ROM, sistema = "gba", archivo = "Zelda", uri = "content://x"))
+        Pantalla.items.add(Elemento("e1", Elemento.JUEGO, Biblioteca.juegos[0].clave, 0, 0, 2, 1))
+        var ir: Destino? = null
+        rule.setContent { PorticoTheme { Surface(Modifier.fillMaxSize(), color = Paper) { PantInicio({}, {}, {}, { ir = it }, {}) } } }
+        rule.onNodeWithText("Zelda de prueba", useUnmergedTree = true).assertExists()
+        listOf("RECIENTES", "FAVORITOS", "ROMS", "ANDROID", "WEB", "TODO", "SISTEMAS").forEach { rule.onNodeWithText(it).assertExists() }
+        rule.onNodeWithText("ROMS").performClick(); assertEquals(Destino.Roms, ir)
+        // Editar: aparecen las instrucciones y el botón de añadir
+        rule.onNodeWithText("EDITAR").performClick()
+        rule.onNodeWithText("+ AÑADIR").assertExists(); rule.onNodeWithText("LISTO").assertExists()
+        rule.onNodeWithText("Zelda de prueba", useUnmergedTree = true).performClick()   // toca el elemento: diálogo de color
+        rule.onNodeWithText("Color de fondo".uppercase()).assertExists()
+        rule.onNodeWithText("QUITAR").performClick()
+        assertTrue(Pantalla.items.isEmpty()); assertTrue(Pantalla.borrados.containsKey("e1"))
+    }
+
+    private fun montarEditando(vararg es: Elemento) {
+        Catalogo.cargar(ctx); Skin.cargar(ctx)
+        Biblioteca.juegos.add(Juego("1", "Zelda de prueba", Tipo.ROM, sistema = "gba", archivo = "Zelda", uri = "content://x"))
+        es.forEach { Pantalla.items.add(it.copy(ref = Biblioteca.juegos[0].clave)) }
+        rule.setContent { PorticoTheme { Surface(Modifier.fillMaxSize(), color = Paper) { PantInicio({}, {}, {}, {}, {}) } } }
+        rule.onNodeWithText("EDITAR").performClick()
+    }
+    private val celdaPx get() = (411f - 40f) / Pantalla.COLUMNAS * 3f
+
+    @Test fun arrastrarMueveYSeEncajaEnLasCasillas() {
+        montarEditando(e("e1", 0, 0, 1, 1))
+        rule.onNodeWithTag("el-e1").performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 2.1f, celdaPx * 1.1f)); up() }
+        rule.waitForIdle()
+        assertEquals(2 to 1, Pantalla.items[0].let { it.x to it.y })
+        assertTrue("cambió su hora de modificación", Pantalla.items[0].mod > 1)
+    }
+
+    @Test fun arrastrarSobreOtroNoLoPisa() {
+        montarEditando(e("e1", 0, 0, 1, 1), e("e2", 1, 0, 1, 1))
+        rule.onNodeWithTag("el-e1").performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(celdaPx, 0f)); up() }
+        rule.waitForIdle()
+        assertEquals(0 to 0, Pantalla.items.first { it.id == "e1" }.let { it.x to it.y })
+    }
+
+    @Test fun elCirculoCambiaElTamano() {
+        montarEditando(e("e1", 0, 0, 1, 1))
+        rule.onNodeWithTag("asa-e1").performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 1.05f, celdaPx * 1.05f)); up() }
+        rule.waitForIdle()
+        assertEquals(2 to 2, Pantalla.items[0].let { it.w to it.h })
+        // no se sale de las 4 columnas
+        rule.onNodeWithTag("asa-e1").performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(celdaPx * 9f, 0f)); up() }
+        rule.waitForIdle()
+        assertEquals(4, Pantalla.items[0].w)
+    }
+}
