@@ -339,7 +339,8 @@ object Widgets {
         letras = Letras(
             titular = titular ?: d.titular,
             cursiva = cursiva ?: if (dis == "Atrio" || titular == null) d.cursiva else titular,
-            negrita = tipografia(ctx, cue, 700, false, BODY_FONTS) ?: d.negrita,
+            // Las etiquetas (JUGAR →, las horas, los antetítulos) llevan siempre la negrita de la app, como en Atrio: la del tema, bajada de Google Fonts, salía más fina
+            negrita = d.negrita,
             texto = tipografia(ctx, cue, 500, false, BODY_FONTS) ?: d.texto
         )
     }
