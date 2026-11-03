@@ -100,6 +100,15 @@ class CapturasTest {
     }
 
     @Test
+    fun ajustesConFondoOscuro() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra(); Skin.fondoId = "granate"
+        montar(oscuro = false)   // (el modo claro: lo que fija el color es el fondo, no el modo)
+        rule.onNodeWithContentDescription("Ajustes").performClick(); foto("30_ajustes_fondo_oscuro")
+        Skin.fondoId = ""
+    }
+
+    @Test
     fun oscuro() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
@@ -172,6 +181,6 @@ class CapturasTest {
         montar(oscuro = false)
         foto("19_atrio_invertido_portada")
         rule.onNodeWithContentDescription("Ajustes").performClick()
-        rule.onNodeWithText("COLORES DE").performScrollTo(); foto("20_ajustes_colores_atrio")
+        rule.onNodeWithText("COLORES DE ATRIO", substring = true).performScrollTo(); foto("20_ajustes_colores_atrio")
     }
 }

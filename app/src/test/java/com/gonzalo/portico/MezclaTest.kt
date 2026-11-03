@@ -69,4 +69,11 @@ class MezclaTest {
         assertEquals(20_000L, j.conTotalMs(20_000).msJugados); assertEquals(13_000L, j.conTotalMs(20_000).msPropios)
         assertEquals(0L, j.conTotalMs(1_000).msPropios); assertEquals(7_000L, j.conTotalMs(1_000).msJugados)
     }
+
+    @Test fun laAparienciaViajaYGanaLaMasReciente() {
+        val aj = """{"at":50,"skin":{"fondoId":"granate","acento":"azul","escala":112}}"""
+        val b = Mezcla.deJson(Mezcla.aJson(Mezcla.aBlob("B", emptyList(), emptyMap(), ajustes = aj)))!!
+        assertEquals(50L, org.json.JSONObject(b.ajustes).getLong("at"))
+        assertEquals("sin apariencia no añade nada", "", Mezcla.deJson(Mezcla.aJson(Mezcla.aBlob("B", emptyList(), emptyMap())))!!.ajustes)
+    }
 }

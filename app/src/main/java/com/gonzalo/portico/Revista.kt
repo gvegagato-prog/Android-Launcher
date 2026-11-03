@@ -62,9 +62,13 @@ fun Antetitulo(texto: String, modifier: Modifier = Modifier, tam: TextUnit = 13.
 /** Un enlace de acción en versalitas («BUSCAR», «EDITAR», «+ AÑADIR»…). */
 @Composable
 fun EnlaceRevista(texto: String, modifier: Modifier = Modifier, acento: Boolean = false, onClick: () -> Unit) {
-    Text(texto.uppercase(), color = if (acento) Acento else Charcoal, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, maxLines = 1,
+    Text(texto.uppercase(), color = if (acento) Acento else Charcoal, fontFamily = Body, fontSize = MENU_SP, fontWeight = FontWeight.Black, letterSpacing = MENU_ESPACIO, maxLines = 1,
         modifier = modifier.semantics { role = Role.Button }.clickable(onClick = onClick).padding(vertical = 10.dp))
 }
+
+/** El texto de todos los menús (enlaces, secciones, pestañas, filtros): el mismo tamaño y espaciado en toda la app. */
+val MENU_SP = 12.sp
+val MENU_ESPACIO = 1.4.sp
 
 /** «← VOLVER» (o «← PÓRTICO» en lo que cuelga de la portada). */
 @Composable
@@ -80,7 +84,7 @@ fun PestanasRevista(nombres: List<String>, sel: Int, modifier: Modifier = Modifi
                 Row(Modifier.semantics { selected = on; role = Role.Tab }.clickable { onSel(i) }
                     .drawBehind { if (on) drawRect(Acento, topLeft = Offset(0f, size.height - 3.dp.toPx()), size = Size(size.width, 3.dp.toPx())) }
                     .padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.Bottom) {
-                    Text(n.uppercase(), color = if (on) Charcoal else Muted, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp, maxLines = 1)
+                    Text(n.uppercase(), color = if (on) Charcoal else Muted, fontFamily = Body, fontSize = MENU_SP, fontWeight = FontWeight.Black, letterSpacing = MENU_ESPACIO, maxLines = 1)
                     cuentas?.getOrNull(i)?.let { c -> Text(" $c", color = Acento, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1) }
                 }
             }
@@ -100,7 +104,7 @@ fun FiltrosRevista(opciones: List<String>, sel: Int, modifier: Modifier = Modifi
 /** Un filtro suelto (que se enciende y se apaga): versalitas, encendido en acento y subrayado. */
 @Composable
 fun FiltroRevista(texto: String, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Text(texto.uppercase(), color = if (on) Acento else Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, maxLines = 1,
+    Text(texto.uppercase(), color = if (on) Acento else Charcoal, fontFamily = Body, fontSize = MENU_SP, fontWeight = FontWeight.Black, letterSpacing = MENU_ESPACIO, maxLines = 1,
         modifier = modifier.semantics { selected = on }.clickable(onClick = onClick).padding(top = 8.dp, bottom = 13.dp)
             .drawBehind { if (on) drawRect(Acento, topLeft = Offset(0f, size.height - 4.dp.toPx()), size = Size(size.width, 1.5.dp.toPx())) })
 }
@@ -165,7 +169,7 @@ fun MagChoice(options: List<String>, selected: Int, label: String? = null, onPic
             options.forEachIndexed { i, o ->
                 val on = i == selected
                 Text(
-                    o.uppercase(), color = if (on) Acento else Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp,
+                    o.uppercase(), color = if (on) Acento else Charcoal, fontFamily = Body, fontSize = MENU_SP, fontWeight = FontWeight.Black, letterSpacing = MENU_ESPACIO,
                     modifier = Modifier.clickable(enabled = !on) { onPick(i) }.padding(vertical = 8.dp)
                         .drawBehind { if (on) drawRect(Acento, topLeft = Offset(0f, size.height - 6.dp.toPx()), size = Size(size.width, 1.5.dp.toPx())) }
                 )

@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -63,7 +64,7 @@ val COLORES_ELEMENTO = listOf(0, 0xFFC8362B.toInt(), 0xFFE08A2E.toInt(), 0xFFE3B
     0xFF6B4C9A.toInt(), 0xFFD66B9A.toInt(), 0xFF15120F.toInt(), 0xFFF3EEE4.toInt(), 0xFF8A7F72.toInt())
 
 /** Tinta legible sobre un fondo. */
-fun tintaSobre(fondo: Color): Color = if (fondo.luminance() > 0.45f) Color(0xFF15120F) else Color(0xFFF3EEE4)
+fun tintaSobre(fondo: Color): Color = if (fondo.luminance2() > 0.5f) Color(0xFF15120F) else Color(0xFFF6F1E7)
 
 /** Guarda una imagen elegida para la pantalla de inicio SIN reducirla ni recomprimirla (los mismos bytes: máxima calidad) y devuelve su nombre de archivo. */
 suspend fun guardarImagenPantalla(c: Context, id: String, uri: Uri): String? = withContext(Dispatchers.IO) {
@@ -170,17 +171,18 @@ private fun ElementoLienzo(e0: Elemento, j: Juego?, px: Float, editando: Boolean
         .size(with(d) { (ancho - 2 * margen).toDp() }, with(d) { (alto - 2 * margen).toDp() })
         .testTag("el-" + e0.id)
         .zIndex(if (a != null) 2f else 0f)
-        .shadow(if (a != null) 10.dp else 0.dp, forma)
+    // El reborde por fuera, justo por la línea del contorno (como una silueta: sin sombra ni nada más), del color del texto
+    val contorno = Modifier.border(1.5.dp, tinta, forma)
     if (delWidget) {
         // Los juegos y los widgets: exactamente el dibujo de los widgets de fuera (con su papel, su reborde y sus esquinas)
-        Box(caja) {
+        Box(caja.then(contorno)) {
             ContenidoWidget(e0, j, with(d) { ((e0.w * px - 2 * margen) / density) }, with(d) { ((e0.h * px - 2 * margen) / density) }, editando, alJugar, alAbrir)
             if (editando) Asa(e0)
         }
         return
     }
     Box(
-        caja.clip(forma).background(fondo)
+        caja.clip(forma).background(fondo).then(contorno)
             .drawBehind {
                 // El reborde de los widgets: una línea fina de tinta, metida hacia dentro
                 val m = 3.5.dp.toPx()

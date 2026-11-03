@@ -176,11 +176,9 @@ fun PantInicio(
         }
         Filete(1.dp)
         // Las secciones, como el menú de la portada de Atrio: versalitas entre dos filetes
-        FlowRow(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            secciones.forEach { (t, f) ->
-                Text(t.uppercase(), color = Charcoal, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, maxLines = 1,
-                    modifier = Modifier.clickable(onClick = f).padding(vertical = 9.dp))
-            }
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            // (el mismo texto que los enlaces de arriba y que las pestañas: un solo tamaño de menú en toda la app)
+            secciones.forEach { (t, f) -> EnlaceRevista(t, onClick = f) }
         }
         Filete(1.dp)
         Spacer(Modifier.height(10.dp))

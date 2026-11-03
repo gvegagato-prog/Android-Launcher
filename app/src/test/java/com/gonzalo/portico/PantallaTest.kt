@@ -267,4 +267,18 @@ class PantallaTest {
         val normal = kotlinx.coroutines.runBlocking { guardarPortadaBytes(ctx, "q2", bytes) }!!
         android.graphics.BitmapFactory.decodeFile(normal, o); assertTrue("${o.outWidth}x${o.outHeight}", o.outWidth >= 1500 && o.outHeight >= 2000)
     }
+
+    @Test fun elTextoPorDefectoSigueLaTintaDelTema() {
+        Skin.cargar(ctx); Skin.origenAtrio = false; Skin.invertido = false; Skin.fondoId = "granate"
+        var color = androidx.compose.ui.graphics.Color.Unspecified; var tinta = androidx.compose.ui.graphics.Color.Unspecified
+        rule.setContent { PorticoTheme { color = androidx.compose.material3.LocalContentColor.current; tinta = Charcoal } }
+        rule.waitForIdle()
+        assertEquals("sobre un fondo oscuro el texto sin color propio no puede ser negro", tinta, color)
+        assertTrue(tinta.luminance2() > 0.5f)
+        Skin.fondoId = ""
+    }
+
+    @Test fun losMenusTienenTodosElMismoTexto() {
+        assertEquals(12f, MENU_SP.value, 0f); assertEquals(1.4f, MENU_ESPACIO.value, 0f)
+    }
 }

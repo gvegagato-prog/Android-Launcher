@@ -1,6 +1,7 @@
 package com.gonzalo.portico
 
 import android.content.Context
+import org.json.JSONObject
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -224,12 +225,47 @@ object Skin {
         origenAtrio = p.getBoolean("origen_atrio", true)
         Modo.eleccion = p.getInt("modo", 0).coerceIn(0, 2)
         fondoId = p.getString("fondo_id", "")?.takeIf { id -> FONDOS.any { it.id == id } } ?: ""
+        ajustesAt = p.getLong("ajustes_at", 0L)
         fondoPropio = p.getLong("fondo_propio", 0L); tintaPropia = p.getLong("tinta_propia", 0L); acentoPropio = p.getLong("acento_propio", 0L)
     }
 
+    /** Cuándo se cambió la apariencia (milisegundos): al sincronizar con tus otros Pórticos gana la más reciente. */
+    var ajustesAt = 0L
+
+    /** Guarda la apariencia (y la marca como cambiada ahora, para que viaje a tus otros Pórticos). */
     fun guardar(c: Context) {
+        ajustesAt = System.currentTimeMillis()
+        persistir(c)
+        SincroP.cambio(c)
+    }
+
+    /** La apariencia que viaja con la cuenta (tema, fondo, acento, colores a mano, letras, tamaño…). */
+    fun ajustesJson(): JSONObject = JSONObject().put("at", ajustesAt).put("skin", JSONObject()
+        .put("paleta", palette.id).put("display", display).put("body", body).put("acento", accentId).put("escala", escala)
+        .put("invertido", invertido).put("origenAtrio", origenAtrio).put("modo", Modo.eleccion)
+        .put("fondoId", fondoId).put("fondoPropio", fondoPropio).put("tintaPropia", tintaPropia).put("acentoPropio", acentoPropio))
+
+    /** Aplica la apariencia de otro de tus Pórticos si es más nueva que la de aquí. Devuelve true si ha cambiado algo. */
+    fun aplicarAjustes(c: Context, o: JSONObject): Boolean {
+        val at = o.optLong("at", 0L)
+        if (at <= ajustesAt) return false
+        val k = o.optJSONObject("skin") ?: return false
+        palette = PALETTES.firstOrNull { it.id == k.optString("paleta") } ?: palette
+        display = k.optString("display", display).ifBlank { "Atrio" }; body = k.optString("body", body).ifBlank { "Atrio" }
+        accentId = k.optString("acento", accentId).takeIf { id -> id == "paleta" || ACCENT_COLORS.any { it.id == id } } ?: "paleta"
+        escala = k.optInt("escala", escala).coerceIn(80, 140)
+        invertido = k.optBoolean("invertido", invertido); origenAtrio = k.optBoolean("origenAtrio", origenAtrio)
+        Modo.eleccion = k.optInt("modo", Modo.eleccion).coerceIn(0, 2)
+        fondoId = k.optString("fondoId").takeIf { id -> FONDOS.any { it.id == id } } ?: ""
+        fondoPropio = k.optLong("fondoPropio", 0L); tintaPropia = k.optLong("tintaPropia", 0L); acentoPropio = k.optLong("acentoPropio", 0L)
+        ajustesAt = at
+        persistir(c)
+        return true
+    }
+
+    private fun persistir(c: Context) {
         Widgets.pedir(c)
-        p(c).edit().putString("paleta", palette.id).putString("display", display).putString("body", body).putString("forma", forma.id)
+        p(c).edit().putLong("ajustes_at", ajustesAt).putString("paleta", palette.id).putString("display", display).putString("body", body).putString("forma", forma.id)
             .putString("acento", accentId).putBoolean("invertido", invertido).putBoolean("origen_atrio", origenAtrio).putInt("escala", escala).putInt("modo", Modo.eleccion)
             .putString("fondo_id", fondoId).putLong("fondo_propio", fondoPropio).putLong("tinta_propia", tintaPropia).putLong("acento_propio", acentoPropio).apply()
     }
@@ -307,6 +343,9 @@ fun PorticoTheme(content: @Composable () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(
         LocalDensity provides Density(d.density, d.fontScale * Skin.escala / 100f)
     ) {
-        MaterialTheme(colorScheme = appColors(), typography = AppTypography, content = content)
+        MaterialTheme(colorScheme = appColors(), typography = AppTypography) {
+            // El texto sin color propio sale con la tinta del tema (si no, negro: se veía mal sobre un fondo oscuro)
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Charcoal, content = content)
+        }
     }
 }

@@ -145,4 +145,23 @@ class WidgetsTest {
         val sola = runBlocking { Widgets.componer(ctx, WTipo.MARCA, 1, 264f, 132f) }.bitmap(ctx, 264f, 132f, false, 1f)
         assertEquals("la marca sola es transparente", 0, sola.getPixel(2, 2) ushr 24)
     }
+
+    private fun pixelCentro(tipo: WTipo): Int {
+        runBlocking { Widgets.cargarLetras(ctx) }
+        val pag = runBlocking { Widgets.componer(ctx, tipo, 1, 264f, 132f) }
+        val bm = pag.bitmap(ctx, 264f, 132f, Skin.tones.darkBg, 1f)
+        return bm.getPixel(bm.width - 20, bm.height / 2)    // (a la derecha: sobre el papel, lejos de portadas y letras)
+    }
+
+    @Test fun losWidgetsUsanLosColoresDeApariencia() {
+        siembra(); Skin.cargar(ctx)
+        Skin.origenAtrio = false; Skin.invertido = false; Skin.fondoId = ""; Skin.fondoPropio = 0L; Skin.tintaPropia = 0L; Skin.acentoPropio = 0L
+        val granate = FONDOS.first { it.id == "granate" }
+        Skin.fondoId = "granate"
+        assertEquals("fondo de color", granate.tones.paper.toInt(), pixelCentro(WTipo.JUGANDO))
+        Skin.fondoId = ""; Skin.fondoPropio = 0xFF123456L
+        assertEquals("fondo a mano", 0xFF123456.toInt(), pixelCentro(WTipo.JUGANDO))
+        assertEquals(0xFF123456.toInt(), pixelCentro(WTipo.ESTANTE))
+        Skin.fondoPropio = 0L
+    }
 }

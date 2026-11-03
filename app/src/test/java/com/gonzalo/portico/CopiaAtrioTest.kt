@@ -40,6 +40,11 @@ class CopiaAtrioTest {
 
     private val ctx get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 
+    @org.junit.After fun limpia() {   // (el tema es un objeto global: que no se lo lleven los demás tests)
+        Skin.fondoId = ""; Skin.accentId = "paleta"; Skin.fondoPropio = 0L; Skin.tintaPropia = 0L; Skin.acentoPropio = 0L; Skin.escala = 100
+        Skin.display = "Atrio"; Skin.body = "Atrio"; Modo.eleccion = 0; Skin.origenAtrio = true; Skin.invertido = true; Skin.ajustesAt = 0L
+    }
+
     private fun nodoAtrio(at: Long, skin: JSONObject) = JSONObject().put("name", "Tablet").put("device", "android").put("updated", JSONObject().put(".sv", "timestamp"))
         .put("data", JSONObject().put("ajustes", JSONObject().put("at", at).put("skin", skin)).toString()).toString()
 

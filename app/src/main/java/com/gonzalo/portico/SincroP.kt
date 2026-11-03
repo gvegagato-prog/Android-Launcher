@@ -72,7 +72,7 @@ object SincroP {
     suspend fun subir(c: Context, forzar: Boolean = false): Boolean = candado.withLock {
         if (!Cuenta.vinculada) return@withLock true
         try {
-            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), Pantalla.items.toList(), HashMap(Pantalla.borrados)))
+            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), Pantalla.items.toList(), HashMap(Pantalla.borrados), if (Skin.ajustesAt > 0L) Skin.ajustesJson().toString() else ""))
             val hash = blob.hashCode().toString() + ":" + blob.length
             val p = prefs(c)
             if (!forzar && p.getString("hash", "") == hash) return@withLock true
@@ -107,10 +107,13 @@ object SincroP {
                 if (dev == Cuenta.dispositivo || ts <= vistas.optLong(dev, 0L) || ahora - ts > Cuenta.STALE) continue
                 val raw = Cuenta.db("GET", "${Cuenta.raiz}/dev/$dev/data", null) ?: continue
                 val datos = JSONTokener(raw).nextValue() as? String ?: continue
-                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados, it.pantalla, it.pBorrados) }
+                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados, it.pantalla, it.pBorrados, it.ajustes) }
                 vistosNuevos.put(dev, ts)
             }
             var cambio = false
+            // La apariencia (tema, fondo, acento, colores a mano, letras…) más reciente de tus otros Pórticos
+            nuevos.mapNotNull { b -> b.ajustes.takeIf { it.isNotBlank() }?.let { runCatching { JSONObject(it) }.getOrNull() } }.maxByOrNull { it.optLong("at") }
+                ?.let { if (Skin.aplicarAjustes(c, it)) cambio = true }
             if (nuevos.isNotEmpty()) {
                 val r = Mezcla.mezclar(Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), nuevos, Cuenta.dispositivo)
                 if (r.cambio) { Biblioteca.aplicarMezcla(r.juegos, r.borrados); cambio = true }
