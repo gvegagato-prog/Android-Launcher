@@ -36,7 +36,7 @@ import androidx.compose.material3.TextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-const val VERSION = "0.14.0"
+const val VERSION = "0.15.0"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -62,50 +62,7 @@ fun PantEstilo(alVolver: () -> Unit) {
         Filete(3.dp)
         Spacer(Modifier.height(14.dp))
 
-        Antetitulo("Apariencia", Modifier.padding(bottom = 4.dp))
-        if (!Skin.origenAtrio) {
-            Etiqueta("Modo", Modifier.padding(top = 8.dp))
-            MagChoice(listOf("Como el sistema", "Claro", "Oscuro"), Modo.eleccion) { i -> cambia { Modo.eleccion = i } }
-        }
-        Etiqueta("Colores de", Modifier.padding(top = 10.dp))
-        MagChoice(listOf("Pórtico", "Atrio"), if (Skin.origenAtrio) 1 else 0) { i -> cambia { Skin.origenAtrio = i == 1 } }
-        Etiqueta("Invertir", Modifier.padding(top = 6.dp))
-        MagChoice(listOf("No", "Sí"), if (Skin.invertido) 1 else 0) { i -> cambia { Skin.invertido = i == 1 } }
-        LaunchedEffect(Unit) { kotlin.concurrent.thread { TemaAtrio.refrescar(ctx.applicationContext) } }
-        if (Skin.origenAtrio) {
-            val leidos = TemaAtrio.tonos != null
-            Text(
-                if (TemaAtrio.aviso.isNotBlank()) TemaAtrio.aviso + (if (leidos) " Se usan los últimos colores que se leyeron." else " Mientras tanto, los de Pórtico.")
-                else "Pórtico lee los colores que tienes ahora en Atrio" + (if (Skin.invertido) " y los pone del revés: el fondo con el color del texto y el texto con el del fondo; el acento se mantiene." else "."),
-                color = if (TemaAtrio.aviso.isNotBlank()) Acento else Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 14.sp, lineHeight = 19.sp
-            )
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                listOf("Fondo" to Paper, "Texto" to Charcoal, "Acento" to Acento).forEach { (n, c) ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) { Box(Modifier.size(34.dp).background(c).border(1.dp, Line)); Text(n.uppercase(), color = Muted, fontFamily = Body, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
-                }
-            }
-        } else Text("Invertir pone el fondo con el color del texto y el texto con el del fondo; el acento se queda.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 14.sp, lineHeight = 19.sp)
-        if (!Skin.origenAtrio) {
-        Etiqueta("Acento", Modifier.padding(top = 10.dp, bottom = 6.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("EL DE LA PALETA", color = if (Skin.accentId == "paleta") Acento else Charcoal, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp,
-                modifier = Modifier.clickable { cambia { Skin.accentId = "paleta" } }.padding(end = 6.dp, top = 8.dp, bottom = 8.dp))
-            ACCENT_COLORS.forEach { a ->
-                val on = Skin.accentId == a.id
-                Box(Modifier.size(30.dp).background(Color((if (Modo.oscuro) a.dark else a.light) or 0xFF000000)).border(if (on) 3.dp else 0.dp, Charcoal).clickable { cambia { Skin.accentId = a.id } })
-            }
-        }
-        }
-        Etiqueta("Tamaño del texto", Modifier.padding(top = 14.dp))
-        MagChoice(listOf("Pequeño", "Normal", "Grande", "Muy grande"), listOf(90, 100, 112, 125).indexOf(Skin.escala).coerceAtLeast(1)) { i -> cambia { Skin.escala = listOf(90, 100, 112, 125)[i] } }
-        // A tu manera (como en Atrio): el color que quieras para el fondo, el texto y el acento
-        Etiqueta("A tu manera", Modifier.padding(top = 16.dp))
-        Text("Elige tú el fondo, el texto y el acento; lo demás (tarjetas, líneas, grises) sale de ellos. Se ve al momento.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 14.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 2.dp))
-        SelectorColor("Fondo", Skin.fondoPropio, Paper, { Skin.fondoPropio = it }) { Skin.guardar(ctx) }
-        Filete(1.dp, Line)
-        SelectorColor("Texto", Skin.tintaPropia, Charcoal, { Skin.tintaPropia = it }) { Skin.guardar(ctx) }
-        Filete(1.dp, Line)
-        SelectorColor("Acento", Skin.acentoPropio, Acento, { Skin.acentoPropio = it }) { Skin.guardar(ctx) }
+        SeccionApariencia()
 
         Spacer(Modifier.height(26.dp))
         Filete(2.dp)

@@ -114,6 +114,8 @@ object Modo {
 }
 
 object Skin {
+    /** Los tamaños del texto: por ciento → nombre. */
+    val ESCALAS_NOMBRES = mapOf(90 to "Pequeño", 100 to "Normal", 112 to "Grande", 125 to "Muy grande")
     var palette by mutableStateOf(PALETTES.first { it.id == "revista" })
     var display by mutableStateOf("Atrio")
     var body by mutableStateOf("Atrio")
@@ -128,6 +130,8 @@ object Skin {
     var origenAtrio by mutableStateOf(true)
     /** Colores elegidos a mano, como «A tu manera» de Atrio (0 = automático): por encima de todo lo demás. */
     var fondoPropio by mutableStateOf(0L)
+    /** Un fondo de color de [FONDOS] (como en Atrio); "" = papel. */
+    var fondoId by mutableStateOf("")
     var tintaPropia by mutableStateOf(0L)
     var acentoPropio by mutableStateOf(0L)
 
@@ -157,13 +161,22 @@ object Skin {
      * Los colores que se ven en claro o en oscuro ([noche]): los de Atrio (si se piden y se han leído; ya vienen en el modo que
      * tengas allí) o los de Pórtico, y al revés si está «invertidos». Los widgets los piden de las dos maneras.
      */
-    fun tonosPara(noche: Boolean): Tones = conPropios(invertidoSi(invertido, TemaAtrio.tonos.takeIf { origenAtrio } ?: propiosPara(noche)))
+    fun tonosPara(noche: Boolean): Tones {
+        val fondo = FONDOS.firstOrNull { it.id == fondoId }
+        if (fondo != null) {
+            // Como en Atrio: con un fondo de color, el acento «de la paleta» (o el rojo) es el del propio fondo
+            val b = fondo.tones
+            val a = ACCENT_COLORS.firstOrNull { it.id == accentId }
+            return conPropios(if (a == null || accentId == "paleta" || accentId == "rojo") b else b.copy(general = (if (fondo.oscuro) a.dark else a.light) or 0xFF000000))
+        }
+        return conPropios(invertidoSi(invertido, TemaAtrio.tonos.takeIf { origenAtrio } ?: propiosPara(noche)))
+    }
 
     /** Los colores que se ven ahora. */
     val tones: Tones get() = tonosPara(Modo.oscuro)
 
     /** ¿Los colores no dependen de claro/oscuro? (los de Atrio ya vienen resueltos) */
-    val coloresFijos: Boolean get() = origenAtrio && TemaAtrio.tonos != null
+    val coloresFijos: Boolean get() = (origenAtrio && TemaAtrio.tonos != null) || fondoId.isNotEmpty()
 
     private fun invertidoSi(on: Boolean, t: Tones) = if (on) invertir(t) else t
 
@@ -210,6 +223,7 @@ object Skin {
         invertido = p.getBoolean("invertido", true)
         origenAtrio = p.getBoolean("origen_atrio", true)
         Modo.eleccion = p.getInt("modo", 0).coerceIn(0, 2)
+        fondoId = p.getString("fondo_id", "")?.takeIf { id -> FONDOS.any { it.id == id } } ?: ""
         fondoPropio = p.getLong("fondo_propio", 0L); tintaPropia = p.getLong("tinta_propia", 0L); acentoPropio = p.getLong("acento_propio", 0L)
     }
 
@@ -217,7 +231,7 @@ object Skin {
         Widgets.pedir(c)
         p(c).edit().putString("paleta", palette.id).putString("display", display).putString("body", body).putString("forma", forma.id)
             .putString("acento", accentId).putBoolean("invertido", invertido).putBoolean("origen_atrio", origenAtrio).putInt("escala", escala).putInt("modo", Modo.eleccion)
-            .putLong("fondo_propio", fondoPropio).putLong("tinta_propia", tintaPropia).putLong("acento_propio", acentoPropio).apply()
+            .putString("fondo_id", fondoId).putLong("fondo_propio", fondoPropio).putLong("tinta_propia", tintaPropia).putLong("acento_propio", acentoPropio).apply()
     }
 }
 
