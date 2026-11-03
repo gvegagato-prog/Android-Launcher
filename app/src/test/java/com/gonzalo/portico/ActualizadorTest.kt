@@ -89,4 +89,14 @@ class ActualizadorTest {
         assertTrue(Actualizador.estado, Actualizador.estado.contains("kDrive"))
         assertNull(Actualizador.nueva)
     }
+
+    @Test fun actualizarAhora() {
+        KDrive.forget(ctx)
+        assertEquals("kDrive sin conectar", Actualizador.actualizarAhora(ctx))
+        KDrive.save(ctx, "tok", "777"); Actualizador.ponActivo(ctx, false)
+        val m = Actualizador.actualizarAhora(ctx)
+        assertTrue(m, m.contains("versiones") || m.contains("internet", true) || m.contains("kDrive", true))
+        assertFalse(Actualizador.estado, Actualizador.estado.contains("apagada"))
+        Actualizador.ponActivo(ctx, true); KDrive.forget(ctx)
+    }
 }

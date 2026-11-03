@@ -164,12 +164,33 @@ object Actualizador {
     }
 
     /** Se llama nada más abrir la app y luego cada minuto mientras está abierta (siempre en segundo plano). */
-    fun comprueba(ctx: Context, manual: Boolean = false) {
-        if (!activo(ctx)) { if (manual) anota(ctx, "apagada (interruptor de arriba)"); return }
+    fun comprueba(ctx: Context, manual: Boolean = false, forzar: Boolean = false) {
+        if (!activo(ctx) && !forzar) { if (manual) anota(ctx, "apagada (interruptor de arriba)"); return }
         if (!KDrive.on(ctx)) { anota(ctx, "kDrive sin conectar (Ajustes → Actualizaciones)"); return }
         if (!hayInternet(ctx)) { anota(ctx, "sin internet"); return }
         if (!ocupado.compareAndSet(false, true)) return
         try { compruebaYa(ctx) } catch (e: Throwable) { anota(ctx, "error: ${e.message ?: e.javaClass.simpleName}") } finally { ocupado.set(false) }
+    }
+
+    /**
+     * «Actualizar ahora»: mira la carpeta «versiones» (aunque la actualización automática esté apagada), baja la última si hay una más nueva
+     * y la instala ya, sin esperar a que cierres la app. Si Android no deja instalar en silencio, enseña su confirmación (con la app delante).
+     * Es bloqueante (red): llamar fuera del hilo principal. Devuelve lo que ha pasado, para enseñarlo.
+     */
+    fun actualizarAhora(ctx: Context): String {
+        if (!KDrive.on(ctx)) return "kDrive sin conectar"
+        if (!hayInternet(ctx)) return "Sin internet"
+        // (si justo hay otra comprobación en marcha, se espera a que acabe)
+        var esperas = 0
+        while (ocupado.get() && esperas++ < 120) Thread.sleep(500)
+        if (nueva == null) { try { comprueba(ctx, manual = true, forzar = true) } catch (e: Throwable) { return "Error: ${e.message ?: e.javaClass.simpleName}" } }
+        val n = nueva ?: return estado.substringAfter(" · ").ifBlank { "No hay versión nueva" }.replaceFirstChar { it.uppercase() }
+        if (!ctx.packageManager.canRequestPackageInstalls()) {
+            faltaPermiso = true
+            runCatching { ctx.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            return "Permite a Pórtico instalar apps y vuelve a pulsar «Actualizar ahora»"
+        }
+        return try { instala(ctx, n); "Instalando la ${n.nombre.removeSuffix(".apk")}…" } catch (e: Throwable) { "No se pudo instalar: ${e.message ?: e.javaClass.simpleName}" }
     }
 
     private fun compruebaYa(ctx: Context) {
