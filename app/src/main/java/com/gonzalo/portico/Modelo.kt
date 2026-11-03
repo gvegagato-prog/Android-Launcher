@@ -47,7 +47,37 @@ data class Juego(
     val notas: String = "",
     /** El diseño de la ficha de este juego (JSON de [MagLayouts]); "" = el de su tipo o el de siempre. */
     val maqueta: String = "",
-)
+    /** Última vez que se cambió (milisegundos): al sincronizar gana el cambio más reciente. */
+    val mod: Long = 0L,
+    /** Las horas y las veces que ha jugado ESTE dispositivo; las de los demás, en [ajenosMs] y [ajenosVeces] (por dispositivo).
+     *  [msJugados] y [veces] son el total de todos. */
+    val msPropios: Long = 0L,
+    val vecesPropias: Int = 0,
+    val ajenosMs: Map<String, Long> = emptyMap(),
+    val ajenosVeces: Map<String, Int> = emptyMap(),
+) {
+    /** Lo que identifica a este juego en todos tus dispositivos (el id de cada uno es distinto). */
+    val clave: String get() = claveDe(this)
+    /** Una ROM que viene de otro dispositivo y todavía no tienes en este. */
+    val enOtroDispositivo: Boolean get() = tipo == Tipo.ROM && uri.isBlank()
+}
+
+/** Corrige las horas jugadas a mano: lo que falta o sobra lo pone este dispositivo (nunca por debajo de lo que sumen los demás). */
+fun Juego.conTotalMs(total: Long): Juego {
+    val otros = ajenosMs.values.sum()
+    val propios = (total - otros).coerceAtLeast(0L)
+    return copy(msPropios = propios, msJugados = propios + otros)
+}
+
+/** Lo que se edita de un juego y viaja con la cuenta (gana el cambio más reciente). */
+fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion)
+
+/** La clave de un juego: ROM = sistema + nombre del archivo; app = paquete; web = dirección. */
+fun claveDe(j: Juego): String = when (j.tipo) {
+    Tipo.ROM -> "rom:${j.sistema}:${Catalogo.norm(j.archivo.ifBlank { j.titulo })}"
+    Tipo.APP -> "app:${j.paquete}"
+    Tipo.WEB -> "web:" + j.url.lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").trimEnd('/')
+}
 
 /** Una carpeta de ROMs que diste (para volver a escanearla). */
 data class Carpeta(val uri: String, val nombre: String)
@@ -59,6 +89,8 @@ object Biblioteca {
     var cargada by mutableStateOf(false)
     private var archivo: File? = null
     private var appCtx: Context? = null
+    /** Los juegos que quitaste (su clave y cuándo): así los demás dispositivos también los quitan al sincronizar. */
+    val borrados = HashMap<String, Long>()
 
     fun cargar(c: Context) {
         if (cargada) return
@@ -74,7 +106,8 @@ object Biblioteca {
         val nuevos = (0 until js.length()).map { aJuego(js.getJSONObject(it)) }
         val cs = o.optJSONArray("carpetas") ?: JSONArray()
         val carp = (0 until cs.length()).map { cs.getJSONObject(it).let { x -> Carpeta(x.getString("uri"), x.optString("nombre")) } }
-        if (reemplazar) { juegos.clear(); carpetas.clear() }
+        if (reemplazar) { juegos.clear(); carpetas.clear(); borrados.clear() }
+        o.optJSONObject("borrados")?.let { b -> b.keys().forEach { k -> borrados[k] = maxOf(borrados[k] ?: 0L, b.optLong(k)) } }
         val ids = juegos.map { it.id }.toSet()
         juegos.addAll(nuevos.filter { it.id !in ids })
         val us = carpetas.map { it.uri }.toSet()
@@ -85,35 +118,50 @@ object Biblioteca {
         put("version", 1)
         put("juegos", JSONArray().apply { juegos.forEach { put(aJson(it)) } })
         put("carpetas", JSONArray().apply { carpetas.forEach { put(JSONObject().put("uri", it.uri).put("nombre", it.nombre)) } })
+        put("borrados", JSONObject().also { b -> borrados.forEach { (k, v) -> b.put(k, v) } })
     }.toString()
 
     fun guardar() {
         val f = archivo ?: return
         runCatching { val t = File(f.path + ".tmp"); t.writeText(aTexto()); t.renameTo(f) }
-        archivo?.parentFile?.let { appCtx?.let { c -> Widgets.pedir(c) } }
+        archivo?.parentFile?.let { appCtx?.let { c -> Widgets.pedir(c); SincroP.cambio(c) } }
     }
 
+    /** Guarda un juego (apuntando que se ha cambiado ahora: al sincronizar, gana el cambio más reciente). */
     fun poner(j: Juego) {
         val i = juegos.indexOfFirst { it.id == j.id }
-        if (i >= 0) juegos[i] = j else juegos.add(0, j)
+        // Solo cambiar la ficha (nombre, favorito, terminado, nota, apuntes, diseño…) cuenta como «cambio»: jugar (las horas y las veces)
+        // no, para que un dispositivo que solo juega no pise lo que otro ha editado
+        val nuevo = if (i >= 0 && compartidos(juegos[i]) == compartidos(j)) j.copy(mod = juegos[i].mod) else j.copy(mod = System.currentTimeMillis())
+        if (i >= 0) juegos[i] = nuevo else { juegos.add(0, nuevo); borrados.remove(nuevo.clave) }
+        guardar()
+    }
+
+    /** Pone en la biblioteca lo que ha salido de mezclar con tus otros dispositivos (sin tocar la hora de cambio de nadie). */
+    fun aplicarMezcla(nuevos: List<Juego>, borr: Map<String, Long>) {
+        juegos.clear(); juegos.addAll(nuevos)
+        borrados.clear(); borrados.putAll(borr)
         guardar()
     }
 
     /** Cambia un juego a partir de su versión más reciente (así dos cambios seguidos no se pisan). */
     fun cambiar(id: String, f: (Juego) -> Juego) { por(id)?.let { poner(f(it)) } }
 
-    fun quitar(id: String) { juegos.removeAll { it.id == id }; guardar() }
+    fun quitar(id: String) { por(id)?.let { borrados[it.clave] = System.currentTimeMillis() }; juegos.removeAll { it.id == id }; guardar() }
     fun por(id: String): Juego? = juegos.firstOrNull { it.id == id }
 
-    /** ¿Ya está? (misma ROM, misma app o misma web) */
-    fun repetido(j: Juego): Boolean = juegos.any {
-        it.tipo == j.tipo && when (j.tipo) { Tipo.ROM -> it.uri == j.uri; Tipo.APP -> it.paquete == j.paquete; Tipo.WEB -> it.url == j.url }
-    }
+    /** ¿Ya está? (misma clave: la misma ROM, app o web, aunque viniera de otro dispositivo) */
+    fun repetido(j: Juego): Boolean = juegos.any { it.clave == j.clave }
+
+    /** El juego que ya tienes con esa clave, si lo hay. */
+    fun existente(j: Juego): Juego? = juegos.firstOrNull { it.clave == j.clave }
 
     fun aJson(j: Juego) = JSONObject().apply {
         put("id", j.id); put("titulo", j.titulo); put("tipo", j.tipo.name); put("sistema", j.sistema); put("uri", j.uri); put("ruta", j.ruta)
         put("archivo", j.archivo); put("paquete", j.paquete); put("url", j.url); put("portada", j.portada); put("emulador", j.emulador)
         put("favorito", j.favorito); put("terminado", j.terminado); put("fin", j.finalizado); put("nota", j.nota.toDouble()); put("notas", j.notas); put("maqueta", j.maqueta); put("anadido", j.anadido); put("ultima", j.ultima); put("veces", j.veces); put("ms", j.msJugados); put("orient", j.orientacion)
+        put("mod", j.mod); put("msp", j.msPropios); put("vp", j.vecesPropias)
+        put("ajms", JSONObject().also { o -> j.ajenosMs.forEach { (k, v) -> o.put(k, v) } }); put("ajv", JSONObject().also { o -> j.ajenosVeces.forEach { (k, v) -> o.put(k, v) } })
     }
 
     fun aJuego(o: JSONObject) = Juego(
@@ -122,6 +170,10 @@ object Biblioteca {
         paquete = o.optString("paquete"), url = o.optString("url"), portada = o.optString("portada"), emulador = o.optString("emulador"),
         favorito = o.optBoolean("favorito"), anadido = o.optLong("anadido"), ultima = o.optLong("ultima"), veces = o.optInt("veces"),
         msJugados = o.optLong("ms"), orientacion = o.optInt("orient"),
+        // (lo guardado antes de la sincronización: todo lo jugado es de este dispositivo)
+        mod = o.optLong("mod"), msPropios = if (o.has("msp")) o.optLong("msp") else o.optLong("ms"), vecesPropias = if (o.has("vp")) o.optInt("vp") else o.optInt("veces"),
+        ajenosMs = o.optJSONObject("ajms")?.let { a -> a.keys().asSequence().associateWith { k -> a.optLong(k) } } ?: emptyMap(),
+        ajenosVeces = o.optJSONObject("ajv")?.let { a -> a.keys().asSequence().associateWith { k -> a.optInt(k) } } ?: emptyMap(),
         terminado = o.optBoolean("terminado"), finalizado = o.optLong("fin"), nota = o.optDouble("nota", 0.0).toFloat(), notas = o.optString("notas"), maqueta = o.optString("maqueta")
     )
 

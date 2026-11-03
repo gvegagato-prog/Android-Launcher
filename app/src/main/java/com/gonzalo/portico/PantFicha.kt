@@ -186,7 +186,7 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
     )
     if (selector) SelectorEmulador(j.sistema, j) { selector = false }
     if (editarWeb) DialogoWeb(j) { editarWeb = false }
-    if (editarHoras) DialogoHoras(j.msJugados, alAceptar = { ms -> Biblioteca.cambiar(j.id) { it.copy(msJugados = ms) }; editarHoras = false }, alCerrar = { editarHoras = false })
+    if (editarHoras) DialogoHoras(j.msJugados, alAceptar = { ms -> Biblioteca.cambiar(j.id) { it.conTotalMs(ms) }; editarHoras = false }, alCerrar = { editarHoras = false })
 }
 
 /** Un cuadro con una línea de texto para escribir. */

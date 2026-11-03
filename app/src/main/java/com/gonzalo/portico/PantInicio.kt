@@ -58,7 +58,7 @@ fun ImagenJuego(j: Juego, modifier: Modifier = Modifier, tamLetra: Int = 64) {
 /** Lo de debajo del nombre en una baldosa: «GBA · 3 h». */
 private fun metaCorta(j: Juego): String {
     val h = if (j.terminado) "terminado" else if (j.msJugados >= 60_000) tiempoDe(j.msJugados).replace(" min", " m").replace(" h ", " h ") else ""
-    return listOf(etiquetaDe(j), h).filter { it.isNotBlank() }.joinToString(" · ")
+    return listOf(etiquetaDe(j), if (j.enOtroDispositivo) "en otro móvil" else h).filter { it.isNotBlank() }.joinToString(" · ")
 }
 
 /**

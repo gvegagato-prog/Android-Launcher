@@ -49,6 +49,15 @@ Los temas, paletas, acentos y estilos son los mismos que los de Atrio (Ajustes �
 **Colores de Atrio** (Ajustes → Apariencia → Colores de): Pórtico lee los colores que tienes puestos en Atrio (paleta, fondo de color, colores a mano, acento, claro u oscuro) y los usa; con **Invertir** los pone del revés: el fondo con el color del texto y el texto con el del fondo, y el acento se mantiene.
 Para eso Atrio 1.0.7 (o más nueva) ofrece sus colores en `content://com.gonzalo.gamerate.tema/colores` (solo colores, ningún dato tuyo). Sin esa versión, o sin Atrio, Pórtico usa su propia paleta y te lo dice en Ajustes.
 
+## Cuenta de Atrio y sincronización entre tus Pórticos
+
+Ajustes → **Cuenta de Atrio**: entras con el mismo usuario y contraseña que en Atrio (Firebase Authentication por REST; la contraseña no se guarda, solo el pase de acceso, que se renueva solo).
+Pórtico no crea cuentas. Lo que se sincroniza, **solo entre tus Pórticos** (no con Atrio), igual que Atrio entre sus dispositivos (cada dispositivo escribe en su hueco bajo `/users/<tu uid>/portico/`, con sellos de hora y escucha en directo):
+juegos (por clave: sistema + nombre de archivo, paquete o web), favorito, terminado, nota, apuntes, nombre y diseño de la ficha. Gana el cambio más reciente; lo que quitas viaja como «borrado»;
+las **horas y las veces se suman** (cada dispositivo sube las suyas). Una ROM que viene de otro móvil aparece «en otro dispositivo» hasta que la añades aquí (se une sola por sistema y nombre de archivo).
+Tu pareja de Atrio puede leer esa parte de la cuenta (las reglas de Atrio dejan leer a la pareja todo `/users/<uid>`).
+**Todavía no se sincronizan** las ROMs, los guardados ni las imágenes (siguiente fase). Probado en el ordenador contra el Firebase de mentira de Atrio (`SincroTest`) y las reglas de mezcla (`MezclaTest`); no con tu cuenta real.
+
 ## Widgets
 
 Seis widgets, copiados de los de Atrio (mismo lienzo: papel, titulares en Fraunces, portadas recortadas, esquinas redondas y el reborde fino de tinta)
@@ -88,4 +97,4 @@ Necesita JDK 17+ y el SDK de Android (`local.properties` con `sdk.dir`). El APK 
 - Portadas automáticas: pide `thumbnails.libretro.com/<sistema>/Named_Boxarts/<nombre del archivo>.png`, es decir, **el nombre
   de tus archivos** llega a ese servidor. Se apaga en Estilo → «Portadas automáticas».
 - Los juegos web guardan cookies (también de terceros: muchos inician sesión en otro dominio) dentro del WebView de Pórtico.
-- Nada más sale del móvil. No hay cuenta ni sincronización.
+- Si vinculas tu cuenta de Atrio, tu biblioteca (títulos, notas, horas, favoritos…, no las ROMs) se sube a tu base de datos de Firebase, legible por ti y por tu pareja de Atrio. Sin vincular, nada más sale del móvil.

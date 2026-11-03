@@ -94,7 +94,7 @@ fun PantBiblioteca(f: FiltroBib, alVolver: () -> Unit, alAbrir: (Juego) -> Unit,
             }
         }
         items(lista, key = { it.id }) { j ->
-            FilaRevista(j.titulo, listOf(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "", if (j.terminado) "terminado" else "").filter { it.isNotBlank() }.joinToString(" · "),
+            FilaRevista(j.titulo, listOf(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "", if (j.terminado) "terminado" else "", if (j.enOtroDispositivo) "en otro dispositivo" else "").filter { it.isNotBlank() }.joinToString(" · "),
                 derecha = {
                     if (j.terminado && j.nota > 0f) Text(notaTexto(j.nota), color = Muted, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 34.sp, modifier = Modifier.padding(start = 10.dp))
                     Text("JUGAR →", color = Acento, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp,

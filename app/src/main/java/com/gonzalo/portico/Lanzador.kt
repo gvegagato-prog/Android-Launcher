@@ -72,6 +72,7 @@ object Lanzador {
         val error: String? = try {
             when (j.tipo) {
                 Tipo.ROM -> {
+                    if (j.enOtroDispositivo) return "Esta ROM está en otro de tus dispositivos: añádela aquí (mismo sistema y mismo nombre de archivo) y se unirá sola."
                     val e = elegir(c, j) ?: return "Pórtico no sabe lanzar «${j.sistema}»"
                     when (val r = e.resultado) {
                         is Resultado.Ok -> { c.startActivity(aIntent(r.spec)); null }
@@ -110,7 +111,7 @@ object Sesion {
     private fun p(c: Context) = c.getSharedPreferences("portico_sesion", Context.MODE_PRIVATE)
 
     fun empezar(c: Context, j: Juego) {
-        Biblioteca.poner(j.copy(ultima = System.currentTimeMillis(), veces = j.veces + 1))
+        Biblioteca.poner(j.copy(ultima = System.currentTimeMillis(), veces = j.veces + 1, vecesPropias = j.vecesPropias + 1))
         if (j.tipo != Tipo.WEB) p(c).edit().putString("id", j.id).putLong("desde", System.currentTimeMillis()).apply()
     }
 
@@ -119,8 +120,8 @@ object Sesion {
         val p = p(c); val id = p.getString("id", null) ?: return
         val desde = p.getLong("desde", 0L); p.edit().clear().apply()
         val ms = (System.currentTimeMillis() - desde).coerceAtMost(12L * 3600_000)
-        if (ms >= 20_000) Biblioteca.por(id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms)) }
+        if (ms >= 20_000) Biblioteca.por(id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms)) }
     }
 
-    fun sumar(j: Juego, ms: Long) { if (ms >= 5_000) Biblioteca.por(j.id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms)) } }
+    fun sumar(j: Juego, ms: Long) { if (ms >= 5_000) Biblioteca.por(j.id)?.let { Biblioteca.poner(it.copy(msJugados = it.msJugados + ms, msPropios = it.msPropios + ms)) } }
 }

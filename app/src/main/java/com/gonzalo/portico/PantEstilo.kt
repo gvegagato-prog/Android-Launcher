@@ -23,8 +23,16 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import kotlinx.coroutines.launch
 
-const val VERSION = "0.7.0"
+const val VERSION = "0.8.0"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -117,6 +125,12 @@ fun PantEstilo(alVolver: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         Filete(2.dp)
         Spacer(Modifier.height(12.dp))
+        Antetitulo("Cuenta de Atrio", Modifier.padding(bottom = 4.dp))
+        SeccionCuenta()
+
+        Spacer(Modifier.height(14.dp))
+        Filete(2.dp)
+        Spacer(Modifier.height(12.dp))
         Antetitulo("Copias", Modifier.padding(bottom = 4.dp))
         MagLink("Guardar copia de la biblioteca", "Un archivo con tus juegos y carpetas (no incluye las ROMs)") { exportar.launch("portico-biblioteca.json") }
         Filete(1.dp, Line)
@@ -130,4 +144,62 @@ fun PantEstilo(alVolver: () -> Unit) {
         Text("Hermana de Atrio. Los comandos para abrir emuladores salen de ES-DE Frontend (licencia MIT, © Northwestern Software AB, Leon Styhre y Alec Lofquist). Las portadas, de libretro.", color = Muted, fontFamily = Body, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
         Spacer(Modifier.height(30.dp))
     }
+}
+
+
+/** Una casilla de texto con el estilo de la revista: etiqueta en versalitas, texto en cursiva sobre un filete. */
+@Composable
+fun CampoRevista(etiqueta: String, valor: String, pista: String, secreto: Boolean = false, alCambiar: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.Bottom) {
+            Text(etiqueta.uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.width(96.dp).padding(bottom = 3.dp))
+            Box(Modifier.weight(1f)) {
+                if (valor.isEmpty()) Text(pista, color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 18.sp)
+                BasicTextField(valor, alCambiar, singleLine = true, textStyle = TextStyle(color = Charcoal, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 18.sp),
+                    cursorBrush = SolidColor(Acento), visualTransformation = if (secreto) PasswordVisualTransformation() else VisualTransformation.None,
+                    keyboardOptions = KeyboardOptions(keyboardType = if (secreto) KeyboardType.Password else KeyboardType.Text, autoCorrect = false), modifier = Modifier.fillMaxWidth())
+            }
+        }
+        Filete(2.dp)
+    }
+}
+
+/** «Cuenta de Atrio»: entrar con tu usuario y contraseña de Atrio, ver cómo va la sincronización, sincronizar ahora o salir. */
+@Composable
+private fun SeccionCuenta() {
+    val ctx = LocalContext.current
+    val ambito = rememberCoroutineScope()
+    var usuario by remember { mutableStateOf("") }
+    var clave by remember { mutableStateOf("") }
+    var ocupado by remember { mutableStateOf(false) }
+    var aviso by remember { mutableStateOf<String?>(null) }
+    if (!Cuenta.vinculada) {
+        Text("Entra con la misma cuenta que usas en Atrio y tus juegos, horas, notas y diseños de ficha se sincronizan entre tus Pórticos. Las ROMs, los guardados y las imágenes no se suben (todavía).",
+            color = Muted, fontFamily = Body, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+        CampoRevista("Usuario", usuario, "tu usuario de Atrio") { usuario = it }
+        CampoRevista("Contraseña", clave, "••••••••", secreto = true) { clave = it }
+        MagLink(if (ocupado) "Entrando…" else "Vincular cuenta", "Se guarda un pase de acceso, no tu contraseña") {
+            if (!ocupado) {
+                ocupado = true; aviso = null
+                ambito.launch {
+                    aviso = try { Cuenta.entrar(usuario, clave); clave = ""; SincroP.sincronizar(ctx, desdeCero = true); SincroP.escuchar(ctx); null }
+                    catch (e: Cuenta.Fail) { e.message } catch (e: Exception) { "No se pudo entrar: ${e.message ?: "sin conexión"}" }
+                    ocupado = false
+                }
+            }
+        }
+    } else {
+        Etiqueta("Vinculada a", Modifier.padding(top = 8.dp))
+        Text(Cuenta.usuario, color = Charcoal, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 22.sp)
+        val cuando = SincroP.ultima.takeIf { it > 0 }?.let { java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(it)) }
+        Text(listOf(SincroP.estado.ifBlank { "Sin sincronizar todavía" }, cuando?.let { "última vez $it" }).filterNotNull().joinToString(" · "),
+            color = Muted, fontFamily = Body, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+        Spacer(Modifier.height(6.dp))
+        MagLink(if (ocupado) "Sincronizando…" else "Sincronizar ahora", "Baja lo de tus otros Pórticos y sube lo de este") {
+            if (!ocupado) { ocupado = true; ambito.launch { SincroP.sincronizar(ctx, desdeCero = true); ocupado = false } }
+        }
+        Filete(1.dp, Line)
+        MagLink("Salir de la cuenta", "Tus juegos se quedan aquí; dejan de sincronizarse") { SincroP.parar(); Cuenta.salir() }
+    }
+    aviso?.let { Text(it, color = Acento, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp)) }
 }

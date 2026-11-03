@@ -82,7 +82,16 @@ object Escaneo {
                 id = Biblioteca.nuevoId(), titulo = tituloDeArchivo(h.nombre), tipo = Tipo.ROM, sistema = s.id, uri = h.uri.toString(),
                 ruta = Comando.rutaDeDocId(h.docId, externos).orEmpty(), archivo = h.nombre.substringBeforeLast('.', h.nombre), anadido = ahora - nuevos
             )
-            if (Biblioteca.repetido(j)) { rep++; continue }
+            val ya = Biblioteca.existente(j)
+            if (ya != null) {
+                // Una ROM que venía de otro de tus dispositivos (sin archivo aquí): se une a la que acabas de encontrar
+                if (ya.enOtroDispositivo) {
+                    val i = Biblioteca.juegos.indexOfFirst { it.id == ya.id }
+                    if (i >= 0) Biblioteca.juegos[i] = ya.copy(uri = j.uri, ruta = j.ruta, sistema = j.sistema, archivo = j.archivo)
+                    nuevos++
+                } else rep++
+                continue
+            }
             Biblioteca.juegos.add(j); nuevos++
         }
         Biblioteca.guardar()

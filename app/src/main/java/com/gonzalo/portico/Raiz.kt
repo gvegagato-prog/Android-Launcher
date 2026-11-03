@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 fun iniciar(c: Context) {
     Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); Biblioteca.cargar(c)
     TemaAtrio.cargarGuardado(c)
+    Cuenta.cargar(c); SincroP.iniciar(c)
 }
 
 /** Dónde estás: la portada y sus secciones (se llega a ellas desde el menú de la portada, como en Atrio). */

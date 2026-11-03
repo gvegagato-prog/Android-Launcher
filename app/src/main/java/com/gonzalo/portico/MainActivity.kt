@@ -44,5 +44,9 @@ class MainActivity : ComponentActivity() {
         // Los colores de Atrio pueden haber cambiado mientras estabas en ella: se vuelven a leer
         val c = applicationContext
         kotlin.concurrent.thread { TemaAtrio.refrescar(c) }
+        // Tu cuenta de Atrio, en directo mientras Pórtico se ve
+        SincroP.escuchar(c)
     }
+
+    override fun onStop() { super.onStop(); SincroP.parar() }
 }
