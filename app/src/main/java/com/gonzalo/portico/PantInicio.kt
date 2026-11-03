@@ -246,34 +246,29 @@ private fun LaunedInicial() { val c = LocalContext.current; LaunchedEffect(Unit)
 private fun DialogoElemento(e: Elemento, alCerrar: () -> Unit, alFicha: (String) -> Unit) {
     val ctx = LocalContext.current
     val actual = Pantalla.items.firstOrNull { it.id == e.id } ?: e
-    var otro by remember { mutableStateOf(false) }
+    // Qué color se está eligiendo con el selector libre: 0 = el fondo, 1 = el acento
+    var otro by remember { mutableStateOf<Int?>(null) }
     var encuadre by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { Pantalla.cargarColores(ctx) }
-    fun usa(c: Int) { Pantalla.poner(actual.copy(color = c)) }
-    if (otro) DialogoColor(if (actual.color != 0) actual.color else 0xFF4F8A5B.toInt(), alCerrar = { otro = false }) { c -> Pantalla.guardarColor(ctx, c); usa(c); otro = false }
+    fun usaFondo(c: Int) { Pantalla.poner(actual.copy(color = c)) }
+    fun usaAcento(c: Int) { Pantalla.poner(actual.copy(acento = c)) }
+    otro?.let { cual ->
+        val inicial = (if (cual == 0) actual.color else actual.acento).takeIf { it != 0 } ?: 0xFF4F8A5B.toInt()
+        DialogoColor(inicial, alCerrar = { otro = null }) { c -> Pantalla.guardarColor(ctx, c); if (cual == 0) usaFondo(c) else usaAcento(c); otro = null }
+    }
     if (encuadre) DialogoEncuadre(actual, alCerrar = { encuadre = false })
-    if (!otro && !encuadre) AlertDialog(
+    if (otro == null && !encuadre) AlertDialog(
         onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
         title = { Text(if (e.esJuego) (Biblioteca.juegos.firstOrNull { it.clave == e.ref }?.titulo ?: "Juego") else if (e.esWidget) "Widget" else "Imagen", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Etiqueta("Color de fondo")
-                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // «T»: el del tema · los que ya usas o guardaste · «+»: uno nuevo (cualquiera)
-                    @Composable fun bola(c: Int, borrable: Boolean) {
-                        val col = if (c == 0) Crudo else Color(c)
-                        Box(Modifier.size(36.dp).clip(CircleShape).background(col).border(if (actual.color == c) 3.dp else 1.dp, if (actual.color == c) Acento else Line, CircleShape)
-                            .combinedClickable(onClick = { usa(c) }, onLongClick = { if (borrable) Pantalla.olvidarColor(ctx, c) }), contentAlignment = Alignment.Center) {
-                            if (c == 0) Text("T", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 12.sp)
-                        }
-                    }
-                    bola(0, false)
-                    Pantalla.coloresDisponibles().forEach { bola(it, it in Pantalla.coloresGuardados) }
-                    Box(Modifier.size(36.dp).clip(CircleShape).border(1.dp, Line, CircleShape).clickable { otro = true }, contentAlignment = Alignment.Center) {
-                        Text("+", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                    }
+                FilaColores("Color de fondo", actual.color, { usaFondo(it) }, { otro = 0 })
+                if (!e.esImagen) {
+                    Spacer(Modifier.height(14.dp))
+                    FilaColores("Color de acento", actual.acento, { usaAcento(it) }, { otro = 1 })
+                    Text("El acento es el del cuadradito, el botón y las horas. «T» = el del tema (no se pone ninguno por tu cuenta).", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
                 }
-                Text("«T» es el color del tema; «+» elige cualquier color. Los que uses quedan aquí para otras fichas (mantén pulsado uno para olvidarlo).", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+                Text("«+» elige cualquier color. Los que uses quedan aquí para otras fichas (mantén pulsado uno para olvidarlo).", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
                 if (e.esImagen) { Spacer(Modifier.height(8.dp)); MagLink("Encuadrar la imagen", "Arrastra en cualquier dirección y haz zoom: queda como lo veas") { encuadre = true } }
                 if (e.esJuego) { Spacer(Modifier.height(8.dp)); MagLink("Ver la ficha") { alCerrar(); alFicha(e.ref) } }
             }
@@ -281,6 +276,28 @@ private fun DialogoElemento(e: Elemento, alCerrar: () -> Unit, alFicha: (String)
         confirmButton = { TextButton({ alCerrar() }) { Text("LISTO", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
         dismissButton = { TextButton({ Pantalla.quitar(e.id); alCerrar() }) { Text("QUITAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
     )
+}
+
+/** Una fila de colores: «T» (el del tema), los que ya usas o guardaste, y «+» para uno nuevo. */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@Composable
+private fun FilaColores(titulo: String, actual: Int, alElegir: (Int) -> Unit, alOtro: () -> Unit) {
+    val ctx = LocalContext.current
+    Etiqueta(titulo)
+    FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        @Composable fun bola(c: Int, borrable: Boolean) {
+            val col = if (c == 0) Crudo else Color(c)
+            Box(Modifier.size(36.dp).clip(CircleShape).background(col).border(if (actual == c) 3.dp else 1.dp, if (actual == c) Acento else Line, CircleShape)
+                .combinedClickable(onClick = { alElegir(c) }, onLongClick = { if (borrable) Pantalla.olvidarColor(ctx, c) }), contentAlignment = Alignment.Center) {
+                if (c == 0) Text("T", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 12.sp)
+            }
+        }
+        bola(0, false)
+        Pantalla.coloresDisponibles().forEach { bola(it, it in Pantalla.coloresGuardados) }
+        Box(Modifier.size(36.dp).clip(CircleShape).border(1.dp, Line, CircleShape).clickable { alOtro() }, contentAlignment = Alignment.Center) {
+            Text("+", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 20.sp)
+        }
+    }
 }
 
 /** «#RRGGBB» (o «RRGGBB») → color opaco; null si no es un código válido. */

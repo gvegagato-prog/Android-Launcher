@@ -20,7 +20,9 @@ data class Elemento(
     /** Última vez que se cambió (milisegundos). */
     val mod: Long = 0L,
     /** Encuadre de una imagen, libre: zoom (1 = rellena el hueco) y cuánto se desplaza, como fracción del ancho/alto del hueco (de -1 a 1). */
-    val zoom: Float = 1f, val ox: Float = 0f, val oy: Float = 0f
+    val zoom: Float = 1f, val ox: Float = 0f, val oy: Float = 0f,
+    /** Color de acento de un juego o widget (ARGB); 0 = el del tema. Nunca se inventa uno: solo si lo eliges. */
+    val acento: Int = 0
 ) {
     val esJuego get() = tipo == JUEGO
     val esImagen get() = tipo == IMAGEN
@@ -32,12 +34,12 @@ data class Elemento(
 }
 
 fun elementoAJson(e: Elemento) = JSONObject().put("id", e.id).put("t", e.tipo).put("r", e.ref).put("x", e.x).put("y", e.y).put("w", e.w).put("h", e.h).put("c", e.color).put("m", e.mod)
-    .apply { if (e.zoom != 1f) put("z", e.zoom.toDouble()); if (e.ox != 0f) put("ox", e.ox.toDouble()); if (e.oy != 0f) put("oy", e.oy.toDouble()) }
+    .apply { if (e.zoom != 1f) put("z", e.zoom.toDouble()); if (e.ox != 0f) put("ox", e.ox.toDouble()); if (e.oy != 0f) put("oy", e.oy.toDouble()); if (e.acento != 0) put("ac", e.acento) }
 fun elementoDeJson(o: JSONObject): Elemento? {
     val id = o.optString("id").ifBlank { return null }
     val t = o.optString("t").takeIf { it == Elemento.JUEGO || it == Elemento.IMAGEN || it == Elemento.WIDGET } ?: return null
     return Elemento(id, t, o.optString("r"), o.optInt("x"), o.optInt("y"), o.optInt("w", 1).coerceIn(1, Pantalla.COLUMNAS), o.optInt("h", 1).coerceIn(1, 12), o.optInt("c"), o.optLong("m"),
-        o.optDouble("z", 1.0).toFloat().coerceIn(0.3f, 8f), o.optDouble("ox", 0.0).toFloat().coerceIn(-1f, 1f), o.optDouble("oy", 0.0).toFloat().coerceIn(-1f, 1f))
+        o.optDouble("z", 1.0).toFloat().coerceIn(0.3f, 8f), o.optDouble("ox", 0.0).toFloat().coerceIn(-1f, 1f), o.optDouble("oy", 0.0).toFloat().coerceIn(-1f, 1f), o.optInt("ac"))
 }
 
 object Pantalla {
@@ -149,7 +151,7 @@ object Pantalla {
     fun olvidarColor(c: Context, color: Int) { coloresGuardados.remove(color); persisteColores(c) }
     private fun persisteColores(c: Context) { c.getSharedPreferences("portico_pantalla", Context.MODE_PRIVATE).edit().putString("colores", JSONArray(coloresGuardados.toList()).toString()).apply() }
     /** Todos los colores a mano: los guardados y los que usan los elementos (sin repetir). */
-    fun coloresDisponibles(): List<Int> = (coloresGuardados.toList() + items.map { it.color }).filter { it != 0 }.distinct()
+    fun coloresDisponibles(): List<Int> = (coloresGuardados.toList() + items.map { it.color } + items.map { it.acento }).filter { it != 0 }.distinct()
 
     /** Dónde se guardan las imágenes de la pantalla. */
     fun dirImagenes(c: Context) = File(c.filesDir, "pantalla").apply { mkdirs() }

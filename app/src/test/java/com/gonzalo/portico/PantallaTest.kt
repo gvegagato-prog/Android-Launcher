@@ -231,6 +231,8 @@ class PantallaTest {
         assertTrue("sigue al dedo hacia la izquierda: ${i.ox}", i.ox < -0.1f); assertTrue("y hacia abajo: ${i.oy}", i.oy > 0.1f)
         val j = elementoDeJson(elementoAJson(i.copy(ox = 0.5f, oy = -0.25f)))!!
         assertEquals(0.5f, j.ox, 0.001f); assertEquals(-0.25f, j.oy, 0.001f); assertEquals(i.zoom, j.zoom, 0.001f)
+        assertEquals(0xFF123456.toInt(), elementoDeJson(elementoAJson(i.copy(acento = 0xFF123456.toInt())))!!.acento)
+        assertEquals("sin acento elegido, no se inventa ninguno", 0, elementoDeJson(elementoAJson(i))!!.acento)
         assertEquals("sin encuadre no añade campos", 1f, elementoDeJson(elementoAJson(e("x", 0, 0)))!!.zoom, 0.0f)
     }
 

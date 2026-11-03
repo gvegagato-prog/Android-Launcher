@@ -212,14 +212,15 @@ private fun ContenidoWidget(e: Elemento, j: Juego?, wDp: Float, hDp: Float, edit
     var vuelta by remember { mutableStateOf(0) }
     val idNum = e.id.hashCode()
     val propio = e.color.takeIf { it != 0 }
-    val clave = listOf<Any?>(e.id, e.ref, propio, wDp.roundToInt(), hDp.roundToInt(), noche, vuelta, Skin.tones, j?.titulo, j?.msJugados, j?.portada, j?.tipo, Biblioteca.juegos.size)
+    val acentoElegido = e.acento.takeIf { it != 0 }
+    val clave = listOf<Any?>(e.id, e.ref, propio, acentoElegido, wDp.roundToInt(), hDp.roundToInt(), noche, vuelta, Skin.tones, j?.titulo, j?.msJugados, j?.portada, j?.tipo, Biblioteca.juegos.size)
     val res by produceState<Pair<Pagina, androidx.compose.ui.graphics.ImageBitmap>?>(null, *clave.toTypedArray()) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 Widgets.cargarLetras(ctx)
                 val pag = if (e.esJuego) Widgets.paginaDeJuego(ctx, j!!, wDp, hDp, propio != null, dentro = true)
                 else Widgets.componer(ctx, WTipo.valueOf(e.ref), idNum, wDp, hDp, dentro = true)
-                pag to pag.bitmap(ctx, wDp, hDp, noche, Widgets.escala(ctx, wDp, hDp, 1), propio, dentro = true).asImageBitmap()
+                pag to pag.bitmap(ctx, wDp, hDp, noche, Widgets.escala(ctx, wDp, hDp, 1), propio, dentro = true, acentoPropio = acentoElegido).asImageBitmap()
             }.getOrNull()
         }
     }
