@@ -125,25 +125,32 @@ class Pagina(val zonas: List<Zona>, val dibujo: Hoja.() -> Unit) {
     /** Sin papel ni esquinas: solo lo dibujado, sobre el fondo de pantalla. */
     var sinFondo = false
     fun transparente() = apply { sinFondo = true }
-    fun bitmap(ctx: Context, w: Float, h: Float, noche: Boolean, s: Float): Bitmap = Hoja(ctx, w, h, noche, s).apply { dibujo(); if (!sinFondo) terminar() }.bm
+    fun bitmap(ctx: Context, w: Float, h: Float, noche: Boolean, s: Float, propio: Int? = null): Bitmap = Hoja(ctx, w, h, noche, s, propio).apply { dibujo(); if (!sinFondo) terminar() }.bm
 }
 
 private val ES = Locale("es", "ES")
 
 /** El lienzo de un widget: se dibuja en dp, con los colores del tema y las letras de la revista. */
-class Hoja(val ctx: Context, val w: Float, val h: Float, val noche: Boolean, s: Float) {
+class Hoja(val ctx: Context, val w: Float, val h: Float, val noche: Boolean, s: Float, val propio: Int? = null) {
     val bm: Bitmap = Bitmap.createBitmap(max(1, (w * s).roundToInt()), max(1, (h * s).roundToInt()), Bitmap.Config.ARGB_8888)
     val c = Canvas(bm).apply { scale(bm.width / w, bm.height / h) }
 
     // Los colores del tema que tengas (los de Pórtico o los de Atrio, invertidos o no), en claro o en oscuro
     private val tonos = Skin.tonosPara(noche)
-    val papel = tonos.cPaper.toArgb()
-    val crudo = tonos.cCrudo.toArgb()
-    val tinta = tonos.cInk.toArgb()
-    val gris = tonos.cMuted.toArgb()
-    val linea = tonos.cLine.toArgb()
-    val arena = tonos.cSand.toArgb()
-    val acento = tonos.cGeneral().toArgb()
+    // Con un color propio (el que elegiste para este widget dentro de la app): ese es el papel y la tinta, el gris y las líneas se sacan de los dos
+    private fun mezcla(a: Int, b: Int, t: Float): Int {
+        fun m(x: Int, y: Int) = (x + (y - x) * t).roundToInt().coerceIn(0, 255)
+        return android.graphics.Color.rgb(m(android.graphics.Color.red(a), android.graphics.Color.red(b)), m(android.graphics.Color.green(a), android.graphics.Color.green(b)), m(android.graphics.Color.blue(a), android.graphics.Color.blue(b)))
+    }
+    private fun lum(c: Int) = (0.299f * android.graphics.Color.red(c) + 0.587f * android.graphics.Color.green(c) + 0.114f * android.graphics.Color.blue(c)) / 255f
+    private val base: Int? = propio?.let { 0xFF000000.toInt() or it }
+    val papel = base ?: tonos.cPaper.toArgb()
+    val tinta = base?.let { if (lum(it) > 0.5f) 0xFF15120F.toInt() else 0xFFF6F1E7.toInt() } ?: tonos.cInk.toArgb()
+    val crudo = base?.let { mezcla(it, tinta, 0.08f) } ?: tonos.cCrudo.toArgb()
+    val gris = base?.let { mezcla(tinta, it, 0.4f) } ?: tonos.cMuted.toArgb()
+    val linea = base?.let { mezcla(tinta, it, 0.78f) } ?: tonos.cLine.toArgb()
+    val arena = base?.let { mezcla(it, tinta, 0.1f) } ?: tonos.cSand.toArgb()
+    val acento = tonos.cGeneral().toArgb().let { a -> if (base != null && kotlin.math.abs(lum(a) - lum(base)) < 0.22f) tinta else a }
     /** El acento sobre una foto oscura. */
     val acentoFoto = Skin.tonosPara(true).cGeneral().toArgb()
     val radio = 22f
@@ -446,6 +453,12 @@ object Widgets {
         return rv
     }
 
+    /** El widget «Sigue jugando» fijo en un juego (para la pantalla de inicio de la app): el mismo dibujo, con su color si lo hay. */
+    suspend fun paginaDeJuego(ctx: Context, j: Juego, w: Float, h: Float, propio: Boolean): Pagina {
+        cargarLetras(ctx)
+        return jugando(WDatos(ctx), 0, w, h, fijo = j, propio = propio)
+    }
+
     suspend fun componer(ctx: Context, tipo: WTipo, id: Int, w: Float, h: Float): Pagina {
         val d = WDatos(ctx)
         return when (tipo) {
@@ -535,9 +548,9 @@ object Widgets {
             pon(t, pad, pad + 28f + l.height)
         }
 
-    private suspend fun jugando(d: WDatos, id: Int, w: Float, h: Float): Pagina {
+    private suspend fun jugando(d: WDatos, id: Int, w: Float, h: Float, fijo: Juego? = null, propio: Boolean = false): Pagina {
         val ctx = d.ctx
-        val lista = d.recientes
+        val lista = if (fijo != null) listOf(fijo) else d.recientes
         if (lista.isEmpty()) return vacio(ctx, "Sigue jugando", "Nada que jugar todavía", "Añade un juego a Pórtico y lo tendrás aquí, a un toque de jugar.", w, h)
         val i = Math.floorMod(estado(ctx, id, "i", 0), lista.size)
         val e = lista[i]
@@ -553,13 +566,25 @@ object Widgets {
         return Pagina(zonas) {
             val pad = if (h < 90f) 12f else 14f
             when {
+                // Con un color elegido, el color tiene que verse: la portada va dentro del papel de ese color, no a sangre
+                compacto && propio -> {
+                    fondo()
+                    val m = if (min(w, h) < 120f) 11f else pad
+                    if (min(w, h) < 120f) portada(img, RectF(m, m, w - m, h - m), e.titulo, 10f)
+                    else {
+                        val ch = h * 0.56f
+                        portada(img, RectF(m, m, w - m, m + ch), e.titulo)
+                        val l = titular(e.titulo, w - 2 * m, h - ch - 3 * m, 22f, 11f, 2)
+                        pon(l, m, m + ch + 8f)
+                        if (horas.isNotEmpty()) ante(horas, m, h - m - 8f, w - 2 * m, acento, 8.5f)
+                    }
+                }
                 compacto -> {
                     // La portada a sangre y el título encima
                     portada(img, RectF(0f, 0f, w, h), e.titulo, 0f, false); reborde = 0xCCFFFFFF.toInt()
                     velo(h * 0.2f, h, 0x00000000, 0xF0000000.toInt(), 0x88000000.toInt())
                     velo(0f, 52f, 0xB0000000.toInt(), 0x00000000)
                     seccion("Sigue jugando", pad, pad, w - 2 * pad, 0xFFFFFFFF.toInt(), acentoFoto)
-                    paginas(i, lista.size, w - pad, pad, 0xCCFFFFFF.toInt())
                     val bottom = h - pad - 4f
                     ante(accion, pad, bottom - 8f, w * 0.6f, acentoFoto, 8.5f)
                     val l = titular(e.titulo, w - 2 * pad, h * 0.42f, 24f, 12f, 3, 0xFFFFFFFF.toInt())
@@ -569,7 +594,6 @@ object Widgets {
                     // Alto: portada arriba y el título debajo
                     fondo()
                     seccion("Sigue jugando", pad, pad, w - 2 * pad - 50f)
-                    paginas(i, lista.size, w - pad, pad)
                     val top = pad + 20f
                     val ch = h * 0.5f - top
                     val cw = min(ch * 0.66f, w * 0.55f)
@@ -591,7 +615,6 @@ object Widgets {
                     val x0 = pad + cw + 14f
                     val rw = w - x0 - pad
                     seccion("Sigue jugando", x0, pad + 1f, rw)
-                    paginas(i, lista.size, w - pad, pad + 1f)
                     val altoAnte = capa("L", tp(fNegrita, 9f, tinta, 0.16f), 40f, 1).height.toFloat()
                     val bajo = h < 110f
                     val pieY = if (bajo) h - pad - altoAnte else h - pad - 17f
@@ -687,7 +710,6 @@ object Widgets {
             pon(mast, pad, pad - 4f)
             val fw = w - 2 * pad - mast.getLineWidth(0) - 8f
             ante(if (fw < anchoAnte(fecha, 8.5f)) fecha.substringBeforeLast(' ') else fecha, w - pad - fw, pad, fw, 0xDDFFFFFF.toInt(), 8.5f, Layout.Alignment.ALIGN_OPPOSITE)
-            paginas(i, items.size, w - pad, pad + 13f, 0xBBFFFFFF.toInt())
             c.drawRect(pad, pad + mast.height + 1f, w - pad, pad + mast.height + 1.8f, lleno(0x66FFFFFF))
             // El titular
             val meta = d.origen(e).takeIf { h >= 170f }

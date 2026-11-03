@@ -218,7 +218,11 @@ fun PantInicio(
     }
 
     elegido?.let { e -> DialogoElemento(e, alCerrar = { elegido = null }, alFicha = { clave -> Biblioteca.juegos.firstOrNull { it.clave == clave }?.let { alAbrir(it) } }) }
-    if (anadiendo) DialogoAnadirElemento(alCerrar = { anadiendo = false }, alImagen = { anadiendo = false; imagen.launch("image/*") }, alInternet = { anadiendo = false; internet = true })
+    if (anadiendo) DialogoAnadirElemento(alCerrar = { anadiendo = false }, alImagen = { anadiendo = false; imagen.launch("image/*") }, alInternet = { anadiendo = false; internet = true },
+        alWidget = { t ->
+            val (cw, ch) = when (t) { WTipo.PORTADA -> 4 to 3; WTipo.MARCA -> 4 to 1; else -> 4 to 2 }
+            val (x, y) = Pantalla.hueco(cw, ch); Pantalla.poner(Elemento(Pantalla.nuevoId(), Elemento.WIDGET, t.name, x, y, cw, ch)); anadiendo = false
+        })
     // La misma búsqueda de imágenes que en las portadas (Google Imágenes, Pinterest, ArtStation, Newgrounds)
     if (internet) InternetPicker(
         initialQuery = "", idJuego = idInternet,
@@ -229,7 +233,7 @@ fun PantInicio(
             if (dest.exists()) { val (x, y) = Pantalla.hueco(2, 2); Pantalla.poner(Elemento(idInternet, Elemento.IMAGEN, nombre, x, y, 2, 2)) }
             internet = false
         },
-        onDismiss = { internet = false }
+        onDismiss = { internet = false }, original = true
     )
 }
 
@@ -250,7 +254,7 @@ private fun DialogoElemento(e: Elemento, alCerrar: () -> Unit, alFicha: (String)
     if (encuadre) DialogoEncuadre(actual, alCerrar = { encuadre = false })
     if (!otro && !encuadre) AlertDialog(
         onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
-        title = { Text(if (e.esJuego) (Biblioteca.juegos.firstOrNull { it.clave == e.ref }?.titulo ?: "Juego") else "Imagen", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        title = { Text(if (e.esJuego) (Biblioteca.juegos.firstOrNull { it.clave == e.ref }?.titulo ?: "Juego") else if (e.esWidget) "Widget" else "Imagen", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Etiqueta("Color de fondo")
@@ -355,7 +359,7 @@ fun DialogoEncuadre(e: Elemento, alCerrar: () -> Unit) {
 
 /** Añadir al lienzo: un juego de tu biblioteca o una imagen. */
 @Composable
-private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit, alInternet: () -> Unit) {
+private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit, alInternet: () -> Unit, alWidget: (WTipo) -> Unit) {
     var busca by remember { mutableStateOf("") }
     val q = Catalogo.norm(busca)
     val lista = remember(busca) { recientes(Biblioteca.juegos.toList()).filter { q.isEmpty() || Catalogo.norm(it.titulo).contains(q) }.take(40) }
@@ -364,6 +368,12 @@ private fun DialogoAnadirElemento(alCerrar: () -> Unit, alImagen: () -> Unit, al
         title = { Text("Añadir a la pantalla", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
             Column {
+                // Los widgets de fuera, aquí dentro (con los colores que quieras)
+                Etiqueta("Widgets")
+                listOf(WTipo.JUGANDO to "Sigue jugando", WTipo.ESTANTE to "Recientes", WTipo.PORTADA to "En portada", WTipo.SIGUIENTE to "¿Y ahora qué?", WTipo.MARCA to "PÓRTICO", WTipo.MARCA_PAPEL to "PÓRTICO en papel").forEach { (t, n) ->
+                    MagLink(n) { alWidget(t) }
+                }
+                Filete(1.dp, Line)
                 MagLink("Una imagen de internet", "Buscar en Google Imágenes, Pinterest, ArtStation…") { alInternet() }
                 Filete(1.dp, Line)
                 MagLink("Una imagen de la galería", "Del tamaño que quieras") { alImagen() }

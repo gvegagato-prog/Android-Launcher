@@ -81,13 +81,13 @@ class PantallaTest {
         Pantalla.items.add(Elemento("e1", Elemento.JUEGO, Biblioteca.juegos[0].clave, 0, 0, 2, 1))
         var ir: Destino? = null
         rule.setContent { PorticoTheme { Surface(Modifier.fillMaxSize(), color = Paper) { PantInicio({}, {}, {}, { ir = it }, {}) } } }
-        rule.onNodeWithText("Zelda de prueba", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("el-e1").assertExists()
         listOf("RECIENTES", "FAVORITOS", "ROMS", "ANDROID", "WEB", "TODO", "SISTEMAS").forEach { rule.onNodeWithText(it).assertExists() }
         rule.onNodeWithText("ROMS").performClick(); assertEquals(Destino.Roms, ir)
         // Editar: aparecen las instrucciones y el botón de añadir
         rule.onNodeWithText("EDITAR").performClick()
         rule.onNodeWithText("+ AÑADIR").assertExists(); rule.onNodeWithText("LISTO").assertExists()
-        rule.onNodeWithText("Zelda de prueba", useUnmergedTree = true).performClick()   // toca el elemento: diálogo de color
+        rule.onNodeWithTag("el-e1").performTouchInput { click(center) }   // toca el elemento: diálogo de color
         rule.onNodeWithText("Color de fondo".uppercase()).assertExists()
         rule.onNodeWithText("QUITAR").performClick()
         assertTrue(Pantalla.items.isEmpty()); assertTrue(Pantalla.borrados.containsKey("e1"))
@@ -252,5 +252,17 @@ class PantallaTest {
             if (r.isEmpty()) malos += "$t en ${w}dp: sin texto" else if (partePalabras(r[0], t)) malos += "$t en ${w}dp"
         } }
         assertTrue(malos.joinToString(), malos.isEmpty())
+    }
+
+    @Test fun lasImagenesDeInternetSeGuardanSinPerderCalidad() {
+        val bmp = android.graphics.Bitmap.createBitmap(3000, 4000, android.graphics.Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF336699.toInt()) }
+        val bytes = java.io.ByteArrayOutputStream().also { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 97, it) }.toByteArray()
+        val ruta = kotlinx.coroutines.runBlocking { guardarPortadaBytes(ctx, "q", bytes, original = true) }!!
+        assertArrayEquals("mismos bytes, sin recomprimir", bytes, java.io.File(ruta).readBytes())
+        val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }; android.graphics.BitmapFactory.decodeFile(ruta, o)
+        assertEquals(3000, o.outWidth); assertEquals(4000, o.outHeight)
+        // La portada normal ya no se reduce a 1000×1400
+        val normal = kotlinx.coroutines.runBlocking { guardarPortadaBytes(ctx, "q2", bytes) }!!
+        android.graphics.BitmapFactory.decodeFile(normal, o); assertTrue("${o.outWidth}x${o.outHeight}", o.outWidth >= 1500 && o.outHeight >= 2000)
     }
 }

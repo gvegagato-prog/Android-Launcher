@@ -90,11 +90,12 @@ class CapturasTest {
         Pantalla.items.clear(); Pantalla.borrados.clear()
         fun j(i: Int) = Biblioteca.juegos[i].clave
         Pantalla.items.addAll(listOf(
-            Elemento("a", Elemento.JUEGO, j(0), 0, 0, 2, 2, 0xFFC8362B.toInt(), 1), Elemento("b", Elemento.JUEGO, j(1), 2, 0, 2, 1, 0, 1),
-            Elemento("c", Elemento.JUEGO, j(4), 2, 1, 1, 1, 0xFF2F5D8A.toInt(), 1), Elemento("d", Elemento.JUEGO, j(8), 3, 1, 1, 1, 0xFFE3B53B.toInt(), 1),
-            Elemento("e", Elemento.JUEGO, j(2), 0, 2, 4, 1, 0xFF15120F.toInt(), 1), Elemento("f", Elemento.JUEGO, j(3), 0, 3, 2, 1, 0, 1)))
+            Elemento("w1", Elemento.WIDGET, "JUGANDO", 0, 0, 4, 2, 0, 1),
+            Elemento("a", Elemento.JUEGO, j(0), 0, 2, 2, 2, 0xFFC8362B.toInt(), 1), Elemento("b", Elemento.JUEGO, j(1), 2, 2, 2, 1, 0, 1),
+            Elemento("c", Elemento.JUEGO, j(4), 2, 3, 1, 1, 0xFF2F5D8A.toInt(), 1), Elemento("d", Elemento.JUEGO, j(8), 3, 3, 1, 1, 0xFFE3B53B.toInt(), 1),
+            Elemento("w2", Elemento.WIDGET, "ESTANTE", 0, 4, 4, 2, 0, 1)))
         montar(oscuro = false)
-        foto("20_lienzo")
+        rule.waitForIdle(); Thread.sleep(2500); foto("20_lienzo")
         rule.onNodeWithText("EDITAR").performClick(); foto("21_lienzo_editando")
     }
 

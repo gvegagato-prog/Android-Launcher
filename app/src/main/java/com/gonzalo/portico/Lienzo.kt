@@ -35,6 +35,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
@@ -63,15 +65,15 @@ val COLORES_ELEMENTO = listOf(0, 0xFFC8362B.toInt(), 0xFFE08A2E.toInt(), 0xFFE3B
 /** Tinta legible sobre un fondo. */
 fun tintaSobre(fondo: Color): Color = if (fondo.luminance() > 0.45f) Color(0xFF15120F) else Color(0xFFF3EEE4)
 
-/** Guarda una imagen elegida para la pantalla de inicio (reducida) y devuelve su nombre de archivo. */
+/** Guarda una imagen elegida para la pantalla de inicio SIN reducirla ni recomprimirla (los mismos bytes: máxima calidad) y devuelve su nombre de archivo. */
 suspend fun guardarImagenPantalla(c: Context, id: String, uri: Uri): String? = withContext(Dispatchers.IO) {
     runCatching {
+        val bytes = c.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        c.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, o) }
-        var s = 1; while (o.outWidth / s > 1600 || o.outHeight / s > 1600) s *= 2
-        val b = c.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = s }) } ?: return@runCatching null
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+        if (o.outWidth <= 0) return@runCatching null
         val nombre = "$id.jpg"
-        File(Pantalla.dirImagenes(c), nombre).outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        File(Pantalla.dirImagenes(c), nombre).writeBytes(bytes)
         nombre
     }.getOrNull()
 }
@@ -154,36 +156,95 @@ fun Lienzo(editando: Boolean, alJugar: (Juego) -> Unit, alAbrir: (Juego) -> Unit
 @Composable
 private fun ElementoLienzo(e0: Elemento, j: Juego?, px: Float, editando: Boolean, a: Arrastre?, alJugar: (Juego) -> Unit, alAbrir: (Juego) -> Unit) {
     val d = LocalDensity.current
-    val hf = LocalHapticFeedback.current
     val mueve = if (a != null && !a.estirar) a.delta else Offset.Zero
     val estira = if (a != null && a.estirar) a.delta else Offset.Zero
     val ancho = (e0.w * px + estira.x).coerceAtLeast(px * 0.8f)
     val alto = (e0.h * px + estira.y).coerceAtLeast(px * 0.8f)
     val margen = with(d) { 4.dp.toPx() }
+    val delWidget = e0.esJuego || e0.esWidget
+    val forma = RoundedCornerShape(if (delWidget) 22.dp else 18.dp)
     val fondo = if (e0.color != 0) Color(e0.color) else Crudo
     val tinta = if (e0.color != 0) tintaSobre(fondo) else Charcoal
-    val forma = RoundedCornerShape(18.dp)
-    val sinEditar: Modifier = if (!editando && j != null) Modifier.combinedClickable(onClick = { alJugar(j) }, onLongClick = { hf.performHapticFeedback(HapticFeedbackType.LongPress); alAbrir(j) }) else Modifier
-
+    val caja = Modifier
+        .offset { IntOffset((e0.x * px + mueve.x + margen).roundToInt(), (e0.y * px + mueve.y + margen).roundToInt()) }
+        .size(with(d) { (ancho - 2 * margen).toDp() }, with(d) { (alto - 2 * margen).toDp() })
+        .testTag("el-" + e0.id)
+        .zIndex(if (a != null) 2f else 0f)
+        .shadow(if (a != null) 10.dp else 0.dp, forma)
+    if (delWidget) {
+        // Los juegos y los widgets: exactamente el dibujo de los widgets de fuera (con su papel, su reborde y sus esquinas)
+        Box(caja) {
+            ContenidoWidget(e0, j, with(d) { ((e0.w * px - 2 * margen) / density) }, with(d) { ((e0.h * px - 2 * margen) / density) }, editando, alJugar, alAbrir)
+            if (editando) Asa(e0)
+        }
+        return
+    }
     Box(
-        Modifier
-            .offset { IntOffset((e0.x * px + mueve.x + margen).roundToInt(), (e0.y * px + mueve.y + margen).roundToInt()) }
-            .size(with(d) { (ancho - 2 * margen).toDp() }, with(d) { (alto - 2 * margen).toDp() })
-            .testTag("el-" + e0.id)
-            .zIndex(if (a != null) 2f else 0f)
-            .shadow(if (a != null) 10.dp else 0.dp, forma)
-            .clip(forma).background(fondo)
+        caja.clip(forma).background(fondo)
             .drawBehind {
                 // El reborde de los widgets: una línea fina de tinta, metida hacia dentro
                 val m = 3.5.dp.toPx()
                 drawRoundRect(tinta, Offset(m, m), Size(size.width - 2 * m, size.height - 2 * m), CornerRadius(14.dp.toPx()), style = Stroke(1.dp.toPx()))
             }
-            .then(sinEditar)
     ) {
-        Contenido(e0, j, tinta)
-        if (editando) Box(Modifier.align(Alignment.BottomEnd).padding(6.dp).size(26.dp).clip(CircleShape).background(Acento).testTag("asa-" + e0.id)) {
-            Text("⤡", color = SobreAcento, fontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.align(Alignment.Center))
+        Contenido(e0, tinta)
+        if (editando) Asa(e0)
+    }
+}
+
+/** El círculo de la esquina para cambiar el tamaño (se reconoce por su sitio: el que arrastra es el lienzo). */
+@Composable
+private fun BoxScope.Asa(e: Elemento) {
+    Box(Modifier.align(Alignment.BottomEnd).padding(6.dp).size(26.dp).clip(CircleShape).background(Acento).testTag("asa-" + e.id)) {
+        Text("⤡", color = SobreAcento, fontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.align(Alignment.Center))
+    }
+}
+
+/**
+ * Un juego o un widget de Pórtico, dibujado con el código de los widgets de fuera (mismo papel, tinta, letras, portadas y reborde) y con el color
+ * que le hayas dado. Tocar un juego lo lanza (mantener pulsado, su ficha); en un widget, lo mismo que haría fuera.
+ */
+@Composable
+private fun ContenidoWidget(e: Elemento, j: Juego?, wDp: Float, hDp: Float, editando: Boolean, alJugar: (Juego) -> Unit, alAbrir: (Juego) -> Unit) {
+    val ctx = LocalContext.current
+    val dens = LocalDensity.current.density
+    val noche = Skin.tones.darkBg
+    var vuelta by remember { mutableStateOf(0) }
+    val idNum = e.id.hashCode()
+    val propio = e.color.takeIf { it != 0 }
+    val clave = listOf<Any?>(e.id, e.ref, propio, wDp.roundToInt(), hDp.roundToInt(), noche, vuelta, Skin.tones, j?.titulo, j?.msJugados, j?.portada, j?.tipo, Biblioteca.juegos.size)
+    val res by produceState<Pair<Pagina, androidx.compose.ui.graphics.ImageBitmap>?>(null, *clave.toTypedArray()) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                Widgets.cargarLetras(ctx)
+                val pag = if (e.esJuego) Widgets.paginaDeJuego(ctx, j!!, wDp, hDp, propio != null)
+                else Widgets.componer(ctx, WTipo.valueOf(e.ref), idNum, wDp, hDp)
+                pag to pag.bitmap(ctx, wDp, hDp, noche, Widgets.escala(ctx, wDp, hDp, 1), propio).asImageBitmap()
+            }.getOrNull()
         }
+    }
+    val hf = LocalHapticFeedback.current
+    val toques = if (editando) Modifier else Modifier.pointerInput(res, e.id) {
+        detectTapGestures(
+            onLongPress = { if (j != null) { hf.performHapticFeedback(HapticFeedbackType.LongPress); alAbrir(j) } },
+            onTap = { p ->
+                if (j != null) { alJugar(j); return@detectTapGestures }
+                val pag = res?.first ?: return@detectTapGestures
+                val x = p.x / dens; val y = p.y / dens
+                val z = pag.zonas.lastOrNull { x >= it.x && x <= it.x + it.w && y >= it.y && y <= it.y + it.h } ?: return@detectTapGestures
+                when {
+                    z.celdas != null -> {
+                        val n = z.celdas[0].size.coerceAtLeast(1)
+                        z.celdas[0].getOrNull(((x - z.x) / (z.w / n)).toInt().coerceIn(0, n - 1))?.first?.let { runCatching { it.send() } }
+                    }
+                    z.desc == "Otro juego" || z.desc == "Siguiente" || z.desc == "Otra propuesta" -> { Widgets.accion(ctx, idNum, "sig"); vuelta++ }
+                    else -> z.toque?.let { runCatching { it.send() } }
+                }
+            }
+        )
+    }
+    Box(Modifier.fillMaxSize().then(toques)) {
+        res?.let { (_, bm) -> androidx.compose.foundation.Image(bm, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
     }
 }
 
@@ -235,42 +296,21 @@ fun TituloAjustado(texto: String, color: Color, modifier: Modifier = Modifier, m
  */
 @Composable
 fun ImagenEncuadrada(f: File, zoom: Float, ox: Float, oy: Float, modifier: Modifier = Modifier) {
-    AsyncImage(f, null, modifier.graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = ox * size.width; translationY = oy * size.height }, contentScale = ContentScale.Crop)
+    val ctx = LocalContext.current
+    // Se carga grande (no del tamaño del hueco): al hacer zoom se sigue viendo nítida
+    val lado = if (zoom > 1.3f) 3072 else 2048
+    val peticion = remember(f.path, f.lastModified(), lado) { coil.request.ImageRequest.Builder(ctx).data(f).size(lado).build() }
+    AsyncImage(peticion, null, modifier.graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = ox * size.width; translationY = oy * size.height }, contentScale = ContentScale.Crop)
 }
 
 private fun horasDe(j: Juego) = if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "0 h"
 
 @Composable
-private fun Contenido(e: Elemento, j: Juego?, tinta: Color) {
+private fun Contenido(e: Elemento, tinta: Color) {
     val ctx = LocalContext.current
-    if (e.esImagen) {
-        val f = File(Pantalla.dirImagenes(ctx), e.ref)
-        Box(Modifier.fillMaxSize().padding(7.dp).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-            if (f.exists()) ImagenEncuadrada(f, e.zoom, e.ox, e.oy, Modifier.fillMaxSize())
-            else Text("imagen sin bajar", color = tinta.copy(alpha = 0.6f), fontSize = 11.sp)
-        }
-        return
-    }
-    if (j == null) return
-    val realce = if (e.color == 0) Acento else tinta.copy(alpha = 0.9f)
-    val horas = horasDe(j).uppercase()
-    when {
-        e.w == 1 && e.h == 1 -> Box(Modifier.fillMaxSize().padding(9.dp).clip(RoundedCornerShape(8.dp))) {
-            ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 26)
-            Text(horas, color = Color.White, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, maxLines = 1,
-                modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
-        }
-        e.h == 1 -> Row(Modifier.fillMaxSize().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.fillMaxHeight().aspectRatio(0.68f).clip(RoundedCornerShape(8.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 30) }
-            Column(Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(horas, color = realce, fontFamily = Body, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp, maxLines = 1)
-                TituloAjustado(j.titulo, tinta, Modifier.weight(1f).fillMaxWidth())
-            }
-        }
-        else -> Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(horas, color = realce, fontFamily = Body, fontSize = 14.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, maxLines = 1, modifier = Modifier.padding(bottom = 6.dp))
-            Box(Modifier.weight(3f).fillMaxWidth().clip(RoundedCornerShape(10.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 56) }
-            TituloAjustado(j.titulo, tinta, Modifier.weight(1.3f).fillMaxWidth().padding(top = 6.dp))
-        }
+    val f = File(Pantalla.dirImagenes(ctx), e.ref)
+    Box(Modifier.fillMaxSize().padding(7.dp).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+        if (f.exists()) ImagenEncuadrada(f, e.zoom, e.ox, e.oy, Modifier.fillMaxSize())
+        else Text("imagen sin bajar", color = tinta.copy(alpha = 0.6f), fontSize = 11.sp)
     }
 }

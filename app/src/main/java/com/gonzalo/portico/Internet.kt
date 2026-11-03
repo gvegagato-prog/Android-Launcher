@@ -287,7 +287,7 @@ var r=best||bestLow;return JSON.stringify(r?{u:r.u,w:r.w,low:!!r.low}:{});}catch
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun InternetPicker(initialQuery: String, idJuego: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+fun InternetPicker(initialQuery: String, idJuego: String, onPick: (String) -> Unit, onDismiss: () -> Unit, original: Boolean = false) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf(initialQuery) }
@@ -344,7 +344,7 @@ fun InternetPicker(initialQuery: String, idJuego: String, onPick: (String) -> Un
                 // Como la pide la página: desde ella (Referer) y con sus cookies (algunas webs no dan la imagen si no)
                 val desde = web?.url?.takeIf { it.startsWith("http") }
                 val (bytes, mime) = withContext(Dispatchers.IO) { Internet.descargar(raw, ua, desde) }
-                val foto = guardarPortadaBytes(ctx, idJuego, bytes) ?: error("no es una imagen que se pueda usar")
+                val foto = guardarPortadaBytes(ctx, idJuego, bytes, original) ?: error("no es una imagen que se pueda usar")
                 busy = false
                 onPick(foto)
             } catch (e: Exception) {

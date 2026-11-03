@@ -56,15 +56,21 @@ suspend fun guardarPortada(c: Context, id: String, uri: Uri): String? = withCont
 }
 
 /** Igual, pero con los bytes de una imagen ya bajada de internet. null = no es una imagen. */
-suspend fun guardarPortadaBytes(c: Context, id: String, bytes: ByteArray): String? = withContext(Dispatchers.IO) {
+suspend fun guardarPortadaBytes(c: Context, id: String, bytes: ByteArray, original: Boolean = false): String? = withContext(Dispatchers.IO) {
     runCatching {
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
         if (o.outWidth <= 0) return@runCatching null
-        var s = 1; while (o.outWidth / s > 1000 || o.outHeight / s > 1400) s *= 2
+        // Original: los mismos bytes que bajó, sin reducir ni recomprimir (máxima calidad; lo usa la pantalla de inicio)
+        if (original) {
+            val f = File(File(c.filesDir, "portadas").apply { mkdirs() }, "$id-${System.currentTimeMillis()}.img")
+            f.writeBytes(bytes)
+            return@runCatching f.absolutePath
+        }
+        var s = 1; while (o.outWidth / s > 2000 || o.outHeight / s > 2800) s *= 2
         val b = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = s }) ?: return@runCatching null
         val f = File(File(c.filesDir, "portadas").apply { mkdirs() }, "$id-${System.currentTimeMillis()}.jpg")
-        f.outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        f.outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 95, it) }
         f.absolutePath
     }.getOrNull()
 }
