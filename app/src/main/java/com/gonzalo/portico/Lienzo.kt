@@ -20,6 +20,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -179,32 +187,80 @@ private fun ElementoLienzo(e0: Elemento, j: Juego?, px: Float, editando: Boolean
     }
 }
 
+/** El mayor tamaño de letra (entre [min] y [max], en sp) con el que [texto] cabe entero en [ancho]×[alto] px, sin partir ninguna palabra. */
+fun tamanoQueCabe(medidor: TextMeasurer, texto: String, estilo: TextStyle, ancho: Int, alto: Int, max: Float, min: Float): Float {
+    if (ancho <= 0 || alto <= 0) return min
+    val palabras = texto.split(' ', '\n').filter { it.isNotEmpty() }
+    fun cabe(sp: Float): Boolean {
+        val st = estilo.copy(fontSize = sp.sp, lineHeight = (sp * 1.08f).sp)
+        if (palabras.any { medidor.measure(it, st.copy(textAlign = TextAlign.Center), softWrap = false).size.width > ancho }) return false
+        val r = medidor.measure(texto, st.copy(textAlign = TextAlign.Center), constraints = Constraints(maxWidth = ancho))
+        return r.size.height <= alto && !r.didOverflowHeight && !r.didOverflowWidth
+    }
+    var lo = min; var hi = max
+    if (cabe(hi)) return hi
+    if (!cabe(lo)) return lo
+    repeat(14) { val m = (lo + hi) / 2f; if (cabe(m)) lo = m else hi = m }
+    return lo
+}
+
+/** Un título centrado, tan grande como quepa en su hueco sin cortarse nunca (salvo que ni a la letra más pequeña quepa). */
+@Composable
+fun TituloAjustado(texto: String, color: Color, modifier: Modifier = Modifier, max: Float = 44f, min: Float = 6f, peso: FontWeight = FontWeight.SemiBold) {
+    val medidor = rememberTextMeasurer()
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val w = constraints.maxWidth; val h = constraints.maxHeight
+        val base = remember(peso) { TextStyle(fontFamily = Display, fontWeight = peso) }
+        val ideal = remember(texto, w, h, peso, Skin.hashCode(), Display) { tamanoQueCabe(medidor, texto, base, w, h, max, min) * 0.97f }
+        // Por si al pintar sale más grande de lo medido (la letra puede terminar de cargarse después): si se desborda, se achica hasta que quepa
+        var factor by remember(texto, w, h, peso) { mutableStateOf(1f) }
+        val sp = (ideal * factor).coerceAtLeast(min)
+        Text(texto, color = color, fontFamily = Display, fontWeight = peso, fontSize = sp.sp, lineHeight = (sp * 1.08f).sp, textAlign = TextAlign.Center, softWrap = true,
+            onTextLayout = { if ((it.didOverflowHeight || it.didOverflowWidth || it.size.height > h) && sp > min + 0.1f) factor *= 0.93f })
+    }
+}
+
+/** Una imagen encuadrada en su hueco: [zoom] 1 = ajustada, y [ox]/[oy] de -1 a 1 mueven qué parte se ve. */
+@Composable
+fun ImagenEncuadrada(f: File, zoom: Float, ox: Float, oy: Float, modifier: Modifier = Modifier) {
+    AsyncImage(f, null,
+        modifier.graphicsLayer { scaleX = zoom; scaleY = zoom; transformOrigin = TransformOrigin(0.5f + ox / 2f, 0.5f + oy / 2f) },
+        contentScale = ContentScale.Crop, alignment = BiasAlignment(ox, oy))
+}
+
+private fun horasDe(j: Juego) = if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else "0 h"
+
 @Composable
 private fun Contenido(e: Elemento, j: Juego?, tinta: Color) {
     val ctx = LocalContext.current
     if (e.esImagen) {
         val f = File(Pantalla.dirImagenes(ctx), e.ref)
         Box(Modifier.fillMaxSize().padding(7.dp).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-            if (f.exists()) AsyncImage(f, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            if (f.exists()) ImagenEncuadrada(f, e.zoom, e.ox, e.oy, Modifier.fillMaxSize())
             else Text("imagen sin bajar", color = tinta.copy(alpha = 0.6f), fontSize = 11.sp)
         }
         return
     }
     if (j == null) return
-    val meta = metaCorta(j)
+    val realce = if (e.color == 0) Acento else tinta.copy(alpha = 0.9f)
+    val horas = horasDe(j).uppercase()
     when {
-        e.w == 1 && e.h == 1 -> Box(Modifier.fillMaxSize().padding(9.dp).clip(RoundedCornerShape(8.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 26) }
+        e.w == 1 && e.h == 1 -> Box(Modifier.fillMaxSize().padding(9.dp).clip(RoundedCornerShape(8.dp))) {
+            ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 26)
+            Text(horas, color = Color.White, fontFamily = Body, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.6.sp, maxLines = 1,
+                modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
+        }
         e.h == 1 -> Row(Modifier.fillMaxSize().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.fillMaxHeight().aspectRatio(0.68f).clip(RoundedCornerShape(8.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 30) }
-            Column(Modifier.weight(1f).fillMaxHeight().padding(start = 9.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                FitTitle(j.titulo, 15.sp, 16.sp, color = tinta, fontWeight = FontWeight.SemiBold, maxLines = 3, minSize = 10f, letterSpacing = (-0.2).sp)
-                Text(meta.uppercase(), color = if (tinta == Charcoal) Acento else tinta.copy(alpha = 0.8f), fontFamily = Body, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp, maxLines = 1)
+            Column(Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(horas, color = realce, fontFamily = Body, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, maxLines = 1)
+                TituloAjustado(j.titulo, tinta, Modifier.weight(1f).fillMaxWidth())
             }
         }
-        else -> Column(Modifier.fillMaxSize().padding(10.dp)) {
-            Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(10.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 56) }
-            FitTitle(j.titulo, 16.sp, 17.sp, color = tinta, fontWeight = FontWeight.SemiBold, maxLines = 2, minSize = 10f, letterSpacing = (-0.2).sp, modifier = Modifier.padding(top = 7.dp))
-            Text(meta.uppercase(), color = if (tinta == Charcoal) Acento else tinta.copy(alpha = 0.8f), fontFamily = Body, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+        else -> Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(horas, color = realce, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, maxLines = 1, modifier = Modifier.padding(bottom = 6.dp))
+            Box(Modifier.weight(3f).fillMaxWidth().clip(RoundedCornerShape(10.dp))) { ImagenJuego(j, Modifier.matchParentSize(), tamLetra = 56) }
+            TituloAjustado(j.titulo, tinta, Modifier.weight(1.3f).fillMaxWidth().padding(top = 6.dp))
         }
     }
 }

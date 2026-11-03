@@ -18,7 +18,9 @@ data class Elemento(
     /** ARGB; 0 = el del tema. */
     val color: Int = 0,
     /** Última vez que se cambió (milisegundos). */
-    val mod: Long = 0L
+    val mod: Long = 0L,
+    /** Encuadre de una imagen: zoom (1 = ajustada al hueco) y hacia dónde se desplaza, de -1 (izquierda/arriba) a 1 (derecha/abajo). */
+    val zoom: Float = 1f, val ox: Float = 0f, val oy: Float = 0f
 ) {
     val esJuego get() = tipo == JUEGO
     val esImagen get() = tipo == IMAGEN
@@ -28,10 +30,12 @@ data class Elemento(
 }
 
 fun elementoAJson(e: Elemento) = JSONObject().put("id", e.id).put("t", e.tipo).put("r", e.ref).put("x", e.x).put("y", e.y).put("w", e.w).put("h", e.h).put("c", e.color).put("m", e.mod)
+    .apply { if (e.zoom != 1f) put("z", e.zoom.toDouble()); if (e.ox != 0f) put("ox", e.ox.toDouble()); if (e.oy != 0f) put("oy", e.oy.toDouble()) }
 fun elementoDeJson(o: JSONObject): Elemento? {
     val id = o.optString("id").ifBlank { return null }
     val t = o.optString("t").takeIf { it == Elemento.JUEGO || it == Elemento.IMAGEN } ?: return null
-    return Elemento(id, t, o.optString("r"), o.optInt("x"), o.optInt("y"), o.optInt("w", 1).coerceIn(1, Pantalla.COLUMNAS), o.optInt("h", 1).coerceIn(1, 12), o.optInt("c"), o.optLong("m"))
+    return Elemento(id, t, o.optString("r"), o.optInt("x"), o.optInt("y"), o.optInt("w", 1).coerceIn(1, Pantalla.COLUMNAS), o.optInt("h", 1).coerceIn(1, 12), o.optInt("c"), o.optLong("m"),
+        o.optDouble("z", 1.0).toFloat().coerceIn(1f, 8f), o.optDouble("ox", 0.0).toFloat().coerceIn(-1f, 1f), o.optDouble("oy", 0.0).toFloat().coerceIn(-1f, 1f))
 }
 
 object Pantalla {
@@ -127,6 +131,23 @@ object Pantalla {
     fun aplicarMezcla(nuevos: List<Elemento>, borr: Map<String, Long>) {
         items.clear(); items.addAll(nuevos); borrados.clear(); borrados.putAll(borr); guardar()
     }
+
+    /** Los colores que has guardado (de más nuevo a más viejo); se suman a los que ya usan tus elementos, que viajan con la cuenta. */
+    val coloresGuardados = mutableStateListOf<Int>()
+    fun cargarColores(c: Context) {
+        if (coloresGuardados.isNotEmpty()) return
+        runCatching { JSONArray(c.getSharedPreferences("portico_pantalla", Context.MODE_PRIVATE).getString("colores", "[]")!!).let { a -> (0 until a.length()).forEach { coloresGuardados.add(a.getInt(it)) } } }
+    }
+    fun guardarColor(c: Context, color: Int) {
+        if (color == 0) return
+        coloresGuardados.remove(color); coloresGuardados.add(0, color)
+        while (coloresGuardados.size > 30) coloresGuardados.removeAt(coloresGuardados.size - 1)
+        persisteColores(c)
+    }
+    fun olvidarColor(c: Context, color: Int) { coloresGuardados.remove(color); persisteColores(c) }
+    private fun persisteColores(c: Context) { c.getSharedPreferences("portico_pantalla", Context.MODE_PRIVATE).edit().putString("colores", JSONArray(coloresGuardados.toList()).toString()).apply() }
+    /** Todos los colores a mano: los guardados y los que usan los elementos (sin repetir). */
+    fun coloresDisponibles(): List<Int> = (coloresGuardados.toList() + items.map { it.color }).filter { it != 0 }.distinct()
 
     /** Dónde se guardan las imágenes de la pantalla. */
     fun dirImagenes(c: Context) = File(c.filesDir, "pantalla").apply { mkdirs() }

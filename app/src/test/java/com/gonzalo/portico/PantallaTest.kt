@@ -14,9 +14,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /** La pantalla de inicio como lienzo: colocar, mezclar entre móviles y las pantallas de verdad. */
 @RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
 class PantallaTest {
     @get:Rule val rule = createComposeRule()
@@ -164,5 +166,68 @@ class PantallaTest {
         }
         rule.waitForIdle()
         assertEquals(2 to 2, Pantalla.items.first { it.id == "e1" }.let { it.w to it.h })
+    }
+
+    @Test fun elTituloCabeSiempreEnteroYCentrado() {
+        val titulos = listOf("Zelda", "Pokémon Esmeralda", "The Legend of Zelda: The Minish Cap", "Supercalifragilisticoespialidoso", "Hollow Knight (SNES hack) edición coleccionista")
+        val tamanos = listOf(250 to 60, 250 to 120, 300 to 200, 150 to 80)
+        val fallos = ArrayList<String>()
+        rule.setContent {
+            val m = androidx.compose.ui.text.rememberTextMeasurer()
+            val base = androidx.compose.ui.text.TextStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            titulos.forEach { t -> tamanos.forEach { (w, h) ->
+                val sp = tamanoQueCabe(m, t, base, w, h, 44f, 6f)
+                val st = base.copy(fontSize = androidx.compose.ui.unit.TextUnit(sp, androidx.compose.ui.unit.TextUnitType.Sp), lineHeight = androidx.compose.ui.unit.TextUnit(sp * 1.08f, androidx.compose.ui.unit.TextUnitType.Sp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                val r = m.measure(t, st, constraints = androidx.compose.ui.unit.Constraints(maxWidth = w))
+                val palabraAncha = t.split(' ').maxOf { m.measure(it, st, softWrap = false).size.width }
+                if (sp > 6.01f && (r.size.height > h || palabraAncha > w)) fallos += "$t en ${w}x$h a $sp: alto ${r.size.height}, palabra $palabraAncha"
+                if (sp < 6f || sp > 44f) fallos += "$t fuera de rango $sp"
+            } }
+        }
+        rule.waitForIdle()
+        assertTrue(fallos.joinToString("\n"), fallos.isEmpty())
+    }
+
+    @Test fun elTituloCortoSeHaceGrandeYElLargoPequeno() {
+        var corto = 0f; var largo = 0f
+        rule.setContent {
+            val m = androidx.compose.ui.text.rememberTextMeasurer(); val base = androidx.compose.ui.text.TextStyle()
+            corto = tamanoQueCabe(m, "Zelda", base, 300, 100, 60f, 6f); largo = tamanoQueCabe(m, "The Legend of Zelda: The Minish Cap Collector Edition", base, 300, 100, 60f, 6f)
+        }
+        rule.waitForIdle(); assertTrue("$corto $largo", corto > largo * 1.5f)
+    }
+
+    @Test fun elCodigoDeColor() {
+        assertEquals(0xFF4F8A5B.toInt(), hexAColor("#4F8A5B")); assertEquals(0xFF4F8A5B.toInt(), hexAColor(" 4f8a5b "))
+        assertNull(hexAColor("#12345")); assertNull(hexAColor("#GGGGGG")); assertNull(hexAColor(""))
+        assertEquals("#4F8A5B", colorAHex(0xFF4F8A5B.toInt()))
+    }
+
+    @Test fun losColoresUsadosQuedanParaOtrasFichas() {
+        Pantalla.coloresGuardados.clear()
+        Pantalla.items.addAll(listOf(e("a", 0, 0, color = 0xFF112233.toInt()), e("b", 1, 0, color = 0xFF112233.toInt()), e("c", 2, 0, color = 0xFF445566.toInt()), e("d", 3, 0)))
+        Pantalla.guardarColor(ctx, 0xFFAABBCC.toInt()); Pantalla.guardarColor(ctx, 0xFF112233.toInt())
+        val d = Pantalla.coloresDisponibles()
+        assertEquals("guardados primero, luego los de las fichas, sin repetir ni el del tema", listOf(0xFF112233.toInt(), 0xFFAABBCC.toInt(), 0xFF445566.toInt()), d)
+        Pantalla.olvidarColor(ctx, 0xFFAABBCC.toInt()); assertFalse(Pantalla.coloresDisponibles().contains(0xFFAABBCC.toInt()))
+        Pantalla.coloresGuardados.clear(); Pantalla.cargarColores(ctx)
+        assertTrue("se recuerdan al reabrir", Pantalla.coloresGuardados.contains(0xFF112233.toInt()))
+    }
+
+    @Test fun elEncuadreSeGuardaYViaja() {
+        Catalogo.cargar(ctx); Skin.cargar(ctx)
+        Pantalla.items.add(Elemento("i1", Elemento.IMAGEN, "i1.jpg", 0, 0, 2, 2, 0, 1))
+        rule.setContent { PorticoTheme { Surface(Modifier.fillMaxSize(), color = Paper) { PantInicio({}, {}, {}, {}, {}) } } }
+        rule.onNodeWithText("EDITAR").performClick()
+        rule.onNodeWithTag("el-i1").performTouchInput { click(center) }
+        rule.onNodeWithText("Encuadrar la imagen", substring = true, ignoreCase = true).performClick()
+        rule.onNodeWithTag("encuadre").performTouchInput { pinch(androidx.compose.ui.geometry.Offset(center.x - 20, center.y), androidx.compose.ui.geometry.Offset(center.x - 60, center.y), androidx.compose.ui.geometry.Offset(center.x + 20, center.y), androidx.compose.ui.geometry.Offset(center.x + 60, center.y)) }
+        rule.onNodeWithText("GUARDAR").performClick()
+        rule.waitForIdle()
+        val i = Pantalla.items.first { it.id == "i1" }
+        assertTrue("zoom ${i.zoom}", i.zoom > 1.2f)
+        val j = elementoDeJson(elementoAJson(i.copy(ox = 0.5f, oy = -0.25f)))!!
+        assertEquals(0.5f, j.ox, 0.001f); assertEquals(-0.25f, j.oy, 0.001f); assertEquals(i.zoom, j.zoom, 0.001f)
+        assertEquals("sin encuadre no añade campos", 1f, elementoDeJson(elementoAJson(e("x", 0, 0)))!!.zoom, 0.0f)
     }
 }

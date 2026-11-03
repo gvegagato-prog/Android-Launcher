@@ -4,6 +4,10 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.shape.RoundedCornerShape as RCS0
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -232,32 +236,119 @@ fun PantInicio(
 @Composable
 private fun LaunedInicial() { val c = LocalContext.current; LaunchedEffect(Unit) { Pantalla.inicial(c) } }
 
-/** Color y quitar (y la ficha, si es un juego) de un elemento del lienzo. */
-@OptIn(ExperimentalLayoutApi::class)
+/** Color (el que quieras, con los usados a mano), encuadre (imágenes), quitar y la ficha (juegos) de un elemento del lienzo. */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun DialogoElemento(e: Elemento, alCerrar: () -> Unit, alFicha: (String) -> Unit) {
+    val ctx = LocalContext.current
     val actual = Pantalla.items.firstOrNull { it.id == e.id } ?: e
-    AlertDialog(
+    var otro by remember { mutableStateOf(false) }
+    var encuadre by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { Pantalla.cargarColores(ctx) }
+    fun usa(c: Int) { Pantalla.poner(actual.copy(color = c)) }
+    if (otro) DialogoColor(if (actual.color != 0) actual.color else 0xFF4F8A5B.toInt(), alCerrar = { otro = false }) { c -> Pantalla.guardarColor(ctx, c); usa(c); otro = false }
+    if (encuadre) DialogoEncuadre(actual, alCerrar = { encuadre = false })
+    if (!otro && !encuadre) AlertDialog(
         onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
         title = { Text(if (e.esJuego) (Biblioteca.juegos.firstOrNull { it.clave == e.ref }?.titulo ?: "Juego") else "Imagen", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Etiqueta("Color de fondo")
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    COLORES_ELEMENTO.forEach { c ->
+                    // «T»: el del tema · los que ya usas o guardaste · «+»: uno nuevo (cualquiera)
+                    @Composable fun bola(c: Int, borrable: Boolean) {
                         val col = if (c == 0) Crudo else Color(c)
-                        Box(Modifier.size(34.dp).clip(CircleShape).background(col).border(if (actual.color == c) 3.dp else 1.dp, if (actual.color == c) Acento else Line, CircleShape)
-                            .clickable { Pantalla.poner(actual.copy(color = c)) }, contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(36.dp).clip(CircleShape).background(col).border(if (actual.color == c) 3.dp else 1.dp, if (actual.color == c) Acento else Line, CircleShape)
+                            .combinedClickable(onClick = { usa(c) }, onLongClick = { if (borrable) Pantalla.olvidarColor(ctx, c) }), contentAlignment = Alignment.Center) {
                             if (c == 0) Text("T", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 12.sp)
                         }
                     }
+                    bola(0, false)
+                    Pantalla.coloresDisponibles().forEach { bola(it, it in Pantalla.coloresGuardados) }
+                    Box(Modifier.size(36.dp).clip(CircleShape).border(1.dp, Line, CircleShape).clickable { otro = true }, contentAlignment = Alignment.Center) {
+                        Text("+", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                    }
                 }
-                Text("«T» es el color del tema.", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+                Text("«T» es el color del tema; «+» elige cualquier color. Los que uses quedan aquí para otras fichas (mantén pulsado uno para olvidarlo).", color = Muted, fontFamily = Body, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+                if (e.esImagen) { Spacer(Modifier.height(8.dp)); MagLink("Encuadrar la imagen", "Arrastra y haz zoom para elegir qué se ve") { encuadre = true } }
                 if (e.esJuego) { Spacer(Modifier.height(8.dp)); MagLink("Ver la ficha") { alCerrar(); alFicha(e.ref) } }
             }
         },
         confirmButton = { TextButton({ alCerrar() }) { Text("LISTO", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
         dismissButton = { TextButton({ Pantalla.quitar(e.id); alCerrar() }) { Text("QUITAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
+    )
+}
+
+/** «#RRGGBB» (o «RRGGBB») → color opaco; null si no es un código válido. */
+fun hexAColor(t: String): Int? = t.trim().removePrefix("#").takeIf { it.length == 6 }?.toIntOrNull(16)?.let { 0xFF000000.toInt() or it }
+fun colorAHex(c: Int) = "#%06X".format(c and 0xFFFFFF)
+
+/** Elegir un color cualquiera: matiz, intensidad y brillo (o el código #RRGGBB). */
+@Composable
+fun DialogoColor(inicial: Int, alCerrar: () -> Unit, alElegir: (Int) -> Unit) {
+    val hsv = remember(inicial) { FloatArray(3).also { android.graphics.Color.colorToHSV(inicial, it) } }
+    var h by remember(inicial) { mutableStateOf(hsv[0]) }
+    var sat by remember(inicial) { mutableStateOf(hsv[1]) }
+    var v by remember(inicial) { mutableStateOf(hsv[2]) }
+    val color = android.graphics.Color.HSVToColor(floatArrayOf(h, sat, v))
+    var hex by remember(inicial) { mutableStateOf(colorAHex(inicial)) }
+    fun muestra(nh: Float, ns: Float, nv: Float) { hex = colorAHex(android.graphics.Color.HSVToColor(floatArrayOf(nh, ns, nv))) }
+    val colores = androidx.compose.material3.SliderDefaults.colors(thumbColor = Acento, activeTrackColor = Acento, inactiveTrackColor = Sand)
+    AlertDialog(
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
+        title = { Text("Color", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(12.dp)).background(Color(color)).border(1.dp, Line, RoundedCornerShape(12.dp)))
+                Etiqueta("Matiz", Modifier.padding(top = 10.dp))
+                androidx.compose.material3.Slider(h, { h = it; muestra(it, sat, v) }, valueRange = 0f..360f, colors = colores)
+                Etiqueta("Intensidad")
+                androidx.compose.material3.Slider(sat, { sat = it; muestra(h, it, v) }, valueRange = 0f..1f, colors = colores)
+                Etiqueta("Brillo")
+                androidx.compose.material3.Slider(v, { v = it; muestra(h, sat, it) }, valueRange = 0f..1f, colors = colores)
+                Campo(hex, "#RRGGBB", { t ->
+                    hex = t
+                    hexAColor(t)?.let { rgb -> val f = FloatArray(3); android.graphics.Color.colorToHSV(rgb, f); h = f[0]; sat = f[1]; v = f[2] }
+                })
+            }
+        },
+        confirmButton = { TextButton({ alElegir(color) }) { Text("USAR", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton(alCerrar) { Text("CANCELAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
+    )
+}
+
+/** Encuadrar una imagen en su hueco: con la forma exacta del hueco, arrastra para mover y pellizca (o usa la barra) para el zoom. */
+@Composable
+fun DialogoEncuadre(e: Elemento, alCerrar: () -> Unit) {
+    val ctx = LocalContext.current
+    var zoom by remember { mutableStateOf(e.zoom) }
+    var ox by remember { mutableStateOf(e.ox) }
+    var oy by remember { mutableStateOf(e.oy) }
+    val f = java.io.File(Pantalla.dirImagenes(ctx), e.ref)
+    val colores = androidx.compose.material3.SliderDefaults.colors(thumbColor = Acento, activeTrackColor = Acento, inactiveTrackColor = Sand)
+    AlertDialog(
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
+        title = { Text("Encuadrar", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val forma = e.w.toFloat() / e.h.toFloat()
+                Box(Modifier.testTag("encuadre").fillMaxWidth(if (forma >= 1f) 1f else 0.6f).aspectRatio(forma).clip(RoundedCornerShape(12.dp)).background(Sand).border(1.dp, Line, RoundedCornerShape(12.dp))
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, z, _ ->
+                            zoom = (zoom * z).coerceIn(1f, 8f)
+                            ox = (ox - 2f * pan.x / size.width / zoom).coerceIn(-1f, 1f)
+                            oy = (oy - 2f * pan.y / size.height / zoom).coerceIn(-1f, 1f)
+                        }
+                    }) {
+                    if (f.exists()) ImagenEncuadrada(f, zoom, ox, oy, Modifier.fillMaxSize())
+                }
+                Etiqueta("Zoom", Modifier.padding(top = 10.dp).align(Alignment.Start))
+                androidx.compose.material3.Slider(zoom, { zoom = it }, valueRange = 1f..8f, colors = colores)
+                MagLink("Restablecer") { zoom = 1f; ox = 0f; oy = 0f }
+            }
+        },
+        confirmButton = { TextButton({ Pantalla.items.firstOrNull { it.id == e.id }?.let { Pantalla.poner(it.copy(zoom = zoom, ox = ox, oy = oy)) }; alCerrar() }) { Text("GUARDAR", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton(alCerrar) { Text("CANCELAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
     )
 }
 
