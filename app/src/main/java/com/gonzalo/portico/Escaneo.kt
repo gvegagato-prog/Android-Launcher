@@ -94,6 +94,8 @@ object Escaneo {
             }
             Biblioteca.juegos.add(j); nuevos++
         }
+        // Las ROMs que se llaman igual que una ficha sin lanzador (traída de Atrio) se unen a ella: una sola ficha, con su ROM
+        Biblioteca.unirGemelas()
         Biblioteca.guardar()
         return Informe(nuevos, rep, sin)
     }

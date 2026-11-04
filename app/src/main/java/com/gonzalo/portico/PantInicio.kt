@@ -61,7 +61,7 @@ const val ATRIO = "com.gonzalo.gamerate"
 
 /** Una frase como «Juegos · GBA · 3 h 20 min». */
 fun metaDe(j: Juego): String = listOf(
-    when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Web" },
+    when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Web"; Tipo.FICHA -> j.plataforma.ifBlank { "Ficha" } },
     if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else ""
 ).filter { it.isNotBlank() }.joinToString(" · ")
 
@@ -156,7 +156,7 @@ fun PantInicio(
     }
 
     val secciones = listOf<Pair<String, () -> Unit>>(
-        "Jugando" to { alIr(Destino.Jugando) }, "Pendiente" to { alIr(Destino.Pendiente) }, "Pasado" to { alIr(Destino.Pasado) }, "Abandonado" to { alIr(Destino.Abandonado) }
+        "Jugando" to { alIr(Destino.Jugando) }, "Pendiente" to { alIr(Destino.Pendiente) }, "Pasado" to { alIr(Destino.Pasado) }, "Abandonado" to { alIr(Destino.Abandonado) }, "Sagas" to { alIr(Destino.Sagas) }
     )
 
     // La cabecera y el menú, exactamente como en la portada de Atrio (RevistaHome): mismos márgenes, mismo tamaño de cabecera, de filetes y de letra

@@ -17,11 +17,12 @@ class JuegoSync(
     val clave: String, val titulo: String, val tipo: Tipo, val sistema: String, val paquete: String, val url: String, val archivo: String,
     val favorito: Boolean, val terminado: Boolean, val finalizado: Long, val nota: Float, val notas: String, val maqueta: String, val orientacion: Int,
     val anadido: Long, val mod: Long, val msp: Long, val vp: Int, val ultima: Long,
-    val estado: Estado = Estado.PENDIENTE, val dias: Map<String, Long> = emptyMap()
+    val estado: Estado = Estado.PENDIENTE, val dias: Map<String, Long> = emptyMap(), val plataforma: String = "", val alias: List<String> = emptyList()
 )
 
 /** La biblioteca de un dispositivo, tal como la sube a la cuenta. */
-class Blob(val dev: String, val juegos: List<JuegoSync>, val borrados: Map<String, Long>, val pantalla: List<Elemento> = emptyList(), val pBorrados: Map<String, Long> = emptyMap(), val ajustes: String = "")
+class Blob(val dev: String, val juegos: List<JuegoSync>, val borrados: Map<String, Long>, val pantalla: List<Elemento> = emptyList(), val pBorrados: Map<String, Long> = emptyMap(), val ajustes: String = "",
+           val sagas: List<Saga> = emptyList(), val sagasBorradas: Map<String, Long> = emptyMap())
 
 class ResMezcla(val juegos: List<Juego>, val borrados: Map<String, Long>, val cambio: Boolean)
 
@@ -29,11 +30,12 @@ object Mezcla {
     /** Los borrados se olvidan a los 180 días (un dispositivo que lleve más sin conectar ya no los verá). */
     const val OLVIDO = 180L * 86_400_000L
 
-    fun aBlob(dev: String, juegos: List<Juego>, borrados: Map<String, Long>, pantalla: List<Elemento> = emptyList(), pBorrados: Map<String, Long> = emptyMap(), ajustes: String = ""): Blob = Blob(dev,
+    fun aBlob(dev: String, juegos: List<Juego>, borrados: Map<String, Long>, pantalla: List<Elemento> = emptyList(), pBorrados: Map<String, Long> = emptyMap(), ajustes: String = "",
+              sagas: List<Saga> = emptyList(), sagasBorradas: Map<String, Long> = emptyMap()): Blob = Blob(dev,
         juegos.filter { it.titulo.isNotBlank() }.distinctBy { it.clave }.map { j ->
             JuegoSync(j.clave, j.titulo, j.tipo, j.sistema, j.paquete, j.url, j.archivo, j.favorito, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta,
-                j.orientacion, j.anadido, j.mod, j.msPropios, j.vecesPropias, j.ultima, j.estado, j.diasPropios.entries.sortedByDescending { it.key }.take(400).associate { it.key to it.value })
-        }, borrados, pantalla, pBorrados, ajustes)
+                j.orientacion, j.anadido, j.mod, j.msPropios, j.vecesPropias, j.ultima, j.estado, j.diasPropios.entries.sortedByDescending { it.key }.take(400).associate { it.key to it.value }, j.plataforma, j.alias)
+        }, borrados, pantalla, pBorrados, ajustes, sagas, sagasBorradas)
 
     fun aJson(b: Blob): String = JSONObject().put("v", 1).put("dev", b.dev)
         .put("borrados", JSONObject().also { o -> b.borrados.forEach { (k, v) -> o.put(k, v) } })
@@ -42,12 +44,16 @@ object Mezcla {
                 a.put(JSONObject().put("k", g.clave).put("t", g.titulo).put("tp", g.tipo.name).put("s", g.sistema).put("pk", g.paquete).put("u", g.url).put("a", g.archivo)
                     .put("f", g.favorito).put("te", g.terminado).put("fi", g.finalizado).put("n", g.nota.toDouble()).put("no", g.notas).put("m", g.maqueta)
                     .put("o", g.orientacion).put("an", g.anadido).put("mod", g.mod).put("msp", g.msp).put("vp", g.vp).put("ul", g.ultima).put("es", g.estado.name)
-                    .put("dd", JSONObject().also { d -> g.dias.forEach { (k, v) -> d.put(k, v) } }))
+                    .put("dd", JSONObject().also { d -> g.dias.forEach { (k, v) -> d.put(k, v) } }).put("pl", g.plataforma).put("al", JSONArray().also { x -> g.alias.forEach { x.put(it) } }))
             }
         })
         .put("pe", JSONArray().also { a -> b.pantalla.forEach { a.put(elementoAJson(it)) } })
         .put("pb", JSONObject().also { o -> b.pBorrados.forEach { (k, v) -> o.put(k, v) } })
-        .apply { if (b.ajustes.isNotBlank()) put("aj", JSONObject(b.ajustes)) }.toString()
+        .apply {
+            if (b.ajustes.isNotBlank()) put("aj", JSONObject(b.ajustes))
+            if (b.sagas.isNotEmpty()) put("sg", JSONArray().also { a -> b.sagas.forEach { a.put(it.aJson()) } })
+            if (b.sagasBorradas.isNotEmpty()) put("sgb", JSONObject().also { x -> b.sagasBorradas.forEach { (k, v) -> x.put(k, v) } })
+        }.toString()
 
     fun deJson(s: String?): Blob? = try {
         if (s.isNullOrBlank()) null else {
@@ -61,11 +67,14 @@ object Mezcla {
                     g.optBoolean("f"), g.optBoolean("te"), g.optLong("fi"), g.optDouble("n", 0.0).toFloat(), g.optString("no"), g.optString("m"), g.optInt("o"),
                     g.optLong("an"), g.optLong("mod"), g.optLong("msp"), g.optInt("vp"), g.optLong("ul"),
                     Estado.entries.firstOrNull { it.name == g.optString("es") } ?: if (g.optBoolean("te")) Estado.PASADO else Estado.PENDIENTE,
-                    g.optJSONObject("dd")?.let { d -> d.keys().asSequence().associateWith { k -> d.optLong(k) } } ?: emptyMap())
+                    g.optJSONObject("dd")?.let { d -> d.keys().asSequence().associateWith { k -> d.optLong(k) } } ?: emptyMap(),
+                    g.optString("pl"), g.optJSONArray("al")?.let { x -> (0 until x.length()).map { x.optString(it) }.filter { it.isNotBlank() } } ?: emptyList())
             }, bo?.keys()?.asSequence()?.associateWith { bo.optLong(it) } ?: emptyMap(),
                 o.optJSONArray("pe")?.let { a -> (0 until a.length()).mapNotNull { elementoDeJson(a.getJSONObject(it)) } } ?: emptyList(),
                 o.optJSONObject("pb")?.let { pb -> pb.keys().asSequence().associateWith { pb.optLong(it) } } ?: emptyMap(),
-                o.optJSONObject("aj")?.toString().orEmpty())
+                o.optJSONObject("aj")?.toString().orEmpty(),
+                o.optJSONArray("sg")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(Saga::deJson) } } ?: emptyList(),
+                o.optJSONObject("sgb")?.let { x -> x.keys().asSequence().associateWith { x.optLong(it) } } ?: emptyMap())
         }
     } catch (e: Exception) { null }
 
@@ -106,12 +115,29 @@ object Mezcla {
         return ResMezcla(finales, bor, cambio)
     }
 
+    class ResSagas(val sagas: List<Saga>, val borradas: Map<String, Long>, val cambio: Boolean)
+
+    /** Mezcla las sagas de este dispositivo con las de los demás: de cada una gana la que se cambió más tarde; lo borrado se borra salvo que se haya vuelto a cambiar después. */
+    fun mezclarSagas(locales: List<Saga>, borradas: Map<String, Long>, remotos: List<Blob>, yo: String, ahora: Long = System.currentTimeMillis()): ResSagas {
+        val otros = remotos.filter { it.dev != yo }
+        val bor = HashMap(borradas)
+        otros.forEach { r -> r.sagasBorradas.forEach { (k, t) -> if (t > (bor[k] ?: 0L)) bor[k] = t } }
+        bor.entries.removeAll { ahora - it.value > OLVIDO }
+        val por = LinkedHashMap<String, Saga>()
+        for (s in locales + otros.flatMap { it.sagas }) { val cur = por[s.id]; if (cur == null || s.mod > cur.mod) por[s.id] = s }
+        val vivas = por.values.filter { (bor[it.id] ?: 0L) <= it.mod }
+        // (en el orden en que estaban aquí; las nuevas, al final)
+        val orden = locales.map { it.id }
+        val finales = vivas.sortedBy { s -> orden.indexOf(s.id).let { if (it < 0) Int.MAX_VALUE else it } }
+        return ResSagas(finales, bor, finales != locales || bor != borradas)
+    }
+
     private fun total(ms: Map<String, Long>) = ms.values.sum()
 
     private fun unir(l: Juego, rs: List<Pair<String, JuegoSync>>): Juego {
         val g = rs.maxByOrNull { it.second.mod }!!.second
         val base = if (g.mod > l.mod) l.copy(titulo = g.titulo.ifBlank { l.titulo }, favorito = g.favorito, estado = g.estado, terminado = g.terminado, finalizado = g.finalizado, nota = g.nota, notas = g.notas,
-            maqueta = g.maqueta, orientacion = g.orientacion, mod = g.mod) else l
+            maqueta = g.maqueta, orientacion = g.orientacion, mod = g.mod, plataforma = g.plataforma, alias = g.alias) else l
         val ms = l.ajenosMs + rs.associate { it.first to it.second.msp }
         val ve = l.ajenosVeces + rs.associate { it.first to it.second.vp }
         val dd = l.ajenosDias + rs.associate { it.first to it.second.dias }
@@ -131,7 +157,8 @@ object Mezcla {
             favorito = g.favorito, anadido = rs.map { it.second.anadido }.filter { it > 0 }.minOrNull() ?: g.anadido, ultima = rs.maxOf { it.second.ultima },
             veces = ve.values.sum(), msJugados = total(ms), orientacion = g.orientacion, terminado = g.terminado, finalizado = g.finalizado, nota = g.nota,
             notas = g.notas, maqueta = g.maqueta, mod = g.mod, msPropios = 0L, vecesPropias = 0, ajenosMs = ms, ajenosVeces = ve,
-            estado = g.estado, ajenosDias = rs.associate { it.first to it.second.dias }
+            estado = g.estado, ajenosDias = rs.associate { it.first to it.second.dias }, plataforma = g.plataforma, alias = g.alias,
+            claveFija = if (g.tipo == Tipo.FICHA) g.clave else ""
         )
     }
 }

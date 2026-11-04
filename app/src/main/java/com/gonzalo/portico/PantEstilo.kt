@@ -36,7 +36,7 @@ import androidx.compose.material3.TextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-const val VERSION = "0.15.5"
+const val VERSION = "0.16.0"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -95,6 +95,8 @@ fun PantEstilo(alVolver: () -> Unit, alSistemas: () -> Unit = {}) {
         Spacer(Modifier.height(12.dp))
         Antetitulo("Cuenta de Atrio", Modifier.padding(bottom = 4.dp))
         SeccionCuenta()
+        Filete(1.dp, Line)
+        SeccionImportarAtrio()
 
         Spacer(Modifier.height(14.dp))
         Filete(2.dp)

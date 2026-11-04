@@ -72,7 +72,7 @@ object SincroP {
     suspend fun subir(c: Context, forzar: Boolean = false): Boolean = candado.withLock {
         if (!Cuenta.vinculada) return@withLock true
         try {
-            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), Pantalla.items.toList(), HashMap(Pantalla.borrados), if (Skin.ajustesAt > 0L) Skin.ajustesJson().toString() else ""))
+            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), Pantalla.items.toList(), HashMap(Pantalla.borrados), if (Skin.ajustesAt > 0L) Skin.ajustesJson().toString() else "", Sagas.lista.toList(), HashMap(Sagas.borradas)))
             val hash = blob.hashCode().toString() + ":" + blob.length
             val p = prefs(c)
             if (!forzar && p.getString("hash", "") == hash) return@withLock true
@@ -81,12 +81,45 @@ object SincroP {
             val ts = Cuenta.db("GET", "${Cuenta.raiz}/dev/${Cuenta.dispositivo}/updated", null)?.toLongOrNull() ?: throw Cuenta.Fail("Firebase no ha guardado la copia.")
             Cuenta.db("PUT", "${Cuenta.raiz}/stamps/${Cuenta.dispositivo}", ts.toString(), "print=silent")
             p.edit().putString("hash", hash).apply()
+            runCatching { subirTiempo(c) }
             runCatching { portadas(c) }
             // Mi propio sello ya lo conozco: no hace falta bajarlo
             guardaVistos(c, vistos(c).put(Cuenta.dispositivo, ts))
             bien(c)
             true
         } catch (e: Exception) { mal(c, e); false }
+    }
+
+    /**
+     * El nodo ligero para Azabache (el Diario y las barras): por juego y dispositivo, lo jugado en total y cada día, sin el resto de la ficha.
+     * `tiempo/<kid>/<dispositivo>` = {t, k, al, m, p, total, days, fin}. Solo se escribe lo que ha cambiado desde la última vez; lo de un juego
+     * que ya no está (o que se unió a otro) se borra.
+     */
+    fun subirTiempo(c: Context) {
+        if (!Cuenta.vinculada) return
+        val p = prefs(c)
+        val dev = Cuenta.dispositivo
+        val cambios = JSONObject()
+        val vivos = HashSet<String>()
+        for (j in Biblioteca.juegos.toList()) {
+            if (j.msPropios <= 0L && j.diasPropios.isEmpty() && j.finalizado <= 0L) continue
+            val kid = NubeP.kid(j); vivos += kid
+            val nodo = JSONObject().put("t", j.titulo).put("k", j.clave).put("m", menuDe(j).name.lowercase()).put("total", j.msPropios).put("fin", j.finalizado)
+                .put("days", JSONObject().also { d -> j.diasPropios.entries.sortedByDescending { it.key }.take(400).forEach { (k, v) -> d.put(k, v) } })
+            if (j.plataforma.isNotBlank()) nodo.put("p", j.plataforma)
+            if (j.alias.isNotEmpty()) nodo.put("al", org.json.JSONArray().also { a -> j.alias.forEach { a.put(it) } })
+            val h = nodo.toString().hashCode().toString()
+            if (p.getString("tp:$kid", "") == h) continue
+            cambios.put("$kid/$dev", nodo)
+            p.edit().putString("tp:$kid", h).apply()
+        }
+        // Lo que este dispositivo subió de juegos que ya no están, se quita
+        for (k in p.all.keys.filter { it.startsWith("tp:") }) {
+            val kid = k.removePrefix("tp:")
+            if (kid in vivos) continue
+            cambios.put("$kid/$dev", JSONObject.NULL); p.edit().remove(k).apply()
+        }
+        if (cambios.length() > 0) Cuenta.db("PATCH", "${Cuenta.raiz}/tiempo", cambios.toString(), "print=silent")
     }
 
     /** Las portadas que elegiste: van a tu kDrive (si está conectado), como las imágenes de Atrio. Errores aparte: no estropean la sincronización. */
@@ -107,7 +140,7 @@ object SincroP {
                 if (dev == Cuenta.dispositivo || ts <= vistas.optLong(dev, 0L) || ahora - ts > Cuenta.STALE) continue
                 val raw = Cuenta.db("GET", "${Cuenta.raiz}/dev/$dev/data", null) ?: continue
                 val datos = JSONTokener(raw).nextValue() as? String ?: continue
-                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados, it.pantalla, it.pBorrados, it.ajustes) }
+                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados, it.pantalla, it.pBorrados, it.ajustes, it.sagas, it.sagasBorradas) }
                 vistosNuevos.put(dev, ts)
             }
             var cambio = false
@@ -119,6 +152,8 @@ object SincroP {
                 if (r.cambio) { Biblioteca.aplicarMezcla(r.juegos, r.borrados); cambio = true }
                 val rp = MezclaPantalla.mezclar(Pantalla.items.toList(), HashMap(Pantalla.borrados), nuevos.map { it.pantalla to it.pBorrados })
                 if (rp.cambio) { Pantalla.aplicarMezcla(rp.items, rp.borrados); cambio = true }
+                val rs = Mezcla.mezclarSagas(Sagas.lista.toList(), HashMap(Sagas.borradas), nuevos, Cuenta.dispositivo)
+                if (rs.cambio) { Sagas.aplicarMezcla(rs.sagas, rs.borradas); cambio = true }
             }
             guardaVistos(c, vistosNuevos)
             bien(c)

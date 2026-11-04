@@ -108,7 +108,7 @@ fun crearAcceso(c: Context, j: Juego): Boolean {
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPortada: Boolean = false, alVerPortada: () -> Unit = {}) {
+fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPortada: Boolean = false, alVerPortada: () -> Unit = {}, alVincular: (Juego) -> Unit = {}, alIrA: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val j = Biblioteca.por(id)
@@ -121,6 +121,9 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
     var disenando by remember { mutableStateOf(false) }
     var editarHoras by remember { mutableStateOf(false) }
     var buscaInternet by remember { mutableStateOf(false) }
+    var saga by remember { mutableStateOf(false) }
+    var unir by remember { mutableStateOf(false) }
+    var plataforma by remember { mutableStateOf(false) }
     LaunchedEffect(abrirPortada) { if (abrirPortada) alVerPortada() }
     val cambiarPortada = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
         if (u != null) scope.launch { guardarPortada(ctx, j.id, u)?.let { Biblioteca.poner(Biblioteca.por(j.id)!!.copy(portada = it)) } }
@@ -134,7 +137,7 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
         }
         Filete(3.dp)
         Spacer(Modifier.height(14.dp))
-        RevistaHeadline(j.titulo, when (j.tipo) { Tipo.ROM -> listOfNotNull(sistema?.corto, sistema?.nombre).joinToString(" · "); Tipo.APP -> "Juego de Android"; Tipo.WEB -> "Juego de navegador" })
+        RevistaHeadline(j.titulo, when (j.tipo) { Tipo.ROM -> listOfNotNull(sistema?.corto, sistema?.nombre).joinToString(" · "); Tipo.APP -> "Juego de Android"; Tipo.WEB -> "Juego de navegador"; Tipo.FICHA -> j.plataforma.ifBlank { "Sin lanzador en el móvil" } })
         val deck = listOfNotNull(
             if (j.terminado) (if (j.finalizado > 0) "pasado el " + fechaCorta(j.finalizado) else "pasado") else if (j.estado != Estado.PENDIENTE) j.estado.nombre.lowercase() else null,
             if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else null
@@ -144,10 +147,14 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
         // Las acciones de la ficha: una fila de enlaces entre dos filetes
         Filete(1.dp)
         androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            EnlaceRevista("Jugar\u00A0→", acento = true) { alJugar(j) }
+            if (j.sinLanzador) EnlaceRevista("Vincular\u00A0→", acento = true) { alVincular(j) }
+            else EnlaceRevista("Jugar\u00A0→", acento = true) { alJugar(j) }
             EnlaceRevista("Portada\u00A0→") { eligePortada = true }
-            EnlaceRevista("Acceso directo\u00A0→") { if (!crearAcceso(ctx, j)) Lanzador.aviso(ctx, "Tu launcher no deja crear accesos directos") }
+            EnlaceRevista("Saga\u00A0→", acento = Sagas.de(j) != null) { saga = true }
+            if (!j.sinLanzador) EnlaceRevista("Acceso directo\u00A0→") { if (!crearAcceso(ctx, j)) Lanzador.aviso(ctx, "Tu launcher no deja crear accesos directos") }
             EnlaceRevista("Renombrar\u00A0→") { renombrar = true }
+            if (j.sinLanzador) EnlaceRevista("Plataforma\u00A0→") { plataforma = true }
+            EnlaceRevista("Unir con otro\u00A0→") { unir = true }
         }
         Filete(1.dp)
         Spacer(Modifier.height(16.dp))
@@ -165,6 +172,15 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
         Spacer(Modifier.height(20.dp))
     }
     if (renombrar) DialogoTexto("Nombre del juego", j.titulo, "Guardar", { renombrar = false }) { t -> if (t.isNotBlank()) Biblioteca.poner(j.copy(titulo = t.trim())); renombrar = false }
+    if (plataforma) DialogoTexto("Plataforma (PC, Switch, PS5…)", j.plataforma, "Guardar", { plataforma = false }) { t -> Biblioteca.poner(j.copy(plataforma = t.trim())); plataforma = false }
+    if (saga) DialogoSagaDeJuego(j) { saga = false }
+    if (unir) SelectorJuegos("Unir «${j.titulo}» con…", Biblioteca.juegos.filter { it.id != j.id }, { unir = false }, uno = true) { claves ->
+        unir = false
+        val otro = claves.firstOrNull()?.let { Biblioteca.porClave(it) } ?: return@SelectorJuegos
+        // Se queda el que tiene lanzador (si los dos, este); el otro se funde dentro y su clave queda como alias
+        val (dest, orig) = if (j.sinLanzador && !otro.sinLanzador) otro to j else j to otro
+        Biblioteca.unir(dest.id, orig.id)?.let { alIrA(it.id) }
+    }
     if (borrar) AlertDialog(
         onDismissRequest = { borrar = false }, containerColor = Paper, shape = esquina(4.dp),
         title = { Text("¿Quitar «${j.titulo}»?", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
@@ -340,6 +356,7 @@ private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: (
             }
             Tipo.APP -> { Text("App de Android", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text(j.paquete, color = Muted, fontFamily = Body, fontSize = 12.sp) }
             Tipo.WEB -> { Text(j.url, color = Charcoal, fontFamily = Display, fontSize = 17.sp, maxLines = 2); Text(("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)]).uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
+            Tipo.FICHA -> { Text(j.plataforma.ifBlank { "Sin lanzador" }, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text("NO SE ABRE DESDE EL MÓVIL", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
         }
     },
 )

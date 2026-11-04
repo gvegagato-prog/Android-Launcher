@@ -245,8 +245,8 @@ class Hoja(val ctx: Context, val w: Float, val h: Float, val noche: Boolean, s: 
     }
 
     /** Una portada recortada (centrada) con esquinas redondas; sin imagen, una portada de letra. */
-    fun portada(img: Bitmap?, r: RectF, nombre: String, rad: Float = 9f, filo: Boolean = true) {
-        if (img == null || img.width <= 0) { tapa(r, nombre, rad); return }
+    fun portada(img: Bitmap?, r: RectF, nombre: String, rad: Float = 9f, filo: Boolean = true, soloInicial: Boolean = false) {
+        if (img == null || img.width <= 0) { if (soloInicial) tapa(r, "", rad, nombre) else tapa(r, nombre, rad); return }
         val s = max(r.width() / img.width, r.height() / img.height)
         val m = Matrix().apply { setScale(s, s); postTranslate(r.left + (r.width() - img.width * s) / 2, r.top + (r.height() - img.height * s) / 2) }
         val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { shader = BitmapShader(img, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(m) } }
@@ -254,12 +254,13 @@ class Hoja(val ctx: Context, val w: Float, val h: Float, val noche: Boolean, s: 
         if (filo) c.drawRoundRect(r, rad, rad, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 0.6f; color = 0x26000000 })
     }
 
-    /** Portada de letra (la de los juegos sin imagen): la inicial grande en acento y el nombre. */
-    fun tapa(r: RectF, nombre: String, rad: Float = 9f) {
+    /** Portada de letra (la de los juegos sin imagen): la inicial grande en acento y el nombre. Con [inicial] y sin nombre (a sangre, con texto encima), solo la inicial, tenue. */
+    fun tapa(r: RectF, nombre: String, rad: Float = 9f, inicial: String = nombre) {
         c.drawRoundRect(r, rad, rad, lleno(arena))
-        val ini = nombre.trim().firstOrNull()?.uppercase() ?: "·"
-        val big = capa(ini, tp(fTitular, r.height() * 0.42f, acento), r.width(), 1, 1f, Layout.Alignment.ALIGN_CENTER)
-        val conNombre = r.width() >= 56f && r.height() >= 70f
+        val ini = inicial.trim().firstOrNull()?.uppercase() ?: "·"
+        val tenue = nombre.isBlank()
+        val big = capa(ini, tp(fTitular, r.height() * 0.42f, if (tenue) (acento and 0x00FFFFFF) or 0x55000000 else acento), r.width(), 1, 1f, Layout.Alignment.ALIGN_CENTER)
+        val conNombre = !tenue && r.width() >= 56f && r.height() >= 70f
         pon(big, r.left, r.top + (r.height() - big.height) / 2 - if (conNombre) r.height() * 0.1f else 0f)
         if (conNombre) {
             val n = capa(nombre, tp(fTitular, min(11f, r.width() / 6.5f), tinta), r.width() - 12f, 2, 0.95f, Layout.Alignment.ALIGN_CENTER)
@@ -293,7 +294,7 @@ class WDatos(val ctx: Context) {
         else listOfNotNull(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else null).joinToString(" · ")
 
     /** «Nintendo Game Boy Advance · Android · Web»: de dónde es. */
-    fun origen(j: Juego): String = when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Navegador" }
+    fun origen(j: Juego): String = when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Navegador"; Tipo.FICHA -> j.plataforma.ifBlank { "Sin lanzador" } }
 }
 
 object Widgets {
@@ -558,7 +559,7 @@ object Widgets {
                     }
                     null
                 }
-                Tipo.WEB -> null
+                Tipo.WEB, Tipo.FICHA -> null
             }
         } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
     }
@@ -611,8 +612,8 @@ object Widgets {
                     }
                 }
                 compacto -> {
-                    // La portada a sangre y el título encima
-                    portada(img, RectF(0f, 0f, w, h), e.titulo, 0f, false); reborde = 0xCCFFFFFF.toInt()
+                    // La portada a sangre y el título encima (sin imagen: solo la inicial, tenue, para que no se pise con el texto)
+                    portada(img, RectF(0f, 0f, w, h), e.titulo, 0f, false, soloInicial = true); reborde = 0xCCFFFFFF.toInt()
                     velo(h * 0.2f, h, 0x00000000, 0xF0000000.toInt(), 0x88000000.toInt())
                     velo(0f, 52f, 0xB0000000.toInt(), 0x00000000)
                     seccion("Sigue jugando", pad, pad, w - 2 * pad, 0xFFFFFFFF.toInt(), acentoFoto)

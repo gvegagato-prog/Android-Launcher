@@ -66,20 +66,35 @@ private sealed interface Paso {
     class Resumen(val texto: String) : Paso
 }
 
-/** «Añadir»: ROMs sueltas, una carpeta de ROMs, juegos de Android o un juego web. */
+/**
+ * «Añadir»: ROMs sueltas, una carpeta de ROMs, juegos de Android, un juego web o una ficha sin lanzador (PC, consola…).
+ * Con [vincularA], lo que se añada se une a esa ficha sin lanzador (la ROM, la app o la web pasan a ser su manera de abrirse).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HojaAnadir(inicial: Tipo?, alCerrar: () -> Unit) {
+fun HojaAnadir(inicial: Tipo?, vincularA: String? = null, alVincular: (Juego) -> Unit = {}, alCerrar: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var paso by remember { mutableStateOf<Paso>(if (inicial == Tipo.APP) Paso.Apps else Paso.Menu) }
     var web by remember { mutableStateOf(inicial == Tipo.WEB) }
+    var ficha by remember { mutableStateOf(inicial == Tipo.FICHA) }
     val externos = remember { android.os.Environment.getExternalStorageDirectory().absolutePath }
+    val antes = remember { Biblioteca.juegos.map { it.id }.toSet() }
+    val paraFicha = vincularA?.let { Biblioteca.por(it) }
+
+    /** Lo recién añadido se une a la ficha sin lanzador que se pidió (la primera cosa nueva). Devuelve el texto para el resumen. */
+    fun vincular(): String {
+        val f = paraFicha ?: return ""
+        val nuevo = Biblioteca.juegos.firstOrNull { it.id !in antes && !it.sinLanzador } ?: return ""
+        val u = Biblioteca.unir(nuevo.id, f.id) ?: return ""
+        alVincular(u)
+        return " · vinculado a «${f.titulo}»"
+    }
 
     fun terminar(inf: Informe, antes: Int) {
         val total = antes + inf.anadidos
         if (inf.sinSistema.isNotEmpty()) paso = Paso.Preguntar(inf.sinSistema, total)
-        else paso = Paso.Resumen(resumen(total, inf.repetidos, 0))
+        else paso = Paso.Resumen(resumen(total, inf.repetidos, 0) + vincular())
     }
 
     val archivos = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -105,19 +120,20 @@ fun HojaAnadir(inicial: Tipo?, alCerrar: () -> Unit) {
     ModalBottomSheet(alCerrar, containerColor = Paper, contentColor = Charcoal, shape = androidx.compose.ui.graphics.RectangleShape) {
         when (val p = paso) {
             Paso.Menu -> Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-                Antetitulo("Añadir", Modifier.padding(bottom = 4.dp), color = Acento, conCuadro = false)
-                FitTitle("Juegos", 44.sp, 46.sp, letterSpacing = (-1).sp, unaLinea = true)
+                Antetitulo(if (paraFicha != null) "Vincular" else "Añadir", Modifier.padding(bottom = 4.dp), color = Acento, conCuadro = false)
+                FitTitle(paraFicha?.titulo ?: "Juegos", 44.sp, 46.sp, letterSpacing = (-1).sp, unaLinea = true)
                 Filete(3.dp)
-                Cuerpo("Elige de dónde vienen.", tam = 13, modifier = Modifier.padding(vertical = 8.dp))
-                Entrada("Carpeta de ROMs", "Carmesí busca dentro y reconoce el sistema por la extensión o por el nombre de la carpeta") { carpeta.launch(null) }
-                Entrada("ROMs sueltas", "Elige uno o varios archivos (.gba, .nds, .sfc…)") { archivos.launch(arrayOf("*/*")) }
-                Entrada("Juego de Android", "De los que ya tienes instalados") { paso = Paso.Apps }
-                Entrada("Juego de navegador", "Una dirección web: PokéRogue y similares") { web = true }
+                Cuerpo(if (paraFicha != null) "Elige su ROM, su app o su web: la ficha se queda con todo (horas, estado, nota) y pasa a abrirse desde el móvil." else "Elige de dónde vienen.", tam = 13, modifier = Modifier.padding(vertical = 8.dp))
+                if (paraFicha == null) Entrada("Carpeta de ROMs", "Carmesí busca dentro y reconoce el sistema por la extensión o por el nombre de la carpeta") { carpeta.launch(null) }
+                Entrada(if (paraFicha != null) "Su ROM" else "ROMs sueltas", "Elige uno o varios archivos (.gba, .nds, .sfc…)") { archivos.launch(arrayOf("*/*")) }
+                Entrada(if (paraFicha != null) "Su app de Android" else "Juego de Android", "De los que ya tienes instalados") { paso = Paso.Apps }
+                Entrada(if (paraFicha != null) "Su web" else "Juego de navegador", "Una dirección web: PokéRogue y similares") { web = true }
+                if (paraFicha == null) Entrada("Solo la ficha", "Un juego de PC o de consola que no se abre desde el móvil: para llevar sus horas, su estado y su nota") { ficha = true }
             }
             Paso.Apps -> SelectorApps({ elegidas ->
                 val ahora = System.currentTimeMillis(); var n = 0
                 elegidas.forEach { a -> val j = Juego(Biblioteca.nuevoId(), a.nombre, Tipo.APP, paquete = a.paquete, anadido = ahora - n); if (!Biblioteca.repetido(j)) { Biblioteca.juegos.add(j); n++ } }
-                Biblioteca.guardar(); paso = Paso.Resumen(resumen(n, elegidas.size - n, 0))
+                Biblioteca.unirGemelas(); Biblioteca.guardar(); paso = Paso.Resumen(resumen(n, elegidas.size - n, 0) + vincular())
             })
             is Paso.Preguntar -> PreguntaSistema(p.pendientes.size) { s ->
                 val inf = Escaneo.importar(p.pendientes, forzar = s, externos = externos)
@@ -133,7 +149,39 @@ fun HojaAnadir(inicial: Tipo?, alCerrar: () -> Unit) {
             }
         }
     }
-    if (web) DialogoWeb(null) { web = false; if (paso == Paso.Menu) alCerrar() }
+    if (web) DialogoWeb(null) { web = false; vincular(); if (paso == Paso.Menu) alCerrar() }
+    if (ficha) DialogoFicha { ficha = false; if (paso == Paso.Menu) alCerrar() }
+}
+
+/** Crear una ficha sin lanzador: el nombre y en qué se juega. */
+@Composable
+fun DialogoFicha(alCerrar: () -> Unit) {
+    var nombre by remember { mutableStateOf("") }
+    var plataforma by remember { mutableStateOf("PC") }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
+        title = { Text("Solo la ficha", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Campo(nombre, "Nombre del juego", { nombre = it; error = null })
+                Etiqueta("Plataforma")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(2.dp)) { items(listOf("PC", "Switch", "PS5", "PS4", "Xbox", "Steam Deck", "Móvil")) { p -> Chip(p, plataforma == p) { plataforma = p } } }
+                Campo(plataforma, "Otra plataforma", { plataforma = it })
+                error?.let { Text(it, color = Acento, fontFamily = Body, fontSize = 13.sp) }
+                Cuerpo("No se abre desde el móvil. Si más adelante añades su ROM, su app o su web, se unen a esta ficha («Vincular» en la ficha).", tam = 12)
+            }
+        },
+        confirmButton = {
+            TextButton({
+                if (nombre.isBlank()) { error = "Ponle un nombre."; return@TextButton }
+                val j = nuevaFicha(nombre, plataforma)
+                if (Biblioteca.repetido(j) || Biblioteca.juegos.any { Catalogo.norm(it.titulo) == Catalogo.norm(j.titulo) }) { error = "Ya tienes un juego que se llama así."; return@TextButton }
+                Biblioteca.poner(j); alCerrar()
+            }) { Text("Añadir", color = Acento, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(alCerrar) { Text("Cancelar", color = Charcoal) } }
+    )
 }
 
 private fun resumen(a: Int, rep: Int, sin: Int): String =
@@ -229,7 +277,7 @@ fun DialogoWeb(juego: Juego?, alCerrar: () -> Unit) {
                 val u = normalizarUrl(url)
                 if (u == null) { error = "Esa dirección no vale. Ejemplo: pokerogue.net"; return@TextButton }
                 val titulo = nombre.trim().ifEmpty { Uri.parse(u).host!!.removePrefix("www.") }
-                if (juego == null) { val j = Juego(Biblioteca.nuevoId(), titulo, Tipo.WEB, url = u, anadido = System.currentTimeMillis(), orientacion = orient); if (!Biblioteca.repetido(j)) Biblioteca.poner(j) }
+                if (juego == null) { val j = Juego(Biblioteca.nuevoId(), titulo, Tipo.WEB, url = u, anadido = System.currentTimeMillis(), orientacion = orient); if (!Biblioteca.repetido(j)) { Biblioteca.poner(j); Biblioteca.unirGemelas() } }
                 else Biblioteca.poner(juego.copy(titulo = titulo, url = u, orientacion = orient))
                 alCerrar()
             }) { Text(if (juego == null) "Añadir" else "Guardar", color = Acento, fontWeight = FontWeight.Bold) }

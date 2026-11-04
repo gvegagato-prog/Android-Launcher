@@ -105,6 +105,7 @@ object Lanzador {
                     if (i == null) "Esa app ya no está instalada" else { i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); c.startActivity(i); null }
                 }
                 Tipo.WEB -> { c.startActivity(WebJuegoActivity.intent(c, j)); null }
+                Tipo.FICHA -> return "«${j.titulo}» no se juega desde el móvil" + (if (j.plataforma.isNotBlank()) " (${j.plataforma})" else "") + ". Si tienes su ROM, su app o su web, vincúlala desde la ficha."
             }
         } catch (e: ActivityNotFoundException) { "No se pudo abrir: ¿sigue instalado el emulador?"
         } catch (e: SecurityException) { "Android no deja abrir esto: ${e.message}" }

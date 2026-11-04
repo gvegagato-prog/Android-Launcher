@@ -16,58 +16,55 @@ import androidx.compose.ui.platform.LocalContext
 
 /** Arranca los datos de la app (una vez). */
 fun iniciar(c: Context) {
-    Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); NubeP.cargar(c); Biblioteca.cargar(c); Pantalla.cargar(c)
+    Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); NubeP.cargar(c); Biblioteca.cargar(c); Sagas.cargar(c); Pantalla.cargar(c)
     TemaAtrio.cargarGuardado(c)
     Cuenta.cargar(c); SincroP.iniciar(c)
 }
 
-/** Dónde estás: la portada y sus secciones (se llega a ellas desde el menú de la portada, como en Atrio). */
-enum class Destino { Portada, Jugando, Pendiente, Pasado, Abandonado, Todo, Sistemas, Ajustes }
+/** Dónde estás: la portada y sus secciones (se llega a ellas desde el menú de la portada, como en Atrio). Sistemas se abre desde Ajustes. */
+enum class Destino { Portada, Jugando, Pendiente, Pasado, Abandonado, Sagas, Sistemas, Ajustes }
 
-/** La app: portada de revista y sus secciones, la ficha de un juego por encima y la hoja de «añadir». */
+/** La app: portada de revista y sus secciones, la ficha de un juego o una saga por encima y la hoja de «añadir». */
 @Composable
 fun PorticoApp(fichaPedida: String? = null, alAbrirPedida: () -> Unit = {}) {
     val ctx = LocalContext.current
     var destino by rememberSaveable { mutableIntStateOf(0) }
+    var buscar by rememberSaveable { mutableStateOf(false) }
     var fichaId by rememberSaveable { mutableStateOf<String?>(null) }
+    var sagaId by rememberSaveable { mutableStateOf<String?>(null) }
     var anadir by rememberSaveable { mutableStateOf(false) }
     var tipoInicial by remember { mutableStateOf<Tipo?>(null) }
-    val filtro = remember { FiltroBib() }
+    /** La ficha sin lanzador a la que se le va a vincular lo que se añada ahora. */
+    var vincularA by remember { mutableStateOf<String?>(null) }
     val d = Destino.entries[destino]
     // Un widget pide abrir la ficha de un juego
     LaunchedEffect(fichaPedida) { if (fichaPedida != null && Biblioteca.por(fichaPedida) != null) { fichaId = fichaPedida; destino = 0 }; if (fichaPedida != null) alAbrirPedida() }
 
     fun jugar(j: Juego) { Lanzador.lanzar(ctx, j)?.let { Lanzador.aviso(ctx, it) } }
-    fun abrirAnadir(t: Tipo?) { tipoInicial = t; anadir = true }
-    fun ir(x: Destino) {
-        when (x) {
-            Destino.Jugando -> { filtro.limpiar(); filtro.estado = Estado.JUGANDO }
-            Destino.Pendiente -> { filtro.limpiar(); filtro.estado = Estado.PENDIENTE }
-            Destino.Pasado -> { filtro.limpiar(); filtro.estado = Estado.PASADO }
-            Destino.Abandonado -> { filtro.limpiar(); filtro.estado = Estado.ABANDONADO }
-            Destino.Todo -> filtro.limpiar()
-            else -> {}
-        }
-        destino = x.ordinal
-    }
+    fun abrirAnadir(t: Tipo?, para: String? = null) { tipoInicial = t; vincularA = para; anadir = true }
+    fun ir(x: Destino, buscando: Boolean = false) { buscar = buscando; destino = x.ordinal }
 
     BackHandler(enabled = fichaId != null) { fichaId = null }
+    BackHandler(enabled = sagaId != null && fichaId == null) { sagaId = null }
     AvisoActualizacion()
-    BackHandler(enabled = fichaId == null && d != Destino.Portada) { destino = 0 }
+    BackHandler(enabled = fichaId == null && sagaId == null && d != Destino.Portada) { destino = 0 }
 
     Box(Modifier.fillMaxSize().background(Paper)) {
         when (d) {
             Destino.Portada -> PantInicio(
                 alAbrir = { fichaId = it.id }, alJugar = ::jugar, alAnadir = { abrirAnadir(it) },
-                alIr = { ir(it) }, alBuscar = { ir(Destino.Todo); filtro.buscando = true }
+                alIr = { ir(it) }, alBuscar = { ir(Destino.Jugando, true) }
             )
-            Destino.Sistemas -> PantSistemas(alVolver = { destino = 0 }, alAnadirCarpeta = { abrirAnadir(null) })
+            Destino.Sistemas -> PantSistemas(alVolver = { destino = Destino.Ajustes.ordinal }, alAnadirCarpeta = { abrirAnadir(null) })
             Destino.Ajustes -> PantEstilo(alVolver = { destino = 0 }, alSistemas = { destino = Destino.Sistemas.ordinal })
-            else -> PantBiblioteca(filtro, alVolver = { destino = 0 }, alAbrir = { fichaId = it.id }, alJugar = ::jugar, alAnadir = { abrirAnadir(null) })
+            else -> PantSecciones(d, alVolver = { destino = 0 }, alAbrir = { fichaId = it.id }, alJugar = ::jugar, alAbrirSaga = { sagaId = it.id }, alAnadir = { abrirAnadir(null) }, buscandoInicial = buscar)
+        }
+        AnimatedVisibility(sagaId != null, enter = slideInVertically { it / 8 } + fadeIn(), exit = slideOutVertically { it / 8 } + fadeOut()) {
+            sagaId?.let { id -> PantSaga(id, alCerrar = { sagaId = null }, alAbrir = { fichaId = it.id }, alJugar = ::jugar) }
         }
         AnimatedVisibility(fichaId != null, enter = slideInVertically { it / 8 } + fadeIn(), exit = slideOutVertically { it / 8 } + fadeOut()) {
-            fichaId?.let { id -> Ficha(id, alCerrar = { fichaId = null }, alJugar = ::jugar) }
+            fichaId?.let { id -> Ficha(id, alCerrar = { fichaId = null }, alJugar = ::jugar, alVincular = { abrirAnadir(null, it.id) }, alIrA = { fichaId = it }) }
         }
     }
-    if (anadir) HojaAnadir(tipoInicial) { anadir = false }
+    if (anadir) HojaAnadir(tipoInicial, vincularA = vincularA, alVincular = { fichaId = it.id }) { anadir = false; vincularA = null }
 }

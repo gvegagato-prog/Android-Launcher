@@ -7,16 +7,41 @@ como dos programas de la misma suite. Atrio es la puerta de la casa; Carmesí es
 Carmesí **no es un emulador**: abre los que ya tienes instalados, los juegos de Android y los juegos de navegador, todo desde
 una sola biblioteca.
 
+## 0.16.0: Pórtico pasa a ser Carmesí
+
+La primera versión con el nombre nuevo (el paquete sigue siendo `com.gonzalo.portico`, así que se actualiza sola sobre Pórtico; en kDrive
+se llama `Portico-0.16.0.apk` para que la reconozca, y desde la siguiente, `Carmesi-<versión>.apk`). Lo que cambia:
+
+- **Secciones nuevas**: Jugando · Pendiente · Pasado · Abandonado · Sagas, como páginas por las que te mueves con el dedo o con las pestañas
+  (igual que en Marfil). Dentro de cada una, los menús pequeños **PC · Emulación · Android · Web** dicen de dónde es el juego: un toque filtra, otro
+  toque en el activo lo quita. No hay «Todos». «Sistemas y emuladores» está en Ajustes.
+- **Todos tus juegos, aunque no se abran desde el móvil**: «Añadir → Solo la ficha» crea un juego de PC o de consola con su plataforma, para llevar
+  sus horas, su estado y su nota. Las consolas van en Emulación; PC, en PC. Si luego añades su ROM, su app o su web, **«Vincular»** en la ficha las
+  une (y lo que se llame igual se une solo). «Unir con otro» junta dos fichas del mismo juego: se suman horas y veces, se queda el estado más
+  avanzado y la nota más alta, y la clave antigua queda como alias (para que Azabache no pierda su valoración).
+- **Traer mis juegos de Atrio** (Ajustes → Cuenta de Atrio): solo lee tu cuenta. Trae cada juego con su estado, horas, cuándo lo pasaste, la nota
+  (la general de Atrio, de 0 a 100, en medios puntos de 0 a 10), plataforma, favorito, la portada (de internet o la foto tuya de tu kDrive) y las
+  **sagas de juegos**. Lo que ya tengas con el mismo nombre no se duplica: se completa.
+- **Sagas de juegos**: se crean en Carmesí (desde la ficha, «Saga», o en la sección Sagas), con sus juegos en orden, el que toca ahora, y viajan
+  con tu cuenta como el resto.
+- **Barras diarias** en la portada, entre la fecha y el menú, como en Atrio: lo jugado hoy, los días seguidos y la semana.
+- **Estados** Jugando, Pendiente, Pasado y Abandonado (antes solo había «terminado»). Pasado lleva la fecha.
+- **Fuera** los apuntes rápidos y el texto libre de las casillas de la ficha: no tenían sentido.
+- Para Azabache, un nodo ligero `tiempo` con lo jugado por día y dispositivo, y un contrato de datos escrito: `docs/CONTRATO-DATOS.md`.
+- Las portadas de letra en las casillas pequeñas del lienzo ya no se pisan con el texto.
+
 ## Capturas
 
 La interfaz es la «Revista» de Atrio. Generadas en el ordenador con datos de ejemplo (`CapturasTest`): [portada](docs/capturas/2_portada.png) ·
-[portada en oscuro](docs/capturas/7_portada_oscuro.png) · [juegos](docs/capturas/3_juegos.png) · [ficha](docs/capturas/12_ficha_casillas.png) ·
-[ficha editando casillas](docs/capturas/13_ficha_editando.png) · [sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) ·
-[añadir](docs/capturas/9_anadir.png)
+[portada en oscuro](docs/capturas/7_portada_oscuro.png) · [Jugando](docs/capturas/3_juegos.png) · [Pendiente](docs/capturas/3b_pendiente.png) ·
+[Pasado](docs/capturas/3c_pasado.png) · [Pasado, solo Emulación](docs/capturas/3d_pasado_emulacion.png) · [Sagas](docs/capturas/3e_sagas.png) ·
+[saga abierta](docs/capturas/3f_saga_abierta.png) · [página de una saga](docs/capturas/3g_pagina_saga.png) · [ficha](docs/capturas/12_ficha_casillas.png) ·
+[ficha sin lanzador](docs/capturas/6b_ficha_sin_lanzador.png) · [ficha editando casillas](docs/capturas/13_ficha_editando.png) ·
+[sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) · [añadir](docs/capturas/9_anadir.png)
 
 ## La pantalla de inicio es tu lienzo
 
-Como la portada de Atrio, con **las mismas medidas** (márgenes de 28 dp, cabecera de 92 sp o 132 sp en tableta, filetes, línea del número y la fecha en 12 sp, y el menú de secciones en versalitas de 12 sp entre dos filetes con 18 dp de aire arriba): cabecera de revista, el **menú de secciones** (Recientes, Favoritos, ROMs, Android, Web, Todo, Sistemas) y, debajo, **tu lienzo**: una cuadrícula de 4 columnas de casillas invisibles donde colocas lo que quieras con el tamaño que quieras.
+Como la portada de Atrio, con **las mismas medidas** (márgenes de 28 dp, cabecera de 92 sp o 132 sp en tableta, filetes, línea del número y la fecha en 12 sp, y el menú de secciones en versalitas de 12 sp entre dos filetes con 18 dp de aire arriba): cabecera de revista, las barras de lo jugado cada día, el **menú de secciones** (Jugando, Pendiente, Pasado, Abandonado, Sagas) y, debajo, **tu lienzo**: una cuadrícula de 4 columnas de casillas invisibles donde colocas lo que quieras con el tamaño que quieras.
 - **Editar**: arrastra un elemento para moverlo (se encaja en las casillas; si pisa a otros, los empuja hacia abajo, como en la pantalla de inicio del móvil), arrastra el **círculo** de su esquina para hacerlo grande o pequeño, toca para elegir su **color de fondo** (solo el de ese elemento): cualquier color (matiz, intensidad y brillo, o el código #RRGGBB); los que uses quedan guardados y a mano para otras fichas («T» = el del tema), o **encuadrar** una imagen (arrastrar y zoom, con la forma exacta de su hueco; la foto se guarda y se dibuja ENTERA, y el hueco solo enseña la parte que queda dentro, así que se puede llevar al hueco cualquier parte de la foto) o quitarlo. «+ Añadir»: un juego, una imagen de la galería o una **imagen de internet** (la misma búsqueda de las portadas: Google Imágenes, Pinterest, ArtStation, Newgrounds).
 - **Los juegos y los widgets de dentro son los widgets de fuera**: se dibujan con el mismo código (papel, tinta, letras del tema, portadas, reborde fino y esquinas). Un juego es el widget «Sigue jugando» fijo en él (según su tamaño: portada a sangre, ancho o alto). «+ Añadir → Widgets» pone también Sigue jugando, Recientes, En portada, ¿Y ahora qué?, CARMESÍ y CARMESÍ en papel; tocarlos hace lo mismo que fuera. El contador «1/4 ›» de los widgets se quitó (tocar la esquina de arriba sigue pasando al siguiente).
 - Dentro de la app los widgets llevan **más margen** (el reborde fino más metido), la categoría arriba, un **botón «Jugar →»** y algo más de información (veces jugadas, terminado…) para que no queden vacíos; los de fuera no cambian.
@@ -48,8 +73,9 @@ su reborde fino de tinta). **Un toque juega; mantener pulsado abre la ficha.** P
 - **Portadas desde internet** (como en Atrio): en la ficha, Portada → «Buscar en internet» abre Google Imágenes, Pinterest, ArtStation o Newgrounds dentro de Carmesí, con su casilla de búsqueda; tocas una imagen (o la mantienes pulsada) y se usa de portada. También puedes elegir una de la galería.
 - **Ficha con casillas editables** (el sistema de maquetas de Atrio, con menos casillas): filas de una o dos casillas separadas por una línea
   que arrastras (⇔) y con alto que arrastras (⇕); subir, bajar, dividir, unir, quitar y añadir filas. Casillas: horas jugadas (editables),
-  veces y última vez, estado (terminado), valoración (solo cuando está terminado; 0–10 en pasos de 0,5), apuntes, cómo se abre, texto libre e
+  veces y última vez, estado (jugando, pendiente, pasado, abandonado), valoración (solo cuando está pasado; 0–10 en pasos de 0,5), cómo se abre e
   imagen tuya (galería o búsqueda en internet). Cada juego guarda su diseño y puedes usar el de uno para todos los de su tipo.
+- **Fichas sin lanzador** (PC, consola…), sagas de juegos, importar de Atrio y unir fichas: ver «0.16.0» arriba.
 - Tiempo de juego aproximado, favoritos, búsqueda, orden, portadas propias, portadas automáticas (libretro), copia de seguridad.
 
 ## Diseño: la misma interfaz que Atrio
@@ -65,7 +91,7 @@ Para eso Atrio 1.0.7 (o más nueva) ofrece sus colores en `content://com.gonzalo
 
 Ajustes → **Cuenta de Atrio**: entras con el mismo usuario y contraseña que en Atrio (Firebase Authentication por REST; la contraseña no se guarda, solo el pase de acceso, que se renueva solo).
 Carmesí no crea cuentas. Lo que se sincroniza, **solo entre tus Carmesís** (no con Atrio), igual que Atrio entre sus dispositivos (cada dispositivo escribe en su hueco bajo `/users/<tu uid>/portico/`, con sellos de hora y escucha en directo):
-juegos (por clave: sistema + nombre de archivo, paquete o web), favorito, terminado, nota, apuntes, nombre y diseño de la ficha. Gana el cambio más reciente; lo que quitas viaja como «borrado»;
+juegos (por clave: sistema + nombre de archivo, paquete, web o, en las fichas sin lanzador, el título), favorito, estado, nota, plataforma, alias, nombre y diseño de la ficha, y las sagas. Gana el cambio más reciente; lo que quitas viaja como «borrado»;
 las **horas y las veces se suman** (cada dispositivo sube las suyas). Una ROM que viene de otro móvil aparece «en otro dispositivo» hasta que la añades aquí (se une sola por sistema y nombre de archivo).
 Tu pareja de Atrio puede leer esa parte de la cuenta (las reglas de Atrio dejan leer a la pareja todo `/users/<uid>`).
 Las ROMs, los guardados y las portadas van por kDrive (siguiente sección). Probado en el ordenador contra el Firebase de mentira de Atrio (`SincroTest`) y las reglas de mezcla (`MezclaTest`); no con tu cuenta real.

@@ -12,8 +12,30 @@ import java.io.File
 /** En qué punto estás con el juego. «Pasado» = terminado; «Abandonado» = lo dejaste. */
 enum class Estado(val nombre: String) { JUGANDO("Jugando"), PENDIENTE("Pendiente"), PASADO("Pasado"), ABANDONADO("Abandonado") }
 
-/** De dónde sale el juego: una ROM (con su emulador), una app/juego de Android o un juego de navegador. */
-enum class Tipo { ROM, APP, WEB }
+/** De dónde sale el juego: una ROM (con su emulador), una app/juego de Android, un juego de navegador o solo una ficha (PC, consola…: no se abre desde el móvil). */
+enum class Tipo { ROM, APP, WEB, FICHA }
+
+/** Los menús pequeños de las secciones: de dónde es el juego. */
+enum class Menu(val nombre: String) { PC("PC"), EMULACION("Emulación"), ANDROID("Android"), WEB("Web") }
+
+/** En qué menú pequeño va un juego: las ROMs en Emulación, las apps en Android, las webs en Web; una ficha, según su plataforma (las consolas, en Emulación). */
+fun menuDe(j: Juego): Menu = when (j.tipo) {
+    Tipo.ROM -> Menu.EMULACION
+    Tipo.APP -> Menu.ANDROID
+    Tipo.WEB -> Menu.WEB
+    Tipo.FICHA -> menuDePlataforma(j.plataforma)
+}
+
+fun menuDePlataforma(plataforma: String): Menu {
+    val p = Catalogo.norm(plataforma)
+    return when {
+        p.isEmpty() -> Menu.PC
+        listOf("pc", "steam", "epic", "gog", "windows", "linux", "mac", "ordenador").any { p.startsWith(it) || p.endsWith(it) } || p.contains("steamdeck") -> Menu.PC
+        listOf("android", "movil", "ios", "iphone", "ipad", "tablet").any { p.contains(it) } -> Menu.ANDROID
+        listOf("web", "navegador", "browser").any { p.contains(it) } -> Menu.WEB
+        else -> Menu.EMULACION
+    }
+}
 
 /**
  * Un juego de la biblioteca.
@@ -63,11 +85,50 @@ data class Juego(
     /** Lo jugado cada día («AAAA-MM-DD» → ms): el de ESTE dispositivo y, por dispositivo, el de los demás. Para las barras y el Diario. */
     val diasPropios: Map<String, Long> = emptyMap(),
     val ajenosDias: Map<String, Map<String, Long>> = emptyMap(),
+    /** En qué se juega (PC, Switch, PS5…): lo que dijiste tú o lo que traía Atrio. Decide el menú de las fichas sin lanzador. */
+    val plataforma: String = "",
+    /** Las claves con las que se conoció antes a este juego (p. ej. la de la ficha de Atrio a la que luego pusiste su ROM): así Azabache sigue enlazando su valoración. */
+    val alias: List<String> = emptyList(),
+    /** Solo fichas: su clave, fijada al crearla (no cambia aunque la renombres). */
+    val claveFija: String = "",
 ) {
     /** Lo que identifica a este juego en todos tus dispositivos (el id de cada uno es distinto). */
     val clave: String get() = claveDe(this)
     /** Una ROM que viene de otro dispositivo y todavía no tienes en este. */
     val enOtroDispositivo: Boolean get() = tipo == Tipo.ROM && uri.isBlank()
+    /** Una ficha sin nada que abrir en el móvil (PC, consola…). */
+    val sinLanzador: Boolean get() = tipo == Tipo.FICHA
+    /** Todas las claves por las que se le conoce (la de ahora y las de antes). */
+    val claves: List<String> get() = (listOf(clave) + alias).distinct()
+}
+
+/** Una ficha nueva sin lanzador (su clave queda fijada al nacer). */
+fun nuevaFicha(titulo: String, plataforma: String = "", anadido: Long = System.currentTimeMillis()): Juego =
+    Juego(Biblioteca.nuevoId(), titulo.trim(), Tipo.FICHA, plataforma = plataforma.trim(), anadido = anadido, claveFija = "juego:" + Catalogo.norm(titulo))
+
+/**
+ * Une dos fichas del mismo juego: [destino] (la que se queda, normalmente la que tiene lanzador) absorbe a [origen]. Se suman las horas, las veces y
+ * los días; del estado se queda el más avanzado; la nota, la más alta; la portada y la plataforma, las que haya; y la clave de [origen] pasa a ser un alias.
+ */
+fun unirJuegos(destino: Juego, origen: Juego): Juego {
+    fun <K> suma(a: Map<K, Long>, b: Map<K, Long>): Map<K, Long> = (a.keys + b.keys).associateWith { (a[it] ?: 0L) + (b[it] ?: 0L) }
+    val peso = mapOf(Estado.PENDIENTE to 0, Estado.ABANDONADO to 1, Estado.JUGANDO to 2, Estado.PASADO to 3)
+    val estado = if ((peso[origen.estado] ?: 0) > (peso[destino.estado] ?: 0)) origen.estado else destino.estado
+    val ajMs = suma(destino.ajenosMs, origen.ajenosMs)
+    val ajVe = (destino.ajenosVeces.keys + origen.ajenosVeces.keys).associateWith { (destino.ajenosVeces[it] ?: 0) + (origen.ajenosVeces[it] ?: 0) }
+    val ajDias = (destino.ajenosDias.keys + origen.ajenosDias.keys).associateWith { suma(destino.ajenosDias[it] ?: emptyMap(), origen.ajenosDias[it] ?: emptyMap()) }
+    val msp = destino.msPropios + origen.msPropios
+    val vp = destino.vecesPropias + origen.vecesPropias
+    return destino.copy(
+        titulo = destino.titulo.ifBlank { origen.titulo }, estado = estado, terminado = estado == Estado.PASADO,
+        finalizado = if (estado == Estado.PASADO) maxOf(destino.finalizado, origen.finalizado) else 0L,
+        nota = maxOf(destino.nota, origen.nota), favorito = destino.favorito || origen.favorito,
+        portada = destino.portada.ifBlank { origen.portada }, plataforma = destino.plataforma.ifBlank { origen.plataforma }, maqueta = destino.maqueta.ifBlank { origen.maqueta },
+        msPropios = msp, vecesPropias = vp, diasPropios = suma(destino.diasPropios, origen.diasPropios),
+        ajenosMs = ajMs, ajenosVeces = ajVe, ajenosDias = ajDias, msJugados = msp + ajMs.values.sum(), veces = vp + ajVe.values.sum(),
+        ultima = maxOf(destino.ultima, origen.ultima), anadido = listOf(destino.anadido, origen.anadido).filter { it > 0 }.minOrNull() ?: destino.anadido,
+        alias = (destino.alias + origen.claves).filter { it != destino.clave }.distinct()
+    )
 }
 
 /** Cambia el estado (y lo que va con él: «Pasado» es lo mismo que terminado, con su fecha). */
@@ -89,13 +150,14 @@ fun Juego.conTotalMs(total: Long): Juego {
 }
 
 /** Lo que se edita de un juego y viaja con la cuenta (gana el cambio más reciente). */
-fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.estado, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion)
+fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.estado, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion, j.plataforma, j.alias)
 
-/** La clave de un juego: ROM = sistema + nombre del archivo; app = paquete; web = dirección. */
+/** La clave de un juego: ROM = sistema + nombre del archivo; app = paquete; web = dirección; ficha = «juego:» + su título normalizado (fijado al crearla). */
 fun claveDe(j: Juego): String = when (j.tipo) {
     Tipo.ROM -> "rom:${j.sistema}:${Catalogo.norm(j.archivo.ifBlank { j.titulo })}"
     Tipo.APP -> "app:${j.paquete}"
     Tipo.WEB -> "web:" + j.url.lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").trimEnd('/')
+    Tipo.FICHA -> j.claveFija.ifBlank { "juego:" + Catalogo.norm(j.titulo) }
 }
 
 /** Una carpeta de ROMs que diste (para volver a escanearla). */
@@ -169,11 +231,34 @@ object Biblioteca {
     fun quitar(id: String) { por(id)?.let { borrados[it.clave] = System.currentTimeMillis() }; juegos.removeAll { it.id == id }; guardar() }
     fun por(id: String): Juego? = juegos.firstOrNull { it.id == id }
 
-    /** ¿Ya está? (misma clave: la misma ROM, app o web, aunque viniera de otro dispositivo) */
-    fun repetido(j: Juego): Boolean = juegos.any { it.clave == j.clave }
+    /** ¿Ya está? (misma clave: la misma ROM, app o web, aunque viniera de otro dispositivo; o un juego que la tuvo antes de unirse a otro) */
+    fun repetido(j: Juego): Boolean = existente(j) != null
 
-    /** El juego que ya tienes con esa clave, si lo hay. */
-    fun existente(j: Juego): Juego? = juegos.firstOrNull { it.clave == j.clave }
+    /** El juego que ya tienes con esa clave (o que la tuvo antes de unirse a otro), si lo hay. */
+    fun existente(j: Juego): Juego? = porClave(j.clave)
+
+    /** El juego al que corresponde una clave (la de ahora o una antigua). */
+    fun porClave(k: String): Juego? = juegos.firstOrNull { it.clave == k } ?: juegos.firstOrNull { k in it.alias }
+
+    /** Une dos juegos (ver [unirJuegos]): [origenId] desaparece dentro de [destinoId]. Devuelve el resultado o null si falta alguno. */
+    fun unir(destinoId: String, origenId: String): Juego? {
+        val d = por(destinoId) ?: return null; val o = por(origenId) ?: return null
+        if (d.id == o.id) return d
+        val u = unirJuegos(d, o)
+        juegos.removeAll { it.id == o.id }; borrados[o.clave] = System.currentTimeMillis()
+        poner(u)
+        return u
+    }
+
+    /** La ficha sin lanzador que se llama igual que este juego (para ofrecer unirlas), si la hay. */
+    fun gemela(j: Juego): Juego? = j.takeIf { !it.sinLanzador }?.let { x -> juegos.firstOrNull { it.sinLanzador && it.id != x.id && Catalogo.norm(it.titulo) == Catalogo.norm(x.titulo) && Catalogo.norm(x.titulo).isNotEmpty() } }
+
+    /** Une cada juego con lanzador a la ficha sin lanzador que se llama igual (lo que vino de Atrio con su ROM, app o web recién añadida). Devuelve cuántas. */
+    fun unirGemelas(): Int {
+        var n = 0
+        for (j in juegos.toList()) { val g = gemela(j) ?: continue; if (por(j.id) != null && por(g.id) != null) { unir(j.id, g.id); n++ } }
+        return n
+    }
 
     fun aJson(j: Juego) = JSONObject().apply {
         put("id", j.id); put("titulo", j.titulo); put("tipo", j.tipo.name); put("sistema", j.sistema); put("uri", j.uri); put("ruta", j.ruta)
@@ -183,6 +268,7 @@ object Biblioteca {
         put("dp", JSONObject().also { o -> j.diasPropios.forEach { (k, v) -> o.put(k, v) } })
         put("ajd", JSONObject().also { o -> j.ajenosDias.forEach { (dev, m) -> o.put(dev, JSONObject().also { x -> m.forEach { (k, v) -> x.put(k, v) } }) } })
         put("ajms", JSONObject().also { o -> j.ajenosMs.forEach { (k, v) -> o.put(k, v) } }); put("ajv", JSONObject().also { o -> j.ajenosVeces.forEach { (k, v) -> o.put(k, v) } })
+        put("pl", j.plataforma); put("al", JSONArray().also { a -> j.alias.forEach { a.put(it) } }); put("k0", j.claveFija)
     }
 
     fun aJuego(o: JSONObject) = Juego(
@@ -199,7 +285,8 @@ object Biblioteca {
         // (lo guardado antes de los estados: terminado = pasado, el resto = pendiente)
         estado = Estado.entries.firstOrNull { it.name == o.optString("est") } ?: if (o.optBoolean("terminado")) Estado.PASADO else Estado.PENDIENTE,
         diasPropios = o.optJSONObject("dp")?.let { a -> a.keys().asSequence().associateWith { k -> a.optLong(k) } } ?: emptyMap(),
-        ajenosDias = o.optJSONObject("ajd")?.let { a -> a.keys().asSequence().associateWith { dev -> a.optJSONObject(dev)?.let { x -> x.keys().asSequence().associateWith { k -> x.optLong(k) } } ?: emptyMap() } } ?: emptyMap()
+        ajenosDias = o.optJSONObject("ajd")?.let { a -> a.keys().asSequence().associateWith { dev -> a.optJSONObject(dev)?.let { x -> x.keys().asSequence().associateWith { k -> x.optLong(k) } } ?: emptyMap() } } ?: emptyMap(),
+        plataforma = o.optString("pl"), alias = o.optJSONArray("al")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } } ?: emptyList(), claveFija = o.optString("k0")
     )
 
     fun nuevoId(): String = java.util.UUID.randomUUID().toString().take(12)

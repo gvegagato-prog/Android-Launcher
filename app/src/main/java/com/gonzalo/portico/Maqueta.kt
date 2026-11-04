@@ -46,11 +46,10 @@ import java.io.File
 /*
  * La maqueta de la ficha (la misma idea que la de Atrio, con menos casillas): la ficha es una lista de filas; cada fila tiene
  * una casilla a todo lo ancho o dos separadas por una línea que tú colocas (⇔), y su alto también se arrastra (⇕).
- * En cada casilla eliges qué va: horas jugadas, veces y última vez, estado (terminado), valoración, apuntes, cómo se abre,
- * un texto libre o una imagen tuya. Se guarda en cada juego, y puedes usar el diseño de uno para todos los de su tipo.
+ * En cada casilla eliges qué va: horas jugadas, veces y última vez, estado, valoración, cómo se abre o una imagen tuya. Se guarda en cada juego, y puedes usar el diseño de uno para todos los de su tipo.
  */
 
-/** Una casilla: qué módulo enseña, o un texto libre (título y texto) o una imagen (ruta de un archivo de la app). */
+/** Una casilla: qué módulo enseña, o una imagen (ruta de un archivo de la app). (Los textos libres de antes se tratan como casillas vacías.) */
 data class MagCell(val type: String, val title: String = "", val text: String = "", val image: String = "")
 
 /** Una fila: una o dos casillas; [split] es dónde va la línea (lo que ocupa la de la izquierda, 0–1); [height] el alto en dp (0: el que pida el contenido). */
@@ -61,10 +60,10 @@ object MagLayouts {
     val MODULOS = listOf("horas", "veces", "estado", "valoracion", "lanzamiento")
 
     /** El diseño de siempre. */
-    fun defaults(tipo: Tipo): List<MagRowSpec> = listOf(
+    fun defaults(tipo: Tipo): List<MagRowSpec> = listOfNotNull(
         MagRowSpec(listOf(MagCell("horas"), MagCell("veces"))),
         MagRowSpec(listOf(MagCell("estado"), MagCell("valoracion"))),
-        MagRowSpec(listOf(MagCell("lanzamiento"))),
+        if (tipo == Tipo.FICHA) null else MagRowSpec(listOf(MagCell("lanzamiento"))),
     )
 
     fun aJson(rows: List<MagRowSpec>): String = JSONArray().apply {
@@ -140,13 +139,12 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
     var rows by remember(juego.id) { mutableStateOf(MagLayouts.cargar(ctx, juego)) }
     fun poner(n: List<MagRowSpec>) { rows = n; Biblioteca.cambiar(juego.id) { it.copy(maqueta = MagLayouts.aJson(n)) } }
     var eligiendo by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var editandoTexto by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var imagenPara by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var internetPara by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var galeriaPara by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var aviso by remember { mutableStateOf("") }
 
-    fun visible(c: MagCell) = c.type == "imagen" || c.type == "vacio" || defs.containsKey(c.type)
+    fun visible(c: MagCell) = c.type == "imagen" || c.type == "vacio" || c.type == "texto" || defs.containsKey(c.type)
     fun celda(p: Pair<Int, Int>) = rows.getOrNull(p.first)?.cells?.getOrNull(p.second)
     fun ponCelda(p: Pair<Int, Int>, c: MagCell) = poner(rows.mapIndexed { i, r -> if (i != p.first) r else r.copy(cells = r.cells.mapIndexed { j, x -> if (j == p.second) c else x }) })
 
@@ -158,11 +156,6 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
     @Composable
     fun ColumnScope.Vista(c: MagCell) {
         when (c.type) {
-            "texto" -> {
-                if (c.title.isNotBlank()) MagLabel(c.title)
-                if (c.text.isNotBlank()) Text(c.text, color = Charcoal, fontFamily = Display, fontSize = 17.sp, lineHeight = 25.sp)
-                else if (disenando) Text("Texto libre", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp)
-            }
             "imagen" -> {
                 if (c.title.isNotBlank()) MagLabel(c.title)
                 Box(Modifier.fillMaxWidth().weight(1f, fill = true).heightIn(min = 120.dp).clipToBounds().background(if (c.image.isBlank()) Sand else Color.Transparent)) {
@@ -170,7 +163,7 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
                     else if (disenando) Text("Imagen", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp, modifier = Modifier.align(Alignment.Center))
                 }
             }
-            "vacio" -> if (disenando) Text("Vacía: toca para elegir", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp)
+            "vacio", "texto" -> if (disenando) Text("Vacía: toca para elegir", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp)
             else -> defs[c.type]?.let { d -> MagLabel(d.label, d.action?.first, d.action?.second); d.content(this) }
         }
     }
@@ -225,7 +218,7 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
                             Modifier.matchParentSize()
                                 .drawBehind { drawRoundRect(Color(Skin.tones.general or 0xFF000000), style = androidx.compose.ui.graphics.drawscope.Stroke(3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f)))) }
                                 .clickable(onClickLabel = "Cambiar") { eligiendo = i to j }
-                                .semantics { contentDescription = "Casilla " + when (c.type) { "texto" -> c.title.ifBlank { "Texto libre" }; "imagen" -> c.title.ifBlank { "Imagen" }; "vacio" -> "vacía"; else -> MAG_NOMBRES[c.type] ?: c.type } }
+                                .semantics { contentDescription = "Casilla " + when (c.type) { "imagen" -> c.title.ifBlank { "Imagen" }; "vacio", "texto" -> "vacía"; else -> MAG_NOMBRES[c.type] ?: c.type } }
                         )
                     }
                 }
@@ -253,7 +246,7 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().height(2.dp).background(Charcoal))
             Row(Modifier.fillMaxWidth().padding(top = 12.dp)) { Herramienta("+ AÑADIR FILA", acento = true) { poner(rows + MagRowSpec(listOf(MagCell("vacio")))); eligiendo = rows.size - 1 to 0 } }
-            val de = when (juego.tipo) { Tipo.ROM -> "DE ROMS"; Tipo.APP -> "DE ANDROID"; Tipo.WEB -> "WEB" }
+            val de = when (juego.tipo) { Tipo.ROM -> "DE ROMS"; Tipo.APP -> "DE ANDROID"; Tipo.WEB -> "WEB"; Tipo.FICHA -> "SIN LANZADOR" }
             Herramienta("USAR ESTE DISEÑO EN TODOS LOS JUEGOS $de") { MagLayouts.guardarPlantilla(ctx, juego.tipo, rows); aviso = "Guardado: lo verás en los demás juegos ${de.lowercase().replace("de roms", "de ROMs")} (sin tus textos ni imágenes)." }
             Herramienta("RESTABLECER EL DISEÑO DE SIEMPRE") { MagLayouts.quitarPlantilla(ctx, juego.tipo); poner(MagLayouts.defaults(juego.tipo)); aviso = "Diseño de siempre." }
             if (aviso.isNotBlank()) Cuerpo(aviso, tam = 13, modifier = Modifier.padding(top = 6.dp))
@@ -275,24 +268,6 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
                 }
             },
             confirmButton = { TextButton({ eligiendo = null }) { Text("Cerrar", color = Charcoal) } }
-        )
-    }
-    editandoTexto?.let { p ->
-        val cur = celda(p)
-        var titulo by remember(p) { mutableStateOf(if (cur?.type == "texto") cur.title else "") }
-        var texto by remember(p) { mutableStateOf(if (cur?.type == "texto") cur.text else "") }
-        AlertDialog(
-            onDismissRequest = { editandoTexto = null }, containerColor = Crudo,
-            title = { Text("Texto libre", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    OutlinedTextField(titulo, { titulo = it }, label = { Text("Título (opcional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(texto, { texto = it }, label = { Text("Texto") }, modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp))
-                }
-            },
-            confirmButton = { TextButton({ ponCelda(p, MagCell("texto", titulo.trim(), texto.trim())); editandoTexto = null }) { Text("Guardar", color = Acento) } },
-            dismissButton = { TextButton({ editandoTexto = null }) { Text("Cancelar", color = Charcoal) } }
         )
     }
     imagenPara?.let { p ->

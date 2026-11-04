@@ -82,8 +82,8 @@ class PantallaTest {
         var ir: Destino? = null
         rule.setContent { PorticoTheme { Surface(Modifier.fillMaxSize(), color = Paper) { PantInicio({}, {}, {}, { ir = it }, {}) } } }
         rule.onNodeWithTag("el-e1").assertExists()
-        listOf("RECIENTES", "FAVORITOS", "ROMS", "ANDROID", "WEB", "TODO", "SISTEMAS").forEach { rule.onNodeWithText(it).assertExists() }
-        rule.onNodeWithText("ROMS").performClick(); assertEquals(Destino.Roms, ir)
+        listOf("JUGANDO", "PENDIENTE", "PASADO", "ABANDONADO", "SAGAS").forEach { rule.onNodeWithText(it).assertExists() }
+        rule.onNodeWithText("PASADO").performClick(); assertEquals(Destino.Pasado, ir)
         // Editar: aparecen las instrucciones y el botón de añadir
         rule.onNodeWithText("EDITAR").performClick()
         rule.onNodeWithText("+ AÑADIR").assertExists(); rule.onNodeWithText("LISTO").assertExists()

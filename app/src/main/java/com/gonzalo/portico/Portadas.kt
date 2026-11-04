@@ -59,6 +59,7 @@ fun tonosDe(j: Juego): Pair<Color, Color> {
         Tipo.ROM -> Catalogo.sistema(j.sistema)?.color ?: Color(0xFF6C4DD6)
         Tipo.APP -> Color.hsv(((j.paquete.hashCode().mod(120)) + 90).toFloat(), 0.5f, 0.6f)
         Tipo.WEB -> Color.hsv(((j.url.hashCode().mod(80)) + 190).toFloat(), 0.55f, 0.62f)
+        Tipo.FICHA -> Color.hsv(((j.clave.hashCode().mod(300)) + 20).toFloat(), 0.5f, 0.58f)
     }
     val shift = (j.titulo.hashCode().mod(40) - 20).toFloat()
     val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(base.toArgb2(), it) }
@@ -154,6 +155,7 @@ fun etiquetaDe(j: Juego): String = when (j.tipo) {
     Tipo.ROM -> Catalogo.sistema(j.sistema)?.corto ?: j.sistema.uppercase()
     Tipo.APP -> "Android"
     Tipo.WEB -> runCatching { Uri.parse(j.url).host?.removePrefix("www.") }.getOrNull() ?: "Web"
+    Tipo.FICHA -> j.plataforma.ifBlank { "Ficha" }
 }
 
 /** El icono de la propia web (su /favicon.ico: se pide solo a ella, no a terceros). */

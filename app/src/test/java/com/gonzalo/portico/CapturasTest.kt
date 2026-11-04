@@ -8,6 +8,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -34,6 +36,8 @@ class CapturasTest {
 
     private fun siembra() {
         Catalogo.cargar(ctx); Skin.cargar(ctx); Ajustes.cargar(ctx)
+        // (lo que otra prueba haya dejado puesto en la apariencia)
+        Skin.invertido = false; Skin.origenAtrio = false; Skin.fondoId = ""
         Ajustes.portadasLibretro = false
         Biblioteca.cargada = true
         Biblioteca.juegos.clear()
@@ -46,6 +50,16 @@ class CapturasTest {
         rom("Pokémon Platino", "nds", 5, jug = ahora - 86_400_000L * 2, ms = 12 * 3600_000L, veces = 21); rom("Mario Kart DS", "nds", 6); rom("Hollow Knight (SNES hack)", "snes", 7)
         Biblioteca.juegos.add(Juego("a1", "Stardew Valley", Tipo.APP, paquete = "com.chucklefish.stardewvalley", anadido = ahora - 9000))
         Biblioteca.juegos.add(Juego("w1", "PokéRogue", Tipo.WEB, url = "https://pokerogue.net", anadido = ahora - 10000, ultima = ahora - 600_000, veces = 3, msJugados = 5400_000))
+        // Los estados: lo pasado, lo que se está jugando, lo pendiente y lo abandonado
+        fun estado(id: String, e: Estado) { val i = Biblioteca.juegos.indexOfFirst { it.id == id }; Biblioteca.juegos[i] = Biblioteca.juegos[i].conEstado(e, ahora - 86_400_000L * 3) }
+        estado("r1", Estado.PASADO); estado("r5", Estado.JUGANDO); estado("w1", Estado.JUGANDO); estado("r4", Estado.ABANDONADO)
+        // Fichas sin lanzador (de Atrio): un juego de PC pasado y uno de Switch a medias
+        Biblioteca.juegos.add(nuevaFicha("Hades", "PC", anadido = ahora - 20_000).conEstado(Estado.PASADO, ahora - 86_400_000L * 10).copy(nota = 9f, msPropios = 40 * 3600_000L, msJugados = 40 * 3600_000L, alias = listOf("juego:hades")))
+        Biblioteca.juegos.add(nuevaFicha("Tears of the Kingdom", "Switch", anadido = ahora - 30_000).conEstado(Estado.JUGANDO).copy(msPropios = 25 * 3600_000L, msJugados = 25 * 3600_000L, ultima = ahora - 7200_000))
+        // Dos sagas
+        Sagas.cargada = true; Sagas.lista.clear(); Sagas.borradas.clear()
+        Sagas.lista.add(Saga("s1", "Pokémon", listOf(Biblioteca.por("r1")!!.clave, Biblioteca.por("r5")!!.clave), 1))
+        Sagas.lista.add(Saga("s2", "The Legend of Zelda", listOf(Biblioteca.por("r4")!!.clave, Biblioteca.juegos.first { it.titulo == "Tears of the Kingdom" }.clave), 1))
     }
 
     private fun foto(nombre: String) {
@@ -60,6 +74,15 @@ class CapturasTest {
     }
 
     private fun ir(texto: String) { rule.onNodeWithText(texto).performScrollTo().performClick() }
+    /** Toca el nodo con ese texto que está dentro de la pantalla (el pager tiene compuestas las páginas vecinas, fuera de la vista). */
+    private fun tocarVisible(texto: String) {
+        val nodos = rule.onAllNodesWithText(texto, substring = true).fetchSemanticsNodes()
+        val ancho = rule.onRoot().fetchSemanticsNode().size.width
+        val i = nodos.indexOfFirst { it.boundsInRoot.left >= 0f && it.boundsInRoot.right <= ancho }
+        rule.onAllNodesWithText(texto, substring = true)[if (i < 0) 0 else i].performClick(); rule.waitForIdle()
+    }
+    /** Un enlace de la barra de arriba (no hace falta desplazarse hasta él). */
+    private fun pulsar(texto: String) { rule.onNodeWithText(texto).performClick(); rule.waitForIdle() }
 
     @Test
     fun interfaces() {
@@ -76,11 +99,20 @@ class CapturasTest {
         siembra()
         montar(oscuro = false)
         foto("2_portada")
-        ir("TODO"); foto("3_juegos")
-        ir("← PÓRTICO"); ir("SISTEMAS"); foto("4_sistemas")
-        ir("← PÓRTICO"); rule.onNodeWithContentDescription("Ajustes").performClick(); foto("5_ajustes")
-        ir("← PÓRTICO"); ir("TODO")
+        ir("JUGANDO"); foto("3_juegos")
+        rule.onAllNodesWithText("PENDIENTE")[0].performClick(); rule.waitForIdle(); foto("3b_pendiente")
+        rule.onAllNodesWithText("PASADO")[0].performClick(); rule.waitForIdle(); foto("3c_pasado")
+        tocarVisible("EMULACIÓN"); foto("3d_pasado_emulacion")
+        rule.onAllNodesWithText("SAGAS")[0].performClick(); rule.waitForIdle(); foto("3e_sagas")
+        rule.onAllNodesWithText("The Legend of Zelda", useUnmergedTree = true).onLast().performClick(); rule.waitForIdle(); foto("3f_saga_abierta")
+        rule.onNodeWithText("VER LA SAGA →", useUnmergedTree = true).performClick(); foto("3g_pagina_saga")
+        pulsar("← VOLVER")
+        pulsar("← CARMESÍ"); rule.onNodeWithContentDescription("Ajustes").performClick(); foto("5_ajustes")
+        rule.onNodeWithText("Sistemas y emuladores", substring = true).performScrollTo().performClick(); foto("4_sistemas")
+        pulsar("← CARMESÍ"); pulsar("← CARMESÍ"); ir("PASADO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick(); foto("6_ficha")
+        pulsar("← VOLVER")
+        rule.onAllNodesWithText("Hades", substring = true, useUnmergedTree = true)[0].performClick(); foto("6b_ficha_sin_lanzador")
     }
 
     @Test
@@ -114,7 +146,7 @@ class CapturasTest {
         siembra()
         montar(oscuro = true)
         foto("7_portada_oscuro")
-        ir("TODO"); foto("8_juegos_oscuro")
+        ir("JUGANDO"); foto("8_juegos_oscuro")
     }
 
     @Test
@@ -130,7 +162,7 @@ class CapturasTest {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
         montar(oscuro = false)
-        ir("TODO")
+        ir("PASADO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("12_ficha_casillas")
         rule.onNodeWithText("EDITAR").performClick()
@@ -143,7 +175,7 @@ class CapturasTest {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
         montar(oscuro = false)
-        ir("TODO")
+        ir("PASADO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("PORTADA\u00A0→").performScrollTo().performClick(); foto("10_portada_opciones")
         rule.onNodeWithText("Buscar en internet\u00A0→").performClick(); foto("11_buscador")
@@ -156,7 +188,7 @@ class CapturasTest {
         Skin.invertido = true
         montar(oscuro = false)
         foto("15_invertido_portada")
-        ir("TODO"); foto("16_invertido_juegos")
+        ir("PASADO"); foto("16_invertido_juegos")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("17_invertido_ficha")
     }

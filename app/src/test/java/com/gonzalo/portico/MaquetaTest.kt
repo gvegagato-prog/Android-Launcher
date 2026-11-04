@@ -22,7 +22,9 @@ class MaquetaTest {
 
     @Test fun elDisenoDeSiempreTieneLasCasillasPedidas() {
         val tipos = MagLayouts.defaults(Tipo.ROM).flatMap { it.cells }.map { it.type }
-        assertTrue(tipos.containsAll(listOf("horas", "estado", "valoracion", "apuntes")))
+        assertTrue(tipos.containsAll(listOf("horas", "estado", "valoracion", "lanzamiento")))
+        assertFalse("ya no hay apuntes ni texto libre", tipos.any { it == "apuntes" || it == "texto" })
+        assertFalse("una ficha sin lanzador no tiene «cómo se abre»", MagLayouts.defaults(Tipo.FICHA).flatMap { it.cells }.any { it.type == "lanzamiento" })
         assertTrue(MagLayouts.MODULOS.all { it in MAG_NOMBRES })
     }
 
