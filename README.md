@@ -7,6 +7,11 @@ como dos programas de la misma suite. Atrio es la puerta de la casa; Carmesí es
 Carmesí **no es un emulador**: abre los que ya tienes instalados, los juegos de Android y los juegos de navegador, todo desde
 una sola biblioteca.
 
+## 0.20.1: los widgets, sin rastro de Pórtico
+
+- Las **vistas previas** de los widgets (las que enseña el móvil al elegir uno) aún decían «Pórtico»: se han vuelto a dibujar y dicen «Carmesí».
+- La cabecera en mayúsculas de los widgets («CARMESI» y «CARMESI en papel») va **sin tilde**: en mayúsculas no hace falta y la tilde se cortaba por arriba.
+
 ## 0.20.0: la ficha sin casillas que mover, los widgets eligen juego
 
 - **La ficha, como la de Marfil**: las pestañas de estado (Jugando · Pendiente · Pasado · Abandonado) van arriba, pegadas a la barra. Debajo, el

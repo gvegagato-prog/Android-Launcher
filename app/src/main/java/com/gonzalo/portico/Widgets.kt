@@ -831,18 +831,18 @@ object Widgets {
             val sombra = if (noche) 0x99000000.toInt() else 0x55FFFFFF
             val pie = if (h >= 84f) 16f else 0f
             val p = tp(fTitular, 10f, color, -0.03f)
-            val ancho = p.measureText("CARMESÍ")
+            val ancho = p.measureText("CARMESI")
             val cuadro = 0.16f
             var s = min((w - 8f) / (ancho / 10f * (1f + cuadro)), (h - pie - 4f) / 0.95f)
             s = s.coerceAtLeast(10f)
             val tpa = tp(fTitular, s, color, -0.03f).apply { setShadowLayer(s * 0.06f, 0f, s * 0.02f, sombra) }
             val fm = tpa.fontMetrics
-            val tw = tpa.measureText("CARMESÍ")
+            val tw = tpa.measureText("CARMESI")
             val total = tw + s * cuadro
             val x = (w - total) / 2
             val capH = s * 0.72f
             val base = (h - pie) / 2 + capH / 2
-            c.drawText("CARMESÍ", x, base, tpa)
+            c.drawText("CARMESI", x, base, tpa)
             // El punto de la revista: un cuadradito de acento
             val q = s * 0.12f
             c.drawRect(x + tw + s * 0.03f, base - q, x + tw + s * 0.03f + q, base, lleno(acento).apply { setShadowLayer(s * 0.04f, 0f, s * 0.015f, sombra) })
@@ -853,7 +853,7 @@ object Widgets {
         }.transparente()
     }
 
-    /** CARMESÍ en papel: la cabecera de la portada (el nombre, el número del día y la fecha), con su papel de fondo. */
+    /** CARMESI en papel: la cabecera de la portada (el nombre, el número del día y la fecha), con su papel de fondo. */
     private fun marcaPapel(d: WDatos, w: Float, h: Float, dentro: Boolean = false): Pagina {
         val ctx = d.ctx
         val hoy = LocalDate.now()
@@ -867,14 +867,14 @@ object Widgets {
             val bajo = (if (conLinea) 22f else 0f) + (if (conEntradilla) 24f else 0f)
             val alto = h - 2 * pad - bajo
             val p = tp(fTitular, 10f, tinta, -0.03f)
-            val s = min((w - 2 * pad) / (p.measureText("CARMESÍ") / 10f), alto / 0.78f).coerceAtLeast(10f)
+            val s = min((w - 2 * pad) / (p.measureText("CARMESI") / 10f), alto / 0.78f).coerceAtLeast(10f)
             val tpa = tp(fTitular, s, tinta, -0.03f)
             val capH = s * 0.72f
             // Todo el bloque centrado en el widget (el nombre se mide por sus mayúsculas, no por la caja de la letra)
             val bloque = capH + s * 0.08f + 4f + bajo
             val base = max(pad, (h - bloque) / 2) + capH
-            val tw = tpa.measureText("CARMESÍ")
-            c.drawText("CARMESÍ", (w - tw) / 2, base, tpa)
+            val tw = tpa.measureText("CARMESI")
+            c.drawText("CARMESI", (w - tw) / 2, base, tpa)
             var y = base + s * 0.08f + 4f
             if (conLinea) {
                 c.drawRect(pad, y, w - pad, y + 1.6f, lleno(tinta))
