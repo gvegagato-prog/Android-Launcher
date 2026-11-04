@@ -239,7 +239,7 @@ fun VisorCaptura(shot: Shot, alCerrar: () -> Unit, alBorrar: () -> Unit) {
 
 /** Un juego de la biblioteca del PC: jugar en el PC o en streaming, y meterlo en Carmesí (o abrir su ficha si ya está). */
 @Composable
-private fun HojaJuegoPc(dev: String, g: PcGame, alCerrar: () -> Unit, alAbrir: (Juego) -> Unit) {
+fun HojaJuegoPc(dev: String, g: PcGame, alCerrar: () -> Unit, alAbrir: (Juego) -> Unit) {
     val enCarmesi = Biblioteca.porClave("pc:" + g.key)
     AlertDialog(
         onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),

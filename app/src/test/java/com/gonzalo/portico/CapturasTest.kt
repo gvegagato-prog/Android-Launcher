@@ -132,7 +132,7 @@ class CapturasTest {
         JuegosPc.aplicar(ctx, Suite.leer(arbol, "yo"), emptyList())
         montar(oscuro = false)
         foto("22_portada_pc")
-        ir("TU PC"); foto("23_tu_pc")
+        rule.onAllNodesWithText("TU PC")[0].performClick(); rule.waitForIdle(); foto("23_tu_pc")
         rule.onAllNodesWithText("BIBLIOTECA", substring = true)[0].performClick(); rule.waitForIdle(); foto("24_tu_pc_biblioteca")
         rule.onAllNodesWithText("EQUIPO", substring = true)[0].performClick(); rule.waitForIdle(); foto("25_tu_pc_equipo")
         rule.onAllNodesWithText("AHORA", substring = true)[0].performClick(); rule.waitForIdle()
@@ -141,19 +141,15 @@ class CapturasTest {
     }
 
     @Test
-    fun lienzo() {
+    fun inicio() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()
-        Pantalla.items.clear(); Pantalla.borrados.clear()
-        fun j(i: Int) = Biblioteca.juegos[i].clave
-        Pantalla.items.addAll(listOf(
-            Elemento("w1", Elemento.WIDGET, "JUGANDO", 0, 0, 4, 2, 0, 1),
-            Elemento("a", Elemento.JUEGO, j(0), 0, 2, 2, 2, 0xFFC8362B.toInt(), 1), Elemento("b", Elemento.JUEGO, j(1), 2, 2, 2, 1, 0, 1),
-            Elemento("c", Elemento.JUEGO, j(4), 2, 3, 1, 1, 0xFF2F5D8A.toInt(), 1), Elemento("d", Elemento.JUEGO, j(8), 3, 3, 1, 1, 0xFFE3B53B.toInt(), 1),
-            Elemento("w2", Elemento.WIDGET, "ESTANTE", 0, 4, 4, 2, 0, 1)))
+        Inicio.poner(ConfigInicio(fijados = listOf(Biblioteca.por("r3")!!.clave, Biblioteca.por("r6")!!.clave, Biblioteca.juegos.first { it.titulo == "Hades" }.clave)), 1)
         montar(oscuro = false)
-        rule.waitForIdle(); Thread.sleep(2500); foto("20_lienzo")
-        rule.onNodeWithText("EDITAR").performClick(); foto("21_lienzo_editando")
+        rule.waitForIdle(); Thread.sleep(2500); foto("20_inicio")
+        rule.onNodeWithText("MIS ELEGIDOS").performScrollTo(); foto("20b_inicio_estantes")
+        rule.onNodeWithText("EDITAR").performScrollTo().performClick(); rule.waitForIdle(); rule.onNodeWithText("ESTANTES").performScrollTo(); foto("21_inicio_editando")
+        Inicio.poner(ConfigInicio(), 2)
     }
 
     @Test

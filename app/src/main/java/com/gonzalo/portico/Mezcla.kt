@@ -23,7 +23,7 @@ class JuegoSync(
 
 /** La biblioteca de un dispositivo, tal como la sube a la cuenta. */
 class Blob(val dev: String, val juegos: List<JuegoSync>, val borrados: Map<String, Long>, val pantalla: List<Elemento> = emptyList(), val pBorrados: Map<String, Long> = emptyMap(), val ajustes: String = "",
-           val sagas: List<Saga> = emptyList(), val sagasBorradas: Map<String, Long> = emptyMap())
+           val sagas: List<Saga> = emptyList(), val sagasBorradas: Map<String, Long> = emptyMap(), val inicio: String = "")
 
 class ResMezcla(val juegos: List<Juego>, val borrados: Map<String, Long>, val cambio: Boolean)
 
@@ -32,11 +32,11 @@ object Mezcla {
     const val OLVIDO = 180L * 86_400_000L
 
     fun aBlob(dev: String, juegos: List<Juego>, borrados: Map<String, Long>, pantalla: List<Elemento> = emptyList(), pBorrados: Map<String, Long> = emptyMap(), ajustes: String = "",
-              sagas: List<Saga> = emptyList(), sagasBorradas: Map<String, Long> = emptyMap()): Blob = Blob(dev,
+              sagas: List<Saga> = emptyList(), sagasBorradas: Map<String, Long> = emptyMap(), inicio: String = ""): Blob = Blob(dev,
         juegos.filter { it.titulo.isNotBlank() }.distinctBy { it.clave }.map { j ->
             JuegoSync(j.clave, j.titulo, j.tipo, j.sistema, j.paquete, j.url, j.archivo, j.favorito, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta,
                 j.orientacion, j.anadido, j.mod, j.msPropios, j.vecesPropias, j.ultima, j.estado, j.diasPropios.entries.sortedByDescending { it.key }.take(400).associate { it.key to it.value }, j.plataforma, j.alias, j.pcKey, j.pcDev, j.portadaUrl)
-        }, borrados, pantalla, pBorrados, ajustes, sagas, sagasBorradas)
+        }, borrados, pantalla, pBorrados, ajustes, sagas, sagasBorradas, inicio)
 
     fun aJson(b: Blob): String = JSONObject().put("v", 1).put("dev", b.dev)
         .put("borrados", JSONObject().also { o -> b.borrados.forEach { (k, v) -> o.put(k, v) } })
@@ -54,6 +54,7 @@ object Mezcla {
             if (b.ajustes.isNotBlank()) put("aj", JSONObject(b.ajustes))
             if (b.sagas.isNotEmpty()) put("sg", JSONArray().also { a -> b.sagas.forEach { a.put(it.aJson()) } })
             if (b.sagasBorradas.isNotEmpty()) put("sgb", JSONObject().also { x -> b.sagasBorradas.forEach { (k, v) -> x.put(k, v) } })
+            if (b.inicio.isNotBlank()) put("ini", JSONObject(b.inicio))
         }.toString()
 
     fun deJson(s: String?): Blob? = try {
@@ -76,7 +77,8 @@ object Mezcla {
                 o.optJSONObject("pb")?.let { pb -> pb.keys().asSequence().associateWith { pb.optLong(it) } } ?: emptyMap(),
                 o.optJSONObject("aj")?.toString().orEmpty(),
                 o.optJSONArray("sg")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(Saga::deJson) } } ?: emptyList(),
-                o.optJSONObject("sgb")?.let { x -> x.keys().asSequence().associateWith { x.optLong(it) } } ?: emptyMap())
+                o.optJSONObject("sgb")?.let { x -> x.keys().asSequence().associateWith { x.optLong(it) } } ?: emptyMap(),
+                o.optJSONObject("ini")?.toString().orEmpty())
         }
     } catch (e: Exception) { null }
 

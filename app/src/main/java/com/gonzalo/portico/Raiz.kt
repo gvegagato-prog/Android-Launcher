@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 
 /** Arranca los datos de la app (una vez). */
 fun iniciar(c: Context) {
-    Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); NubeP.cargar(c); Biblioteca.cargar(c); Sagas.cargar(c); Pantalla.cargar(c)
+    Catalogo.cargar(c); Skin.cargar(c); Ajustes.cargar(c); NubeP.cargar(c); Biblioteca.cargar(c); Sagas.cargar(c); Pantalla.cargar(c); Inicio.cargar(c)
     TemaAtrio.cargarGuardado(c)
     Cuenta.cargar(c); SincroP.iniciar(c)
 }

@@ -72,7 +72,7 @@ object SincroP {
     suspend fun subir(c: Context, forzar: Boolean = false): Boolean = candado.withLock {
         if (!Cuenta.vinculada) return@withLock true
         try {
-            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), Pantalla.items.toList(), HashMap(Pantalla.borrados), if (Skin.ajustesAt > 0L) Skin.ajustesJson().toString() else "", Sagas.lista.toList(), HashMap(Sagas.borradas)))
+            val blob = Mezcla.aJson(Mezcla.aBlob(Cuenta.dispositivo, Biblioteca.juegos.toList(), HashMap(Biblioteca.borrados), Pantalla.items.toList(), HashMap(Pantalla.borrados), if (Skin.ajustesAt > 0L) Skin.ajustesJson().toString() else "", Sagas.lista.toList(), HashMap(Sagas.borradas), if (Inicio.config.mod > 0L) Inicio.config.aJson().toString() else ""))
             val hash = blob.hashCode().toString() + ":" + blob.length
             val p = prefs(c)
             if (!forzar && p.getString("hash", "") == hash) return@withLock true
@@ -140,7 +140,7 @@ object SincroP {
                 if (dev == Cuenta.dispositivo || ts <= vistas.optLong(dev, 0L) || ahora - ts > Cuenta.STALE) continue
                 val raw = Cuenta.db("GET", "${Cuenta.raiz}/dev/$dev/data", null) ?: continue
                 val datos = JSONTokener(raw).nextValue() as? String ?: continue
-                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados, it.pantalla, it.pBorrados, it.ajustes, it.sagas, it.sagasBorradas) }
+                Mezcla.deJson(datos)?.let { nuevos += Blob(dev, it.juegos, it.borrados, it.pantalla, it.pBorrados, it.ajustes, it.sagas, it.sagasBorradas, it.inicio) }
                 vistosNuevos.put(dev, ts)
             }
             var cambio = false
@@ -154,6 +154,8 @@ object SincroP {
                 if (rp.cambio) { Pantalla.aplicarMezcla(rp.items, rp.borrados); cambio = true }
                 val rs = Mezcla.mezclarSagas(Sagas.lista.toList(), HashMap(Sagas.borradas), nuevos, Cuenta.dispositivo)
                 if (rs.cambio) { Sagas.aplicarMezcla(rs.sagas, rs.borradas); cambio = true }
+                // La portada (destacado, estantes, elegidos): la más reciente de tus otros Carmesís
+                nuevos.map { it.inicio }.filter { it.isNotBlank() }.forEach { if (Inicio.aplicarRemoto(it)) cambio = true }
             }
             guardaVistos(c, vistosNuevos)
             bien(c)

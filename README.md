@@ -7,6 +7,21 @@ como dos programas de la misma suite. Atrio es la puerta de la casa; Carmesí es
 Carmesí **no es un emulador**: abre los que ya tienes instalados, los juegos de Android y los juegos de navegador, todo desde
 una sola biblioteca.
 
+## 0.18.0: la portada, como una revista (y con mando)
+
+Fuera el lienzo de casillas con colores: cada casilla traía su propio papel y, sobre el granate (o cualquier fondo), el inicio parecía un mosaico
+de aparatos. Ahora la portada es una **portada de revista**, todo sobre el papel de la página, con el único color de las carátulas:
+
+- **Destacado**: el juego de ahora (lo que estés jugando; si el PC está ejecutando algo, eso, en directo; o el que tú fijes), con su arte a
+  sangre dentro del marco de la revista, fundido con el papel por abajo, y encima el antetítulo, el titular y «Jugar → · Ficha →».
+- **Estantes**: filas de portadas con un marco idéntico (un filete fino) y el nombre y de dónde es debajo, en versalitas. Los que quieras, en el
+  orden que quieras, con portadas grandes o pequeñas: Sigue jugando, Mis elegidos (los que tú pongas, en tu orden), Pendiente, Sagas (abanicos),
+  Tu PC y Pasado. «Editar» lo configura; viaja con tu cuenta (gana el cambio más reciente).
+- **Mando y teclado**: todo lo que se toca se enfoca. La cruceta se mueve por estantes y portadas (lo enfocado lleva un filete de acento y crece un
+  poco), **A o Enter juega**, **X o Y abre la ficha**. Con el dedo: un toque juega, mantener abre la ficha. Es el mismo diseño (una lista de
+  entradas: estante, tamaño, juegos fijados) que podrá pintar Carmesí en el PC con mando o con ratón.
+- Sin colores por casilla: la personalización es qué va, dónde y de qué tamaño.
+
 ## 0.17.0: Carmesí hereda el PC de Atrio, y sin valoración
 
 Primera versión que se sube como `Carmesi-<versión>.apk` (la 0.16.0 ya entendía los dos nombres). Icono nuevo.
@@ -59,20 +74,21 @@ La interfaz es la «Revista» de Atrio. Generadas en el ordenador con datos de e
 [saga abierta](docs/capturas/3f_saga_abierta.png) · [página de una saga](docs/capturas/3g_pagina_saga.png) · [ficha](docs/capturas/12_ficha_casillas.png) ·
 [ficha sin lanzador](docs/capturas/6b_ficha_sin_lanzador.png) · [ficha editando casillas](docs/capturas/13_ficha_editando.png) ·
 [sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) · [añadir](docs/capturas/9_anadir.png) ·
-[portada con el PC en directo](docs/capturas/22_portada_pc.png) · [Tu PC](docs/capturas/23_tu_pc.png) · [biblioteca del PC](docs/capturas/24_tu_pc_biblioteca.png) ·
+[portada con el PC en directo](docs/capturas/22_portada_pc.png) · [portada](docs/capturas/20_inicio.png) · [portada editando](docs/capturas/21_inicio_editando.png) · [Tu PC](docs/capturas/23_tu_pc.png) · [biblioteca del PC](docs/capturas/24_tu_pc_biblioteca.png) ·
 [equipo](docs/capturas/25_tu_pc_equipo.png) · [ficha de un juego del PC](docs/capturas/26_ficha_pc.png)
 
-## La pantalla de inicio es tu lienzo
+## La portada
 
-Como la portada de Atrio, con **las mismas medidas** (márgenes de 28 dp, cabecera de 92 sp o 132 sp en tableta, filetes, línea del número y la fecha en 12 sp, y el menú de secciones en versalitas de 12 sp entre dos filetes con 18 dp de aire arriba): cabecera de revista, las barras de lo jugado cada día, el **menú de secciones** (Jugando, Pendiente, Pasado, Abandonado, Sagas) y, debajo, **tu lienzo**: una cuadrícula de 4 columnas de casillas invisibles donde colocas lo que quieras con el tamaño que quieras.
-- **Editar**: arrastra un elemento para moverlo (se encaja en las casillas; si pisa a otros, los empuja hacia abajo, como en la pantalla de inicio del móvil), arrastra el **círculo** de su esquina para hacerlo grande o pequeño, toca para elegir su **color de fondo** (solo el de ese elemento): cualquier color (matiz, intensidad y brillo, o el código #RRGGBB); los que uses quedan guardados y a mano para otras fichas («T» = el del tema), o **encuadrar** una imagen (arrastrar y zoom, con la forma exacta de su hueco; la foto se guarda y se dibuja ENTERA, y el hueco solo enseña la parte que queda dentro, así que se puede llevar al hueco cualquier parte de la foto) o quitarlo. «+ Añadir»: un juego, una imagen de la galería o una **imagen de internet** (la misma búsqueda de las portadas: Google Imágenes, Pinterest, ArtStation, Newgrounds).
-- **Los juegos y los widgets de dentro son los widgets de fuera**: se dibujan con el mismo código (papel, tinta, letras del tema, portadas, reborde fino y esquinas). Un juego es el widget «Sigue jugando» fijo en él (según su tamaño: portada a sangre, ancho o alto). «+ Añadir → Widgets» pone también Sigue jugando, Recientes, En portada, ¿Y ahora qué?, CARMESÍ y CARMESÍ en papel; tocarlos hace lo mismo que fuera. El contador «1/4 ›» de los widgets se quitó (tocar la esquina de arriba sigue pasando al siguiente).
-- Dentro de la app los widgets llevan **más margen** (el reborde fino más metido), la categoría arriba, un **botón «Jugar →»** y algo más de información (veces jugadas, terminado…) para que no queden vacíos; los de fuera no cambian.
-- **Acento**: el del tema por defecto; Carmesí no inventa ninguno por juego. Si quieres, eliges uno por elemento («Color de acento»: cuadradito, botón y horas, con un lavado suave de ese color).
-- Cada juego, widget e imagen lleva por fuera una **línea de contorno del color del texto** (sin sombra), siguiendo su silueta.
-- **Color**: cada juego o widget puede tener su propio color de fondo (cualquiera, con los usados a mano): ese pasa a ser su papel, y la tinta, el gris y las líneas se sacan de él para que se lea. Sin color propio usan los del tema.
-- **Sincronizado entre tus móviles** (por elemento, gana el cambio más reciente; lo quitado se quita en todos). Los juegos se enlazan por su clave, las imágenes viajan por kDrive. La cuadrícula tiene 4 columnas en todos los móviles para que la disposición sea la misma.
-- La primera vez (sin cuenta vinculada) se rellena con tus últimos juegos. Capturas: [lienzo](docs/capturas/20_lienzo.png) · [editando](docs/capturas/21_lienzo_editando.png).
+Como la portada de Atrio, con **las mismas medidas** (márgenes de 28 dp, cabecera de 92 sp o 132 sp en tableta, filetes, línea del número y la
+fecha en 12 sp y el menú de secciones en versalitas de 12 sp entre dos filetes): cabecera de revista, las barras de lo jugado cada día, el **menú**
+(Jugando, Pendiente, Pasado, Abandonado, Sagas, Tu PC), el PC en directo si lo hay y, debajo, el **destacado** y los **estantes** de portadas
+(ver «0.18.0» arriba). Capturas: [portada](docs/capturas/20_inicio.png) · [estantes](docs/capturas/20b_inicio_estantes.png) ·
+[editando](docs/capturas/21_inicio_editando.png).
+
+## (Antes, 0.15–0.17) La pantalla de inicio era un lienzo
+
+Una cuadrícula de 4 columnas de casillas invisibles donde colocabas juegos, imágenes y widgets con el tamaño y el color que quisieras,
+sincronizada entre móviles. Se quitó en la 0.18.0 porque cada casilla traía su propio papel y el conjunto no casaba con la revista.
 
 ## (Antes) La pantalla de inicio era un launcher de baldosas
 
