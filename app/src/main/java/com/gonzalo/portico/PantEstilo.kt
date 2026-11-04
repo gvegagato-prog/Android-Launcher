@@ -36,7 +36,7 @@ import androidx.compose.material3.TextButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-const val VERSION = "0.18.0"
+const val VERSION = "0.19.0"
 
 private fun aliasInicio(c: Context) = ComponentName(c, "com.gonzalo.portico.InicioAlias")
 private fun esInicio(c: Context) = c.packageManager.getComponentEnabledSetting(aliasInicio(c)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
@@ -102,6 +102,12 @@ fun PantEstilo(alVolver: () -> Unit, alSistemas: () -> Unit = {}) {
         Fila("Capturas del PC en la galería", "Las capturas que pides al PC se guardan también en Imágenes/Carmesí (si no, solo dentro de la app).") {
             Interruptor(galeria) { galeria = it; Suite.ponAGaleria(it) }
         }
+
+        Spacer(Modifier.height(14.dp))
+        Filete(2.dp)
+        Spacer(Modifier.height(12.dp))
+        Antetitulo("Servicios", Modifier.padding(bottom = 4.dp))
+        SeccionServicios()
 
         Spacer(Modifier.height(14.dp))
         Filete(2.dp)

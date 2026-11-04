@@ -100,6 +100,10 @@ data class Juego(
     val pcDev: String = "",
     /** Una portada de internet (la de la biblioteca del PC): se usa cuando no has puesto ninguna. */
     val portadaUrl: String = "",
+    /** El encuadre de tu portada: zoom (1 = cubre el hueco) y desplazamiento como fracción del hueco (-1..1). */
+    val zoom: Float = 1f, val ox: Float = 0f, val oy: Float = 0f,
+    /** Lo que suele durar (minutos; 0 = no se sabe): la historia, con extras y al completo (de Atrio: HowLongToBeat/RAWG). */
+    val durHistoria: Int = 0, val durExtras: Int = 0, val durCompleto: Int = 0,
 ) {
     /** Lo que identifica a este juego en todos tus dispositivos (el id de cada uno es distinto). */
     val clave: String get() = claveDe(this)
@@ -111,6 +115,10 @@ data class Juego(
     val enPc: Boolean get() = tipo == Tipo.PC
     /** Todas las claves por las que se le conoce (la de ahora y las de antes). */
     val claves: List<String> get() = (listOf(clave) + alias).distinct()
+    /** ¿Has movido o ampliado la portada? */
+    val encuadrada: Boolean get() = zoom != 1f || ox != 0f || oy != 0f
+    /** Cuánto llevas de la historia (0–1), si se sabe lo que dura. */
+    val avance: Float? get() = if (durHistoria > 0 && msJugados > 0) (msJugados / 60_000f / durHistoria).coerceIn(0f, 1f) else null
 }
 
 /** Una ficha nueva sin lanzador (su clave queda fijada al nacer). */
@@ -134,7 +142,9 @@ fun unirJuegos(destino: Juego, origen: Juego): Juego {
         titulo = destino.titulo.ifBlank { origen.titulo }, estado = estado, terminado = estado == Estado.PASADO,
         finalizado = if (estado == Estado.PASADO) maxOf(destino.finalizado, origen.finalizado) else 0L,
         nota = maxOf(destino.nota, origen.nota), favorito = destino.favorito || origen.favorito,
-        portada = destino.portada.ifBlank { origen.portada }, portadaUrl = destino.portadaUrl.ifBlank { origen.portadaUrl }, plataforma = destino.plataforma.ifBlank { origen.plataforma }, maqueta = destino.maqueta.ifBlank { origen.maqueta },
+        portada = destino.portada.ifBlank { origen.portada }, portadaUrl = destino.portadaUrl.ifBlank { origen.portadaUrl },
+        zoom = if (destino.portada.isBlank()) origen.zoom else destino.zoom, ox = if (destino.portada.isBlank()) origen.ox else destino.ox, oy = if (destino.portada.isBlank()) origen.oy else destino.oy,
+        durHistoria = if (destino.durHistoria > 0) destino.durHistoria else origen.durHistoria, durExtras = if (destino.durExtras > 0) destino.durExtras else origen.durExtras, durCompleto = if (destino.durCompleto > 0) destino.durCompleto else origen.durCompleto, plataforma = destino.plataforma.ifBlank { origen.plataforma }, maqueta = destino.maqueta.ifBlank { origen.maqueta },
         msPropios = msp, vecesPropias = vp, diasPropios = suma(destino.diasPropios, origen.diasPropios),
         ajenosMs = ajMs, ajenosVeces = ajVe, ajenosDias = ajDias, msJugados = msp + ajMs.values.sum(), veces = vp + ajVe.values.sum(),
         ultima = maxOf(destino.ultima, origen.ultima), anadido = listOf(destino.anadido, origen.anadido).filter { it > 0 }.minOrNull() ?: destino.anadido,
@@ -161,7 +171,7 @@ fun Juego.conTotalMs(total: Long): Juego {
 }
 
 /** Lo que se edita de un juego y viaja con la cuenta (gana el cambio más reciente). */
-fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.estado, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion, j.plataforma, j.alias, j.pcDev, j.portadaUrl)
+fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.estado, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion, j.plataforma, j.alias, j.pcDev, j.portadaUrl, j.zoom, j.ox, j.oy, j.durHistoria, j.durExtras, j.durCompleto)
 
 /** La clave de un juego: ROM = sistema + nombre del archivo; app = paquete; web = dirección; ficha = «juego:» + su título normalizado (fijado al crearla). */
 fun claveDe(j: Juego): String = when (j.tipo) {
@@ -285,6 +295,7 @@ object Biblioteca {
         put("ajms", JSONObject().also { o -> j.ajenosMs.forEach { (k, v) -> o.put(k, v) } }); put("ajv", JSONObject().also { o -> j.ajenosVeces.forEach { (k, v) -> o.put(k, v) } })
         put("pl", j.plataforma); put("al", JSONArray().also { a -> j.alias.forEach { a.put(it) } }); put("k0", j.claveFija)
         put("pck", j.pcKey); put("pcd", j.pcDev); put("pu", j.portadaUrl)
+        put("ez", j.zoom.toDouble()); put("eox", j.ox.toDouble()); put("eoy", j.oy.toDouble()); put("dh", j.durHistoria); put("de", j.durExtras); put("dc", j.durCompleto)
     }
 
     fun aJuego(o: JSONObject) = Juego(
@@ -303,7 +314,9 @@ object Biblioteca {
         diasPropios = o.optJSONObject("dp")?.let { a -> a.keys().asSequence().associateWith { k -> a.optLong(k) } } ?: emptyMap(),
         ajenosDias = o.optJSONObject("ajd")?.let { a -> a.keys().asSequence().associateWith { dev -> a.optJSONObject(dev)?.let { x -> x.keys().asSequence().associateWith { k -> x.optLong(k) } } ?: emptyMap() } } ?: emptyMap(),
         plataforma = o.optString("pl"), alias = o.optJSONArray("al")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } } ?: emptyList(), claveFija = o.optString("k0"),
-        pcKey = o.optString("pck"), pcDev = o.optString("pcd"), portadaUrl = o.optString("pu")
+        pcKey = o.optString("pck"), pcDev = o.optString("pcd"), portadaUrl = o.optString("pu"),
+        zoom = o.optDouble("ez", 1.0).toFloat(), ox = o.optDouble("eox", 0.0).toFloat(), oy = o.optDouble("eoy", 0.0).toFloat(),
+        durHistoria = o.optInt("dh"), durExtras = o.optInt("de"), durCompleto = o.optInt("dc")
     )
 
     fun nuevoId(): String = java.util.UUID.randomUUID().toString().take(12)

@@ -43,7 +43,7 @@ class SuiteTest {
 
     @Test fun entranSolosLosJugadosYLosQueYaTenias() {
         Biblioteca.juegos.clear(); Biblioteca.borrados.clear(); Biblioteca.cargada = true
-        Biblioteca.juegos.add(nuevaFicha("Celeste", "PC", anadido = 1).conEstado(Estado.PASADO, 5))
+        Biblioteca.juegos.add(nuevaFicha("Celeste", "PC", anadido = 1).conEstado(Estado.PASADO, 5).copy(msPropios = 500 * 60_000L, msJugados = 500 * 60_000L))
         val ahora = 10_000_000_000L
         val v = Suite.leer(arbol(lib = listOf(g("steam:1", "Hades", 1500, ahora - 3600_000L), g("steam:2", "Celeste"), g("steam:3", "Sin tocar"))), "yo", now = ahora)
         JuegosPc.aplicar(org.robolectric.RuntimeEnvironment.getApplication(), v, emptyList(), ahora)
@@ -53,6 +53,7 @@ class SuiteTest {
         // La ficha de Atrio pasa a ser el juego del PC, con su clave antigua de alias y su estado
         val celeste = Biblioteca.porClave("pc:steam:2")!!
         assertEquals(Tipo.PC, celeste.tipo); assertEquals(Estado.PASADO, celeste.estado); assertTrue("juego:celeste" in celeste.alias); assertEquals(celeste.id, Biblioteca.porClave("juego:celeste")?.id)
+        assertEquals("las horas de Atrio eran las del PC: no se suman dos veces", 0L, celeste.msJugados)
         assertEquals(2, Biblioteca.juegos.size); assertNull(Biblioteca.porClave("pc:steam:3"))
         // Repetir no duplica ni suma dos veces
         JuegosPc.aplicar(org.robolectric.RuntimeEnvironment.getApplication(), v, emptyList(), ahora)
@@ -82,5 +83,12 @@ class SuiteTest {
         assertEquals(5L, NotaAzabache.de(notas, pc)?.atrioId)
         assertEquals("Brutal", NotaAzabache.de(notas, Juego("b", "Hades", Tipo.ROM))?.resena)
         assertNull(NotaAzabache.de(notas, Juego("c", "Celeste", Tipo.ROM)))
+    }
+
+    @Test fun elRecorteDelEncuadreSigueElHueco() {
+        val b = android.graphics.Bitmap.createBitmap(300, 400, android.graphics.Bitmap.Config.ARGB_8888)
+        assertSame("sin encuadre, la misma imagen", b, recortarEncuadre(b, 1f, 0f, 0f))
+        val r = recortarEncuadre(b, 2f, 0f, 0f)
+        assertEquals("ampliada al doble, se ve la mitad", 150, r.width); assertEquals(200, r.height)
     }
 }

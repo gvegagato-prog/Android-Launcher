@@ -54,7 +54,7 @@ class CapturasTest {
         fun estado(id: String, e: Estado) { val i = Biblioteca.juegos.indexOfFirst { it.id == id }; Biblioteca.juegos[i] = Biblioteca.juegos[i].conEstado(e, ahora - 86_400_000L * 3) }
         estado("r1", Estado.PASADO); estado("r5", Estado.JUGANDO); estado("w1", Estado.JUGANDO); estado("r4", Estado.ABANDONADO)
         // Fichas sin lanzador (de Atrio): un juego de PC pasado y uno de Switch a medias
-        Biblioteca.juegos.add(nuevaFicha("Hades", "PC", anadido = ahora - 20_000).conEstado(Estado.PASADO, ahora - 86_400_000L * 10).copy(nota = 9f, msPropios = 40 * 3600_000L, msJugados = 40 * 3600_000L, alias = listOf("juego:hades")))
+        Biblioteca.juegos.add(nuevaFicha("Hades", "PC", anadido = ahora - 20_000).conEstado(Estado.PASADO, ahora - 86_400_000L * 10).copy(nota = 9f, ajenosMs = mapOf("steam" to 40 * 3600_000L), msJugados = 40 * 3600_000L, alias = listOf("juego:hades"), durHistoria = 22 * 60, durExtras = 55 * 60, durCompleto = 95 * 60))
         Biblioteca.juegos.add(nuevaFicha("Tears of the Kingdom", "Switch", anadido = ahora - 30_000).conEstado(Estado.JUGANDO).copy(msPropios = 25 * 3600_000L, msJugados = 25 * 3600_000L, ultima = ahora - 7200_000))
         // Dos sagas
         Sagas.cargada = true; Sagas.lista.clear(); Sagas.borradas.clear()
@@ -185,7 +185,7 @@ class CapturasTest {
         montar(oscuro = false)
         ir("PASADO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
-        rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("12_ficha_casillas")
+        rule.onNodeWithText("EN AZABACHE").performScrollTo(); foto("12_ficha_casillas")
         rule.onNodeWithText("EDITAR").performClick()
         rule.onNodeWithText("FILA 1").performScrollTo(); foto("13_ficha_editando")
         rule.onNodeWithText("RESTABLECER EL DISEÑO DE SIEMPRE").performScrollTo(); foto("14_ficha_editando_abajo")
@@ -211,7 +211,7 @@ class CapturasTest {
         foto("15_invertido_portada")
         ir("PASADO"); foto("16_invertido_juegos")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
-        rule.onNodeWithText("HORAS JUGADAS").performScrollTo(); foto("17_invertido_ficha")
+        rule.onNodeWithText("EN AZABACHE").performScrollTo(); foto("17_invertido_ficha")
     }
 
     @Test

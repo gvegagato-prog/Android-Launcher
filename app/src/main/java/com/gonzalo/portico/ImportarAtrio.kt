@@ -77,10 +77,12 @@ object ImportarAtrio {
             val plataforma = (g?.optString("platform").orEmpty().ifBlank { p?.optString("platform").orEmpty() }).trim()
             val cover = g?.optString("cover").orEmpty().ifBlank { p?.optString("cover").orEmpty() }
             val ms = minutos * 60_000L
+            fun ttb(k: String) = maxOf(g?.optInt(k) ?: 0, p?.optInt(k) ?: 0)
             val juego = nuevaFicha(titulo, plataforma, anadido = if (inicio > 0) inicio else maxOf(g?.optLong("updated") ?: 0L, p?.optLong("updated") ?: 0L).takeIf { it > 0 } ?: ahora).copy(
                 estado = estado, terminado = estado == Estado.PASADO, finalizado = if (estado == Estado.PASADO) fin else 0L,
                 nota = g?.let { notaDe(it.optInt("general", 0)) } ?: 0f, favorito = g?.optBoolean("fav") ?: false,
-                msPropios = ms, msJugados = ms, ultima = maxOf(fin, inicio)
+                msPropios = ms, msJugados = ms, ultima = maxOf(fin, inicio),
+                durHistoria = ttb("ttbMain"), durExtras = ttb("ttbExtra"), durCompleto = ttb("ttbFull")
             )
             val foto = cover.takeIf { it.startsWith("file:") }?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
                 ?.let { n -> fotos["foto:$n"]?.let { it.optLong("f") to it.optString("n").ifBlank { n } } }?.takeIf { it.first > 0 }
@@ -142,6 +144,7 @@ object ImportarAtrio {
         if (previo.plataforma.isBlank() && a.plataforma.isNotBlank()) n = n.copy(plataforma = a.plataforma)
         if (previo.msJugados == 0L && a.msPropios > 0L) n = n.copy(msPropios = a.msPropios, msJugados = a.msPropios)
         if (a.favorito && !previo.favorito) n = n.copy(favorito = true)
+        if (previo.durHistoria == 0 && a.durHistoria > 0) n = n.copy(durHistoria = a.durHistoria, durExtras = a.durExtras, durCompleto = a.durCompleto)
         if (a.clave !in previo.claves) n = n.copy(alias = previo.alias + a.clave)
         if (previo.anadido == 0L || (a.anadido in 1 until previo.anadido)) n = n.copy(anadido = a.anadido)
         return n

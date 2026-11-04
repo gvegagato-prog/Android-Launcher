@@ -7,6 +7,21 @@ como dos programas de la misma suite. Atrio es la puerta de la casa; Carmesí es
 Carmesí **no es un emulador**: abre los que ya tienes instalados, los juegos de Android y los juegos de navegador, todo desde
 una sola biblioteca.
 
+## 0.19.0: la ficha como la de Marfil, SteamGridDB, horas de Steam y encuadre
+
+- **La ficha**: la portada grande a la izquierda y, a su lado, tus horas en grande (o, si se sabe lo que dura el juego, el **porcentaje de la
+  historia** con su barra, como el porcentaje de un libro en Marfil), de dónde salen las horas (este móvil, el PC, Steam…), veces y última vez.
+  Debajo, el estado como pestañas y las acciones. Las casillas de siempre («En Azabache», «Lo que suele durar» —historia, extras, completo, de
+  Atrio—, «Cómo se abre») siguen debajo y se siguen pudiendo editar.
+- **SteamGridDB**: en Portada → «SteamGridDB» buscas el juego y eliges una de sus portadas (600×900). Y **horas de Steam** (Ajustes → Servicios →
+  «Traer las horas de Steam», y solas cada 6 h): se ponen en los juegos que se llamen igual; los del PC no las reciben porque Atrio del PC ya las
+  cuenta (nada se suma dos veces). Las claves (API key de SteamGridDB, clave y perfil de Steam) **se cogen solas de las que tienes en Atrio**
+  (están en tu cuenta); si no, se ponen en Ajustes → Servicios.
+- **Encuadrar la portada**: se guarda la imagen entera que bajes (de SteamGridDB, de internet o de la galería) y en Portada → «Encuadrar» la
+  mueves y la amplías dentro del hueco, como se hacía con las imágenes del lienzo. El encuadre vale para la ficha, la portada y los widgets, y
+  viaja con tu cuenta.
+- **Lo que suele durar** (HowLongToBeat/RAWG, lo que Atrio tenga) viene al importar y sirve para el porcentaje.
+
 ## 0.18.0: la portada, como una revista (y con mando)
 
 Fuera el lienzo de casillas con colores: cada casilla traía su propio papel y, sobre el granate (o cualquier fondo), el inicio parecía un mosaico

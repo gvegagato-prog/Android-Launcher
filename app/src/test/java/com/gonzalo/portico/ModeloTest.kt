@@ -66,4 +66,16 @@ class ModeloTest {
         val g = Biblioteca.aJuego(Biblioteca.aJson(j))
         assertEquals(j.clave, g.clave); assertEquals(j.alias, g.alias); assertEquals(j.plataforma, g.plataforma)
     }
+
+    @Test fun elEncuadreYLaDuracionViajanYSeGuardan() {
+        val j = rom("Zelda").copy(portada = "/x/p.jpg", zoom = 1.6f, ox = -0.2f, oy = 0.1f, durHistoria = 600, durExtras = 900, durCompleto = 1500, msPropios = 300 * 60_000L, msJugados = 300 * 60_000L)
+        assertTrue(j.encuadrada); assertEquals(0.5f, j.avance!!, 0.001f)
+        val g = Biblioteca.aJuego(Biblioteca.aJson(j))
+        assertEquals(1.6f, g.zoom, 0.001f); assertEquals(-0.2f, g.ox, 0.001f); assertEquals(600, g.durHistoria)
+        val b = Mezcla.deJson(Mezcla.aJson(Mezcla.aBlob("B", listOf(j.copy(mod = 5)), emptyMap())))!!
+        val r = Mezcla.mezclar(emptyList(), emptyMap(), listOf(b), "A", 1_000) { "n1" }.juegos[0]
+        assertEquals(1.6f, r.zoom, 0.001f); assertEquals(0.1f, r.oy, 0.001f); assertEquals(1500, r.durCompleto)
+        assertFalse(rom("Metroid").encuadrada); assertNull(rom("Metroid").avance)
+    }
+
 }

@@ -57,12 +57,11 @@ data class MagRowSpec(val cells: List<MagCell>, val split: Float = 0.5f, val hei
 
 object MagLayouts {
     /** Los módulos que se pueden poner en una casilla (aparte de texto libre, imagen y vacía). */
-    val MODULOS = listOf("horas", "veces", "estado", "azabache", "lanzamiento")
+    val MODULOS = listOf("azabache", "lanzamiento", "duracion", "horas", "veces", "estado")
 
     /** El diseño de siempre. */
     fun defaults(tipo: Tipo): List<MagRowSpec> = listOfNotNull(
-        MagRowSpec(listOf(MagCell("horas"), MagCell("veces"))),
-        MagRowSpec(listOf(MagCell("estado"), MagCell("azabache"))),
+        MagRowSpec(listOf(MagCell("azabache"), MagCell("duracion"))),
         if (tipo == Tipo.FICHA) null else MagRowSpec(listOf(MagCell("lanzamiento"))),
     )
 
@@ -103,7 +102,7 @@ class MagDef(val label: String, val action: Pair<String, () -> Unit>? = null, va
 
 val MAG_NOMBRES = mapOf(
     "horas" to "Horas jugadas", "veces" to "Veces y última vez", "estado" to "Estado", "azabache" to "En Azabache",
-    "lanzamiento" to "Cómo se abre"
+    "lanzamiento" to "Cómo se abre", "duracion" to "Lo que suele durar"
 )
 
 @Composable

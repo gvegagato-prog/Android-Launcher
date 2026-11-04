@@ -546,7 +546,7 @@ object Widgets {
     /** La imagen de un juego a unos [lado] píxeles: la que elegiste, el icono de la app o la caja de libretro; si no llega, null (portada de letra). */
     suspend fun imagen(ctx: Context, j: Juego, lado: Int): Bitmap? = withContext(Dispatchers.IO) {
         try {
-            if (j.portada.isNotBlank()) decodificar(j.portada, lado)?.let { return@withContext it }
+            if (j.portada.isNotBlank()) decodificar(j.portada, if (j.encuadrada) lado * 2 else lado)?.let { return@withContext if (j.encuadrada) recortarEncuadre(it, j.zoom, j.ox, j.oy) else it }
             if (j.portadaUrl.isNotBlank()) {
                 val b = withTimeoutOrNull(4_500) {
                     val r = ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(j.portadaUrl).allowHardware(false).size(lado).build())

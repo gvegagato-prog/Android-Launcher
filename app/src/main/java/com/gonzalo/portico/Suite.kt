@@ -147,8 +147,15 @@ object Suite {
                 repeat(6) { delay(10_000); tick = System.currentTimeMillis() }
             }
         }
-        // La lista negra de Atrio, de vez en cuando
-        sc.launch { runCatching { ImportarAtrio.blobs()?.let { b -> val n = Negra.deBlobs(b); Negra.poner(n); prefs().edit().putStringSet("negra", n.toSet()).apply() } } }
+        // La lista negra y las claves de servicios de Atrio, de vez en cuando; y las horas de Steam, cada 6 h
+        sc.launch {
+            runCatching { ImportarAtrio.blobs()?.let { b ->
+                val n = Negra.deBlobs(b); Negra.poner(n); prefs().edit().putStringSet("negra", n.toSet()).apply()
+                val k = Servicios.deBlobs(b); ctx.getSharedPreferences("portico_servicios", Context.MODE_PRIVATE).edit().putString("a_sgdb", k.sgdb).putString("a_steamKey", k.steamKey).putString("a_steamUser", k.steamUser).apply()
+            } }
+            val c = appCtx ?: return@launch
+            if (System.currentTimeMillis() - Servicios.ultimaSteam(c) > 6 * 3_600_000L && Servicios.claves(c).steamKey.isNotBlank()) runCatching { Servicios.traerHorasSteam(c) }
+        }
     }
 
     /** Deja de escuchar (al salir de la app). */
@@ -424,7 +431,8 @@ object JuegosPc {
             else -> previo.copy(pcDev = dev, portadaUrl = previo.portadaUrl.ifBlank { g.cover }, ultima = maxOf(previo.ultima, g.lastPlayed))
         }
         val aj = if (ms > 0) n.ajenosMs + ("pc:$dev" to ms) else n.ajenosMs - "pc:$dev"
-        val fin = n.copy(ajenosMs = aj, msJugados = n.msPropios + aj.values.sum())
+        // Un juego del PC no se juega desde el móvil: lo que tuviera como «propio» venía de Atrio (las mismas horas del PC) y se sumaría dos veces
+        val fin = n.copy(msPropios = 0L, ajenosMs = aj, msJugados = aj.values.sum())
         if (fin != previo) Biblioteca.poner(fin)
         return fin
     }
