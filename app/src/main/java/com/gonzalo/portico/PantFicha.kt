@@ -124,6 +124,9 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
     var saga by remember { mutableStateOf(false) }
     var unir by remember { mutableStateOf(false) }
     var plataforma by remember { mutableStateOf(false) }
+    // La valoración de Azabache, solo para verla (se refresca de vez en cuando)
+    var notas by remember { mutableStateOf(NotaAzabache.cargar(ctx)) }
+    LaunchedEffect(Unit) { if (Cuenta.vinculada && NotaAzabache.vieja(ctx)) withContext(Dispatchers.IO) { if (NotaAzabache.refrescar(ctx)) notas = NotaAzabache.cargar(ctx) } }
     LaunchedEffect(abrirPortada) { if (abrirPortada) alVerPortada() }
     val cambiarPortada = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { u ->
         if (u != null) scope.launch { guardarPortada(ctx, j.id, u)?.let { Biblioteca.poner(Biblioteca.por(j.id)!!.copy(portada = it)) } }
@@ -137,7 +140,7 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
         }
         Filete(3.dp)
         Spacer(Modifier.height(14.dp))
-        RevistaHeadline(j.titulo, when (j.tipo) { Tipo.ROM -> listOfNotNull(sistema?.corto, sistema?.nombre).joinToString(" · "); Tipo.APP -> "Juego de Android"; Tipo.WEB -> "Juego de navegador"; Tipo.FICHA -> j.plataforma.ifBlank { "Sin lanzador en el móvil" } })
+        RevistaHeadline(j.titulo, when (j.tipo) { Tipo.ROM -> listOfNotNull(sistema?.corto, sistema?.nombre).joinToString(" · "); Tipo.APP -> "Juego de Android"; Tipo.WEB -> "Juego de navegador"; Tipo.FICHA -> j.plataforma.ifBlank { "Sin lanzador en el móvil" }; Tipo.PC -> "Juego del PC" })
         val deck = listOfNotNull(
             if (j.terminado) (if (j.finalizado > 0) "pasado el " + fechaCorta(j.finalizado) else "pasado") else if (j.estado != Estado.PENDIENTE) j.estado.nombre.lowercase() else null,
             if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else null
@@ -166,7 +169,7 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
                 Text("QUITAR DE CARMESÍ", color = Muted, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.clickable { borrar = true }.padding(vertical = 6.dp))
             }
         }
-        MagPage(j, defs(j, ctx, { selector = true }, { editarWeb = true }, { editarHoras = true }), disenando)
+        MagPage(j, defs(j, ctx, { selector = true }, { editarWeb = true }, { editarHoras = true }, NotaAzabache.de(notas, j)), disenando)
         if (!disenando) SeccionNube(j)
         if (disenando) MagFooter("Listo") { disenando = false } else MagFooter { disenando = true }
         Spacer(Modifier.height(20.dp))
@@ -314,7 +317,7 @@ fun notaTexto(n: Float) = if (n <= 0f) "—" else if (n % 1f == 0f) n.toInt().to
 
 /** Los módulos de la ficha: lo que se puede poner en una casilla. */
 @Composable
-private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: () -> Unit, editarHoras: () -> Unit): Map<String, MagDef> = mapOf(
+private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: () -> Unit, editarHoras: () -> Unit, notaAzabache: NotaAzabache.Nota?): Map<String, MagDef> = mapOf(
     "horas" to MagDef("Horas jugadas", "✎" to editarHoras) {
         FitTitle(tiempoDe(j.msJugados), 40.sp, 42.sp, unaLinea = true, maxLines = 1)
         Text("TUS HORAS", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
@@ -329,20 +332,17 @@ private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: (
         MagChoice(Estado.entries.map { it.nombre }, j.estado.ordinal) { i -> Biblioteca.cambiar(j.id) { it.conEstado(Estado.entries[i]) } }
         Text(if (j.terminado && j.finalizado > 0) "pasado el " + fechaCorta(j.finalizado) else when (j.estado) { Estado.JUGANDO -> "lo estás jugando"; Estado.PENDIENTE -> "pendiente de empezar"; Estado.ABANDONADO -> "lo dejaste"; Estado.PASADO -> "pasado" }, color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
     },
-    "valoracion" to MagDef("Valoración") {
-        if (!j.terminado) {
-            Text("Márcalo como pasado para valorarlo.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp)
-            MagLink("Marcar como pasado", accent = true) { Biblioteca.cambiar(j.id) { it.conEstado(Estado.PASADO) } }
+    "azabache" to MagDef("En Azabache", if (NotaAzabache.instalado(ctx)) "Abrir" to { NotaAzabache.abrir(ctx, notaAzabache) } else null) {
+        val n = notaAzabache
+        if (n == null) {
+            Text("Sin valorar en Azabache.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp)
+            Text("La valoración se hace allí; aquí solo se ve.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
         } else {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(notaTexto(j.nota), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 64.sp, lineHeight = 62.sp, letterSpacing = (-2).sp, maxLines = 1, softWrap = false)
-                Text("/10", color = Muted, fontFamily = Body, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+                Text(n.general.toString(), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 64.sp, lineHeight = 62.sp, letterSpacing = (-2).sp, maxLines = 1, softWrap = false)
+                Text("/100", color = Muted, fontFamily = Body, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                EnlaceRevista("−\u00A00,5") { Biblioteca.cambiar(j.id) { it.copy(nota = (it.nota - 0.5f).coerceAtLeast(0f)) } }
-                EnlaceRevista("+\u00A00,5") { Biblioteca.cambiar(j.id) { it.copy(nota = if (it.nota <= 0f) 7f else (it.nota + 0.5f).coerceAtMost(10f)) } }
-            }
-            MagChoice((1..10).map { it.toString() }, if (j.nota > 0f && j.nota % 1f == 0f) j.nota.toInt() - 1 else -1) { i -> Biblioteca.cambiar(j.id) { it.copy(nota = (i + 1).toFloat()) } }
+            if (n.resena.isNotBlank()) Text(n.resena, color = Charcoal, fontFamily = Display, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 6, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
         }
     },
     "lanzamiento" to MagDef("Cómo se abre", if (j.tipo == Tipo.WEB) "Editar" to editarWeb else if (j.tipo == Tipo.ROM) "Cambiar" to abrirSelector else null) {
@@ -357,6 +357,7 @@ private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: (
             Tipo.APP -> { Text("App de Android", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text(j.paquete, color = Muted, fontFamily = Body, fontSize = 12.sp) }
             Tipo.WEB -> { Text(j.url, color = Charcoal, fontFamily = Display, fontSize = 17.sp, maxLines = 2); Text(("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)]).uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
             Tipo.FICHA -> { Text(j.plataforma.ifBlank { "Sin lanzador" }, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text("NO SE ABRE DESDE EL MÓVIL", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
+            Tipo.PC -> BotonesPc(j)
         }
     },
 )

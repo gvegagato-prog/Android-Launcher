@@ -163,6 +163,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity-alias>
+        <!-- Para compartir las capturas del PC con otras apps -->
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="com.gonzalo.portico.archivos" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/rutas" />
+        </provider>
         <!-- Sin pantalla: los accesos directos de cada juego pasan por aquí -->
         <activity android:name=".LanzarActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay"
             android:excludeFromRecents="true" android:taskAffinity="" />

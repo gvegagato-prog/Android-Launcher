@@ -60,6 +60,7 @@ fun tonosDe(j: Juego): Pair<Color, Color> {
         Tipo.APP -> Color.hsv(((j.paquete.hashCode().mod(120)) + 90).toFloat(), 0.5f, 0.6f)
         Tipo.WEB -> Color.hsv(((j.url.hashCode().mod(80)) + 190).toFloat(), 0.55f, 0.62f)
         Tipo.FICHA -> Color.hsv(((j.clave.hashCode().mod(300)) + 20).toFloat(), 0.5f, 0.58f)
+        Tipo.PC -> Color.hsv((((j.clave.hashCode().mod(60)) + 340) % 360).toFloat(), 0.55f, 0.5f)
     }
     val shift = (j.titulo.hashCode().mod(40) - 20).toFloat()
     val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(base.toArgb2(), it) }
@@ -127,6 +128,7 @@ fun PortadaArco(
         // La imagen, según de dónde sea el juego
         when {
             j.portada.isNotBlank() -> ImagenEnCadena(listOf(File(j.portada)), Modifier.fillMaxSize(), ContentScale.Crop) { conImagen = true }
+            j.portadaUrl.isNotBlank() -> ImagenEnCadena(listOf(j.portadaUrl), Modifier.fillMaxSize(), ContentScale.Crop) { conImagen = true }
             j.tipo == Tipo.ROM && Ajustes.portadasLibretro -> ImagenEnCadena(urlsLibretro(j), Modifier.fillMaxSize(), ContentScale.Crop) { conImagen = true }
             j.tipo == Tipo.APP -> rememberIconoApp(j.paquete)?.let {
                 Image(it, null, Modifier.align(Alignment.Center).fillMaxWidth(0.52f).aspectRatio(1f).offset(y = (-14).dp).clip(esquina(18.dp)), contentScale = ContentScale.Fit)
@@ -156,6 +158,7 @@ fun etiquetaDe(j: Juego): String = when (j.tipo) {
     Tipo.APP -> "Android"
     Tipo.WEB -> runCatching { Uri.parse(j.url).host?.removePrefix("www.") }.getOrNull() ?: "Web"
     Tipo.FICHA -> j.plataforma.ifBlank { "Ficha" }
+    Tipo.PC -> "PC"
 }
 
 /** El icono de la propia web (su /favicon.ico: se pide solo a ella, no a terceros). */

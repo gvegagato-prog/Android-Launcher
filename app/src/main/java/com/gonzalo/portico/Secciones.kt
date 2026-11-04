@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
  */
 
 /** El orden con el que empieza cada sección: lo pendiente, por lo último añadido; lo pasado, por la nota; el resto, por lo último jugado. */
-fun ordenInicial(e: Estado): Orden = when (e) { Estado.PENDIENTE -> Orden.Anadidos; Estado.PASADO -> Orden.Nota; else -> Orden.Recientes }
+fun ordenInicial(e: Estado): Orden = when (e) { Estado.PENDIENTE -> Orden.Anadidos; Estado.PASADO -> Orden.Pasados; else -> Orden.Recientes }
 
 /** Ordena una lista de juegos. */
 fun ordenar(o: Orden, l: List<Juego>): List<Juego> = when (o) {
@@ -48,7 +48,7 @@ fun ordenar(o: Orden, l: List<Juego>): List<Juego> = when (o) {
     Orden.Nombre -> l.sortedBy { Catalogo.norm(it.titulo) }
     Orden.Jugados -> l.sortedWith(compareByDescending<Juego> { it.msJugados }.thenByDescending { it.veces })
     Orden.Anadidos -> l.sortedByDescending { it.anadido }
-    Orden.Nota -> l.sortedWith(compareByDescending<Juego> { it.nota }.thenByDescending { it.finalizado })
+    Orden.Pasados -> l.sortedWith(compareByDescending<Juego> { it.finalizado }.thenByDescending { it.ultima })
 }
 
 /** El orden que has elegido para cada sección (se recuerda al cerrar la app). */
@@ -80,8 +80,7 @@ fun FilaJuego(j: Juego, alAbrir: (Juego) -> Unit, alJugar: ((Juego) -> Unit)? = 
             val meta = listOf(metaJuego(j, conEstado), extra).filter { it.isNotBlank() }.joinToString(" · ")
             if (meta.isNotBlank()) Text(meta.uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, maxLines = 2, modifier = Modifier.padding(top = 2.dp))
         }
-        if (j.nota > 0f) Text(notaTexto(j.nota), color = Muted, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 26.sp, maxLines = 1, modifier = Modifier.padding(end = 6.dp))
-        if (alJugar != null && !j.sinLanzador) Text("JUGAR →", color = Acento, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, maxLines = 1,
+        if (alJugar != null && !j.sinLanzador) Text(if (j.enPc) "PC →" else "JUGAR →", color = Acento, fontFamily = Body, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, maxLines = 1,
             modifier = Modifier.clickable { alJugar(j) }.padding(start = 8.dp, top = 12.dp, bottom = 12.dp))
     }
 }

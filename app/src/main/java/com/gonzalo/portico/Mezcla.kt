@@ -17,7 +17,8 @@ class JuegoSync(
     val clave: String, val titulo: String, val tipo: Tipo, val sistema: String, val paquete: String, val url: String, val archivo: String,
     val favorito: Boolean, val terminado: Boolean, val finalizado: Long, val nota: Float, val notas: String, val maqueta: String, val orientacion: Int,
     val anadido: Long, val mod: Long, val msp: Long, val vp: Int, val ultima: Long,
-    val estado: Estado = Estado.PENDIENTE, val dias: Map<String, Long> = emptyMap(), val plataforma: String = "", val alias: List<String> = emptyList()
+    val estado: Estado = Estado.PENDIENTE, val dias: Map<String, Long> = emptyMap(), val plataforma: String = "", val alias: List<String> = emptyList(),
+    val pcKey: String = "", val pcDev: String = "", val portadaUrl: String = ""
 )
 
 /** La biblioteca de un dispositivo, tal como la sube a la cuenta. */
@@ -34,7 +35,7 @@ object Mezcla {
               sagas: List<Saga> = emptyList(), sagasBorradas: Map<String, Long> = emptyMap()): Blob = Blob(dev,
         juegos.filter { it.titulo.isNotBlank() }.distinctBy { it.clave }.map { j ->
             JuegoSync(j.clave, j.titulo, j.tipo, j.sistema, j.paquete, j.url, j.archivo, j.favorito, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta,
-                j.orientacion, j.anadido, j.mod, j.msPropios, j.vecesPropias, j.ultima, j.estado, j.diasPropios.entries.sortedByDescending { it.key }.take(400).associate { it.key to it.value }, j.plataforma, j.alias)
+                j.orientacion, j.anadido, j.mod, j.msPropios, j.vecesPropias, j.ultima, j.estado, j.diasPropios.entries.sortedByDescending { it.key }.take(400).associate { it.key to it.value }, j.plataforma, j.alias, j.pcKey, j.pcDev, j.portadaUrl)
         }, borrados, pantalla, pBorrados, ajustes, sagas, sagasBorradas)
 
     fun aJson(b: Blob): String = JSONObject().put("v", 1).put("dev", b.dev)
@@ -44,7 +45,7 @@ object Mezcla {
                 a.put(JSONObject().put("k", g.clave).put("t", g.titulo).put("tp", g.tipo.name).put("s", g.sistema).put("pk", g.paquete).put("u", g.url).put("a", g.archivo)
                     .put("f", g.favorito).put("te", g.terminado).put("fi", g.finalizado).put("n", g.nota.toDouble()).put("no", g.notas).put("m", g.maqueta)
                     .put("o", g.orientacion).put("an", g.anadido).put("mod", g.mod).put("msp", g.msp).put("vp", g.vp).put("ul", g.ultima).put("es", g.estado.name)
-                    .put("dd", JSONObject().also { d -> g.dias.forEach { (k, v) -> d.put(k, v) } }).put("pl", g.plataforma).put("al", JSONArray().also { x -> g.alias.forEach { x.put(it) } }))
+                    .put("dd", JSONObject().also { d -> g.dias.forEach { (k, v) -> d.put(k, v) } }).put("pl", g.plataforma).put("al", JSONArray().also { x -> g.alias.forEach { x.put(it) } }).put("pck", g.pcKey).put("pcd", g.pcDev).put("pu", g.portadaUrl))
             }
         })
         .put("pe", JSONArray().also { a -> b.pantalla.forEach { a.put(elementoAJson(it)) } })
@@ -68,7 +69,8 @@ object Mezcla {
                     g.optLong("an"), g.optLong("mod"), g.optLong("msp"), g.optInt("vp"), g.optLong("ul"),
                     Estado.entries.firstOrNull { it.name == g.optString("es") } ?: if (g.optBoolean("te")) Estado.PASADO else Estado.PENDIENTE,
                     g.optJSONObject("dd")?.let { d -> d.keys().asSequence().associateWith { k -> d.optLong(k) } } ?: emptyMap(),
-                    g.optString("pl"), g.optJSONArray("al")?.let { x -> (0 until x.length()).map { x.optString(it) }.filter { it.isNotBlank() } } ?: emptyList())
+                    g.optString("pl"), g.optJSONArray("al")?.let { x -> (0 until x.length()).map { x.optString(it) }.filter { it.isNotBlank() } } ?: emptyList(),
+                    g.optString("pck"), g.optString("pcd"), g.optString("pu"))
             }, bo?.keys()?.asSequence()?.associateWith { bo.optLong(it) } ?: emptyMap(),
                 o.optJSONArray("pe")?.let { a -> (0 until a.length()).mapNotNull { elementoDeJson(a.getJSONObject(it)) } } ?: emptyList(),
                 o.optJSONObject("pb")?.let { pb -> pb.keys().asSequence().associateWith { pb.optLong(it) } } ?: emptyMap(),
@@ -137,7 +139,7 @@ object Mezcla {
     private fun unir(l: Juego, rs: List<Pair<String, JuegoSync>>): Juego {
         val g = rs.maxByOrNull { it.second.mod }!!.second
         val base = if (g.mod > l.mod) l.copy(titulo = g.titulo.ifBlank { l.titulo }, favorito = g.favorito, estado = g.estado, terminado = g.terminado, finalizado = g.finalizado, nota = g.nota, notas = g.notas,
-            maqueta = g.maqueta, orientacion = g.orientacion, mod = g.mod, plataforma = g.plataforma, alias = g.alias) else l
+            maqueta = g.maqueta, orientacion = g.orientacion, mod = g.mod, plataforma = g.plataforma, alias = g.alias, pcDev = g.pcDev, portadaUrl = g.portadaUrl) else l
         val ms = l.ajenosMs + rs.associate { it.first to it.second.msp }
         val ve = l.ajenosVeces + rs.associate { it.first to it.second.vp }
         val dd = l.ajenosDias + rs.associate { it.first to it.second.dias }
@@ -158,7 +160,7 @@ object Mezcla {
             veces = ve.values.sum(), msJugados = total(ms), orientacion = g.orientacion, terminado = g.terminado, finalizado = g.finalizado, nota = g.nota,
             notas = g.notas, maqueta = g.maqueta, mod = g.mod, msPropios = 0L, vecesPropias = 0, ajenosMs = ms, ajenosVeces = ve,
             estado = g.estado, ajenosDias = rs.associate { it.first to it.second.dias }, plataforma = g.plataforma, alias = g.alias,
-            claveFija = if (g.tipo == Tipo.FICHA) g.clave else ""
+            claveFija = if (g.tipo == Tipo.FICHA) g.clave else "", pcKey = g.pcKey, pcDev = g.pcDev, portadaUrl = g.portadaUrl
         )
     }
 }

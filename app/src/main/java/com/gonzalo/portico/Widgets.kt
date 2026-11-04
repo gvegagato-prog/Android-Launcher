@@ -289,12 +289,12 @@ class WDatos(val ctx: Context) {
     val recientes: List<Juego> = todos.filter { it.ultima > 0 }.let { l -> recientes(l.ifEmpty { todos }) }
     val sinTerminar: List<Juego> = todos.filter { !it.terminado }
 
-    /** «GBA · 3 H 20 MIN», «TERMINADO · NOTA 8,5»… */
-    fun estado(j: Juego): String = if (j.terminado) listOfNotNull("Terminado", if (j.nota > 0f) "nota " + notaTexto(j.nota) else null).joinToString(" · ")
+    /** «GBA · 3 H 20 MIN», «PASADO»… */
+    fun estado(j: Juego): String = if (j.terminado) "Pasado"
         else listOfNotNull(etiquetaDe(j), if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else null).joinToString(" · ")
 
     /** «Nintendo Game Boy Advance · Android · Web»: de dónde es. */
-    fun origen(j: Juego): String = when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Navegador"; Tipo.FICHA -> j.plataforma.ifBlank { "Sin lanzador" } }
+    fun origen(j: Juego): String = when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Navegador"; Tipo.FICHA -> j.plataforma.ifBlank { "Sin lanzador" }; Tipo.PC -> "PC" }
 }
 
 object Widgets {
@@ -547,6 +547,13 @@ object Widgets {
     suspend fun imagen(ctx: Context, j: Juego, lado: Int): Bitmap? = withContext(Dispatchers.IO) {
         try {
             if (j.portada.isNotBlank()) decodificar(j.portada, lado)?.let { return@withContext it }
+            if (j.portadaUrl.isNotBlank()) {
+                val b = withTimeoutOrNull(4_500) {
+                    val r = ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(j.portadaUrl).allowHardware(false).size(lado).build())
+                    ((r as? SuccessResult)?.drawable as? BitmapDrawable)?.bitmap
+                }
+                if (b != null) return@withContext b
+            }
             when (j.tipo) {
                 Tipo.APP -> runCatching { ctx.packageManager.getApplicationIcon(j.paquete).aBitmap(max(lado, 96)) }.getOrNull()
                 Tipo.ROM -> if (!Ajustes.portadasLibretro) null else {
@@ -559,7 +566,7 @@ object Widgets {
                     }
                     null
                 }
-                Tipo.WEB, Tipo.FICHA -> null
+                Tipo.WEB, Tipo.FICHA, Tipo.PC -> null
             }
         } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
     }

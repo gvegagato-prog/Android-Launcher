@@ -61,7 +61,7 @@ const val ATRIO = "com.gonzalo.gamerate"
 
 /** Una frase como «Juegos · GBA · 3 h 20 min». */
 fun metaDe(j: Juego): String = listOf(
-    when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Web"; Tipo.FICHA -> j.plataforma.ifBlank { "Ficha" } },
+    when (j.tipo) { Tipo.ROM -> Catalogo.sistema(j.sistema)?.nombre ?: j.sistema; Tipo.APP -> "Android"; Tipo.WEB -> "Web"; Tipo.FICHA -> j.plataforma.ifBlank { "Ficha" }; Tipo.PC -> "PC" },
     if (j.msJugados >= 60_000) tiempoDe(j.msJugados) else ""
 ).filter { it.isNotBlank() }.joinToString(" · ")
 
@@ -156,7 +156,7 @@ fun PantInicio(
     }
 
     val secciones = listOf<Pair<String, () -> Unit>>(
-        "Jugando" to { alIr(Destino.Jugando) }, "Pendiente" to { alIr(Destino.Pendiente) }, "Pasado" to { alIr(Destino.Pasado) }, "Abandonado" to { alIr(Destino.Abandonado) }, "Sagas" to { alIr(Destino.Sagas) }
+        "Jugando" to { alIr(Destino.Jugando) }, "Pendiente" to { alIr(Destino.Pendiente) }, "Pasado" to { alIr(Destino.Pasado) }, "Abandonado" to { alIr(Destino.Abandonado) }, "Sagas" to { alIr(Destino.Sagas) }, "Tu PC" to { alIr(Destino.PC) }
     )
 
     // La cabecera y el menú, exactamente como en la portada de Atrio (RevistaHome): mismos márgenes, mismo tamaño de cabecera, de filetes y de letra
@@ -192,6 +192,8 @@ fun PantInicio(
             Filete(1.dp)
         }
         Spacer(Modifier.height(18.dp))
+        // Ahora en el PC: lo que Atrio del PC está ejecutando, en directo
+        TarjetaPc(alIr = { alIr(Destino.PC) }, alAbrir = alAbrir)
 
         if (editando) {
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {

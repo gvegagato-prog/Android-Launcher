@@ -12,7 +12,11 @@ class LanzarActivity : Activity() {
         Biblioteca.cargar(this); Catalogo.cargar(this); Ajustes.cargar(this); NubeP.cargar(this); Pantalla.cargar(this)
         val j = intent.getStringExtra("id")?.let { Biblioteca.por(it) }
         if (j == null) { Lanzador.aviso(this, "Ese juego ya no está en Carmesí"); finish() }
-        else Lanzador.lanzar(this, j) { finish() }?.let { Lanzador.aviso(this, it) }
+        else if (j.enPc) {
+            // Un juego del PC: se elige dónde jugar dentro de la app
+            startActivity(Intent(this, MainActivity::class.java).putExtra("ficha", j.id).putExtra("jugar", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            finish()
+        } else Lanzador.lanzar(this, j) { finish() }?.let { Lanzador.aviso(this, it) }
     }
 
     companion object {

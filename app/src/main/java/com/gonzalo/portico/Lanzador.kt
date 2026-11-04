@@ -106,6 +106,7 @@ object Lanzador {
                 }
                 Tipo.WEB -> { c.startActivity(WebJuegoActivity.intent(c, j)); null }
                 Tipo.FICHA -> return "«${j.titulo}» no se juega desde el móvil" + (if (j.plataforma.isNotBlank()) " (${j.plataforma})" else "") + ". Si tienes su ROM, su app o su web, vincúlala desde la ficha."
+                Tipo.PC -> return "«${j.titulo}» es del PC: desde su ficha, «Jugar en el PC» o «Streaming»."
             }
         } catch (e: ActivityNotFoundException) { "No se pudo abrir: ¿sigue instalado el emulador?"
         } catch (e: SecurityException) { "Android no deja abrir esto: ${e.message}" }

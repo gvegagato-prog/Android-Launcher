@@ -12,8 +12,11 @@ import java.io.File
 /** En qué punto estás con el juego. «Pasado» = terminado; «Abandonado» = lo dejaste. */
 enum class Estado(val nombre: String) { JUGANDO("Jugando"), PENDIENTE("Pendiente"), PASADO("Pasado"), ABANDONADO("Abandonado") }
 
-/** De dónde sale el juego: una ROM (con su emulador), una app/juego de Android, un juego de navegador o solo una ficha (PC, consola…: no se abre desde el móvil). */
-enum class Tipo { ROM, APP, WEB, FICHA }
+/**
+ * De dónde sale el juego: una ROM (con su emulador), una app/juego de Android, un juego de navegador, un juego del PC (de la biblioteca que Atrio
+ * del PC publica en tu cuenta: se juega en el PC o en streaming) o solo una ficha (consola…: no se abre desde el móvil).
+ */
+enum class Tipo { ROM, APP, WEB, FICHA, PC }
 
 /** Los menús pequeños de las secciones: de dónde es el juego. */
 enum class Menu(val nombre: String) { PC("PC"), EMULACION("Emulación"), ANDROID("Android"), WEB("Web") }
@@ -23,6 +26,7 @@ fun menuDe(j: Juego): Menu = when (j.tipo) {
     Tipo.ROM -> Menu.EMULACION
     Tipo.APP -> Menu.ANDROID
     Tipo.WEB -> Menu.WEB
+    Tipo.PC -> Menu.PC
     Tipo.FICHA -> menuDePlataforma(j.plataforma)
 }
 
@@ -91,13 +95,20 @@ data class Juego(
     val alias: List<String> = emptyList(),
     /** Solo fichas: su clave, fijada al crearla (no cambia aunque la renombres). */
     val claveFija: String = "",
+    /** Juegos del PC: su clave en la biblioteca del PC (la de Atrio) y el PC donde está. */
+    val pcKey: String = "",
+    val pcDev: String = "",
+    /** Una portada de internet (la de la biblioteca del PC): se usa cuando no has puesto ninguna. */
+    val portadaUrl: String = "",
 ) {
     /** Lo que identifica a este juego en todos tus dispositivos (el id de cada uno es distinto). */
     val clave: String get() = claveDe(this)
     /** Una ROM que viene de otro dispositivo y todavía no tienes en este. */
     val enOtroDispositivo: Boolean get() = tipo == Tipo.ROM && uri.isBlank()
-    /** Una ficha sin nada que abrir en el móvil (PC, consola…). */
+    /** Una ficha sin nada que abrir en el móvil (consola…). */
     val sinLanzador: Boolean get() = tipo == Tipo.FICHA
+    /** Un juego del PC: se juega en el PC o en streaming, no en el móvil. */
+    val enPc: Boolean get() = tipo == Tipo.PC
     /** Todas las claves por las que se le conoce (la de ahora y las de antes). */
     val claves: List<String> get() = (listOf(clave) + alias).distinct()
 }
@@ -123,7 +134,7 @@ fun unirJuegos(destino: Juego, origen: Juego): Juego {
         titulo = destino.titulo.ifBlank { origen.titulo }, estado = estado, terminado = estado == Estado.PASADO,
         finalizado = if (estado == Estado.PASADO) maxOf(destino.finalizado, origen.finalizado) else 0L,
         nota = maxOf(destino.nota, origen.nota), favorito = destino.favorito || origen.favorito,
-        portada = destino.portada.ifBlank { origen.portada }, plataforma = destino.plataforma.ifBlank { origen.plataforma }, maqueta = destino.maqueta.ifBlank { origen.maqueta },
+        portada = destino.portada.ifBlank { origen.portada }, portadaUrl = destino.portadaUrl.ifBlank { origen.portadaUrl }, plataforma = destino.plataforma.ifBlank { origen.plataforma }, maqueta = destino.maqueta.ifBlank { origen.maqueta },
         msPropios = msp, vecesPropias = vp, diasPropios = suma(destino.diasPropios, origen.diasPropios),
         ajenosMs = ajMs, ajenosVeces = ajVe, ajenosDias = ajDias, msJugados = msp + ajMs.values.sum(), veces = vp + ajVe.values.sum(),
         ultima = maxOf(destino.ultima, origen.ultima), anadido = listOf(destino.anadido, origen.anadido).filter { it > 0 }.minOrNull() ?: destino.anadido,
@@ -150,7 +161,7 @@ fun Juego.conTotalMs(total: Long): Juego {
 }
 
 /** Lo que se edita de un juego y viaja con la cuenta (gana el cambio más reciente). */
-fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.estado, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion, j.plataforma, j.alias)
+fun compartidos(j: Juego) = listOf(j.titulo, j.favorito, j.estado, j.terminado, j.finalizado, j.nota, j.notas, j.maqueta, j.orientacion, j.plataforma, j.alias, j.pcDev, j.portadaUrl)
 
 /** La clave de un juego: ROM = sistema + nombre del archivo; app = paquete; web = dirección; ficha = «juego:» + su título normalizado (fijado al crearla). */
 fun claveDe(j: Juego): String = when (j.tipo) {
@@ -158,6 +169,7 @@ fun claveDe(j: Juego): String = when (j.tipo) {
     Tipo.APP -> "app:${j.paquete}"
     Tipo.WEB -> "web:" + j.url.lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").trimEnd('/')
     Tipo.FICHA -> j.claveFija.ifBlank { "juego:" + Catalogo.norm(j.titulo) }
+    Tipo.PC -> "pc:" + j.pcKey
 }
 
 /** Una carpeta de ROMs que diste (para volver a escanearla). */
@@ -253,6 +265,9 @@ object Biblioteca {
     /** La ficha sin lanzador que se llama igual que este juego (para ofrecer unirlas), si la hay. */
     fun gemela(j: Juego): Juego? = j.takeIf { !it.sinLanzador }?.let { x -> juegos.firstOrNull { it.sinLanzador && it.id != x.id && Catalogo.norm(it.titulo) == Catalogo.norm(x.titulo) && Catalogo.norm(x.titulo).isNotEmpty() } }
 
+    /** El juego que se llama así (por su título normalizado), si lo hay. */
+    fun porTitulo(titulo: String): Juego? = Catalogo.norm(titulo).takeIf { it.isNotEmpty() }?.let { n -> juegos.firstOrNull { Catalogo.norm(it.titulo) == n } }
+
     /** Une cada juego con lanzador a la ficha sin lanzador que se llama igual (lo que vino de Atrio con su ROM, app o web recién añadida). Devuelve cuántas. */
     fun unirGemelas(): Int {
         var n = 0
@@ -269,6 +284,7 @@ object Biblioteca {
         put("ajd", JSONObject().also { o -> j.ajenosDias.forEach { (dev, m) -> o.put(dev, JSONObject().also { x -> m.forEach { (k, v) -> x.put(k, v) } }) } })
         put("ajms", JSONObject().also { o -> j.ajenosMs.forEach { (k, v) -> o.put(k, v) } }); put("ajv", JSONObject().also { o -> j.ajenosVeces.forEach { (k, v) -> o.put(k, v) } })
         put("pl", j.plataforma); put("al", JSONArray().also { a -> j.alias.forEach { a.put(it) } }); put("k0", j.claveFija)
+        put("pck", j.pcKey); put("pcd", j.pcDev); put("pu", j.portadaUrl)
     }
 
     fun aJuego(o: JSONObject) = Juego(
@@ -286,7 +302,8 @@ object Biblioteca {
         estado = Estado.entries.firstOrNull { it.name == o.optString("est") } ?: if (o.optBoolean("terminado")) Estado.PASADO else Estado.PENDIENTE,
         diasPropios = o.optJSONObject("dp")?.let { a -> a.keys().asSequence().associateWith { k -> a.optLong(k) } } ?: emptyMap(),
         ajenosDias = o.optJSONObject("ajd")?.let { a -> a.keys().asSequence().associateWith { dev -> a.optJSONObject(dev)?.let { x -> x.keys().asSequence().associateWith { k -> x.optLong(k) } } ?: emptyMap() } } ?: emptyMap(),
-        plataforma = o.optString("pl"), alias = o.optJSONArray("al")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } } ?: emptyList(), claveFija = o.optString("k0")
+        plataforma = o.optString("pl"), alias = o.optJSONArray("al")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } } ?: emptyList(), claveFija = o.optString("k0"),
+        pcKey = o.optString("pck"), pcDev = o.optString("pcd"), portadaUrl = o.optString("pu")
     )
 
     fun nuevoId(): String = java.util.UUID.randomUUID().toString().take(12)

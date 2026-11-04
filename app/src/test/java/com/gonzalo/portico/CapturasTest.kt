@@ -116,6 +116,31 @@ class CapturasTest {
     }
 
     @Test
+    fun tuPc() {
+        org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
+        siembra()
+        val ahora = System.currentTimeMillis()
+        fun g(k: String, n: String, m: Int = 0, lp: Long = 0) = org.json.JSONObject().put("k", k).put("n", n).put("m", m).put("lp", lp).put("c", "")
+        val arbol = org.json.JSONObject()
+            .put("live", org.json.JSONObject().put("pc1", org.json.JSONObject().put("app", "atrio").put("dn", "Torre").put("os", "win32").put("on", true).put("at", ahora).put("today", 95)
+                .put("game", org.json.JSONObject().put("key", "steam:1145360").put("name", "Hades").put("s", ahora - 47 * 60_000L).put("sg", 7L))
+                .put("st", org.json.JSONObject().put("on", true).put("run", true).put("name", "torre"))))
+            .put("lib", org.json.JSONObject().put("pc1", org.json.JSONObject().put("name", "torre").put("games", org.json.JSONArray()
+                .put(g("steam:1145360", "Hades", 2400, ahora - 47 * 60_000L)).put(g("steam:504230", "Celeste", 600, ahora - 86_400_000L * 4)).put(g("epic:aw2", "Alan Wake 2"))
+                .put(g("steam:1245620", "Elden Ring", 5000, ahora - 86_400_000L * 40)).put(g("steam:413150", "Stardew Valley", 90, ahora - 86_400_000L * 9)).put(g("gog:witcher3", "The Witcher 3")))))
+        Suite.simular(arbol)
+        JuegosPc.aplicar(ctx, Suite.leer(arbol, "yo"), emptyList())
+        montar(oscuro = false)
+        foto("22_portada_pc")
+        ir("TU PC"); foto("23_tu_pc")
+        rule.onAllNodesWithText("BIBLIOTECA", substring = true)[0].performClick(); rule.waitForIdle(); foto("24_tu_pc_biblioteca")
+        rule.onAllNodesWithText("EQUIPO", substring = true)[0].performClick(); rule.waitForIdle(); foto("25_tu_pc_equipo")
+        rule.onAllNodesWithText("AHORA", substring = true)[0].performClick(); rule.waitForIdle()
+        rule.onAllNodesWithText("FICHA →", substring = true)[0].performClick(); rule.waitForIdle(); foto("26_ficha_pc")
+        rule.onNodeWithText("EN AZABACHE").performScrollTo(); foto("26b_ficha_pc_abajo")
+    }
+
+    @Test
     fun lienzo() {
         org.junit.Assume.assumeTrue(System.getProperty("roborazzi.test.record") == "true")
         siembra()

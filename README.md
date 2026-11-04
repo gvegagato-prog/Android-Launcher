@@ -7,6 +7,27 @@ como dos programas de la misma suite. Atrio es la puerta de la casa; Carmesí es
 Carmesí **no es un emulador**: abre los que ya tienes instalados, los juegos de Android y los juegos de navegador, todo desde
 una sola biblioteca.
 
+## 0.17.0: Carmesí hereda el PC de Atrio, y sin valoración
+
+Primera versión que se sube como `Carmesi-<versión>.apk` (la 0.16.0 ya entendía los dos nombres). Icono nuevo.
+
+- **Tu PC**, como en Atrio: en el menú de la portada y, encima del lienzo, la tarjeta **«En directo»** con lo que Atrio del PC está ejecutando
+  (cronómetro, captura, streaming, su ficha). La pantalla tiene cuatro pestañas: **Ahora** (lo que se juega, últimas capturas, seguir jugando),
+  **Biblioteca** (todos los juegos del PC: jugar en el PC, streaming o añadirlos a Carmesí), **Capturas** (las que pides al PC, a su resolución
+  original; opcionalmente también en Imágenes/Carmesí) y **Equipo** (traer Atrio, rebuscar la biblioteca, Steam Link y encender el PC por red,
+  suspender/reiniciar/apagar, un mensaje en su pantalla y los dispositivos de tu cuenta). La app del PC no cambia: es el mismo protocolo de Atrio.
+- **Juegos del PC** dentro de Carmesí (menú PC): entran solos los que has jugado en el PC (con horas) o que ya tenías de Atrio (la ficha pasa a
+  ser el juego del PC, con su clave antigua como alias); los demás, desde «Tu PC → Biblioteca → Añadir a Carmesí». Las horas del PC cuentan como
+  de un dispositivo más, sin sumarse dos veces; lo que el PC está ejecutando pasa a «Jugando», y la partida, al acabar, va a las barras del día.
+- **Jugar en el PC o en streaming** desde cualquier sitio: la ficha, la lista, el lienzo de la portada (coloca un juego del PC y al tocarlo eliges),
+  los widgets y los accesos directos. El streaming va con Steam Link (si falta, te lleva a instalarlo; si el PC está apagado y publicó su MAC,
+  te ofrece encenderlo por red).
+- **Sin valoración en Carmesí**: la casilla «Valoración» de la ficha pasa a ser **«En Azabache»**, solo lectura (la general de 0 a 100 y la reseña,
+  con «Abrir» para ir a esa ficha en Azabache). La nota ya no sale en las listas ni en los widgets, y el orden «Nota» pasa a «Pasado» (por fecha).
+  Valorar se hace en Azabache; aquí solo se ve.
+- La lista negra de Atrio se respeta: lo que vetaste allí no sale aquí.
+- Fuera las guías y los apuntes del PC (como pediste), y las fotos entre dispositivos (eso es de Atrio).
+
 ## 0.16.0: Pórtico pasa a ser Carmesí
 
 La primera versión con el nombre nuevo (el paquete sigue siendo `com.gonzalo.portico`, así que se actualiza sola sobre Pórtico; en kDrive
@@ -37,7 +58,9 @@ La interfaz es la «Revista» de Atrio. Generadas en el ordenador con datos de e
 [Pasado](docs/capturas/3c_pasado.png) · [Pasado, solo Emulación](docs/capturas/3d_pasado_emulacion.png) · [Sagas](docs/capturas/3e_sagas.png) ·
 [saga abierta](docs/capturas/3f_saga_abierta.png) · [página de una saga](docs/capturas/3g_pagina_saga.png) · [ficha](docs/capturas/12_ficha_casillas.png) ·
 [ficha sin lanzador](docs/capturas/6b_ficha_sin_lanzador.png) · [ficha editando casillas](docs/capturas/13_ficha_editando.png) ·
-[sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) · [añadir](docs/capturas/9_anadir.png)
+[sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) · [añadir](docs/capturas/9_anadir.png) ·
+[portada con el PC en directo](docs/capturas/22_portada_pc.png) · [Tu PC](docs/capturas/23_tu_pc.png) · [biblioteca del PC](docs/capturas/24_tu_pc_biblioteca.png) ·
+[equipo](docs/capturas/25_tu_pc_equipo.png) · [ficha de un juego del PC](docs/capturas/26_ficha_pc.png)
 
 ## La pantalla de inicio es tu lienzo
 

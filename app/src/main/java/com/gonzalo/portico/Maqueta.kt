@@ -57,12 +57,12 @@ data class MagRowSpec(val cells: List<MagCell>, val split: Float = 0.5f, val hei
 
 object MagLayouts {
     /** Los módulos que se pueden poner en una casilla (aparte de texto libre, imagen y vacía). */
-    val MODULOS = listOf("horas", "veces", "estado", "valoracion", "lanzamiento")
+    val MODULOS = listOf("horas", "veces", "estado", "azabache", "lanzamiento")
 
     /** El diseño de siempre. */
     fun defaults(tipo: Tipo): List<MagRowSpec> = listOfNotNull(
         MagRowSpec(listOf(MagCell("horas"), MagCell("veces"))),
-        MagRowSpec(listOf(MagCell("estado"), MagCell("valoracion"))),
+        MagRowSpec(listOf(MagCell("estado"), MagCell("azabache"))),
         if (tipo == Tipo.FICHA) null else MagRowSpec(listOf(MagCell("lanzamiento"))),
     )
 
@@ -79,7 +79,7 @@ object MagLayouts {
             val a = JSONArray(s)
             (0 until a.length()).map { i ->
                 val o = a.getJSONObject(i); val cs = o.getJSONArray("c")
-                MagRowSpec((0 until cs.length()).map { j -> cs.getJSONObject(j).let { c -> MagCell(c.optString("t", "vacio"), c.optString("h"), c.optString("x"), c.optString("i")) } }.take(2).ifEmpty { listOf(MagCell("vacio")) },
+                MagRowSpec((0 until cs.length()).map { j -> cs.getJSONObject(j).let { c -> MagCell(c.optString("t", "vacio").let { t -> if (t == "valoracion") "azabache" else t }, c.optString("h"), c.optString("x"), c.optString("i")) } }.take(2).ifEmpty { listOf(MagCell("vacio")) },
                     o.optDouble("s", 0.5).toFloat().coerceIn(0.3f, 0.7f), o.optDouble("a", 0.0).toFloat().coerceIn(0f, 1400f))
             }
         }
@@ -102,7 +102,7 @@ object MagLayouts {
 class MagDef(val label: String, val action: Pair<String, () -> Unit>? = null, val content: @Composable ColumnScope.() -> Unit)
 
 val MAG_NOMBRES = mapOf(
-    "horas" to "Horas jugadas", "veces" to "Veces y última vez", "estado" to "Estado", "valoracion" to "Valoración",
+    "horas" to "Horas jugadas", "veces" to "Veces y última vez", "estado" to "Estado", "azabache" to "En Azabache",
     "lanzamiento" to "Cómo se abre"
 )
 
@@ -246,7 +246,7 @@ fun MagPage(juego: Juego, defs: Map<String, MagDef>, disenando: Boolean) {
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().height(2.dp).background(Charcoal))
             Row(Modifier.fillMaxWidth().padding(top = 12.dp)) { Herramienta("+ AÑADIR FILA", acento = true) { poner(rows + MagRowSpec(listOf(MagCell("vacio")))); eligiendo = rows.size - 1 to 0 } }
-            val de = when (juego.tipo) { Tipo.ROM -> "DE ROMS"; Tipo.APP -> "DE ANDROID"; Tipo.WEB -> "WEB"; Tipo.FICHA -> "SIN LANZADOR" }
+            val de = when (juego.tipo) { Tipo.ROM -> "DE ROMS"; Tipo.APP -> "DE ANDROID"; Tipo.WEB -> "WEB"; Tipo.FICHA -> "SIN LANZADOR"; Tipo.PC -> "DEL PC" }
             Herramienta("USAR ESTE DISEÑO EN TODOS LOS JUEGOS $de") { MagLayouts.guardarPlantilla(ctx, juego.tipo, rows); aviso = "Guardado: lo verás en los demás juegos ${de.lowercase().replace("de roms", "de ROMs")} (sin tus textos ni imágenes)." }
             Herramienta("RESTABLECER EL DISEÑO DE SIEMPRE") { MagLayouts.quitarPlantilla(ctx, juego.tipo); poner(MagLayouts.defaults(juego.tipo)); aviso = "Diseño de siempre." }
             if (aviso.isNotBlank()) Cuerpo(aviso, tam = 13, modifier = Modifier.padding(top = 6.dp))

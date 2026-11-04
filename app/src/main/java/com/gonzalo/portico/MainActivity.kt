@@ -12,10 +12,12 @@ import androidx.compose.runtime.setValue
 class MainActivity : ComponentActivity() {
     /** La ficha que pide abrir un widget (se consume al abrirla). */
     private var fichaPedida by androidx.compose.runtime.mutableStateOf<String?>(null)
+    /** Con la ficha: jugar directamente (un juego del PC desde un widget o un acceso directo: se elige dónde). */
+    private var jugarPedido by androidx.compose.runtime.mutableStateOf(false)
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
-        setIntent(intent); fichaPedida = intent.getStringExtra("ficha")
+        setIntent(intent); fichaPedida = intent.getStringExtra("ficha"); jugarPedido = intent.getBooleanExtra("jugar", false)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,7 +25,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         iniciar(this)
         Actualizador.init(this)
-        fichaPedida = intent?.getStringExtra("ficha")
+        fichaPedida = intent?.getStringExtra("ficha"); jugarPedido = intent?.getBooleanExtra("jugar", false) == true
         setContent {
             PorticoTheme {
                 // Iconos de la barra de estado claros u oscuros según el fondo
@@ -34,7 +36,7 @@ class MainActivity : ComponentActivity() {
                         navigationBarStyle = if (oscuro) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT) else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                     )
                 }
-                PorticoApp(fichaPedida) { fichaPedida = null }
+                PorticoApp(fichaPedida, jugarPedido) { fichaPedida = null; jugarPedido = false }
             }
         }
     }
@@ -47,8 +49,10 @@ class MainActivity : ComponentActivity() {
         kotlin.concurrent.thread { TemaAtrio.refrescar(c) }
         // Tu cuenta de Atrio, en directo mientras Carmesí se ve
         SincroP.escuchar(c)
+        // Tu PC en directo (Atrio del PC)
+        Suite.start(c)
         SubirRomsWorker.programar(c)
     }
 
-    override fun onStop() { super.onStop(); SincroP.parar() }
+    override fun onStop() { super.onStop(); SincroP.parar(); Suite.stop() }
 }
