@@ -11,8 +11,8 @@ android {
         applicationId = "com.gonzalo.portico"
         minSdk = 29
         targetSdk = 34
-        versionCode = 31
-        versionName = "0.19.0"
+        versionCode = 32
+        versionName = "0.20.0"
     }
     // Firma fija: cada versión nueva se instala encima de la anterior sin borrar tus juegos.
     signingConfigs {

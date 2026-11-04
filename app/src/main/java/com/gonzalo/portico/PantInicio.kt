@@ -160,7 +160,7 @@ private fun Destacado(j: Juego, kicker: String, meta: String, alJugar: () -> Uni
 @Composable
 private fun EstanteFila(titulo: String, verTodo: (() -> Unit)?, contenido: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
-        Filete(1.dp, Line)
+        Filete(1.dp)
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { Antetitulo(titulo) }
             if (verTodo != null) Text("VER TODO →", color = Acento, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.clickable(onClick = verTodo).padding(4.dp))
@@ -273,7 +273,7 @@ fun PantInicio(alAbrir: (Juego) -> Unit, alJugar: (Juego) -> Unit, alAnadir: (Ti
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Filete(1.dp, Line)
+            Filete(1.dp)
             Text("Un toque juega · mantén pulsado para ver la ficha · con mando: A juega, X abre la ficha", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp))
         }
         Column(Modifier.padding(top = 10.dp)) {

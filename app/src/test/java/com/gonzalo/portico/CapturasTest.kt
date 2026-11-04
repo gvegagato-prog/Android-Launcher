@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performScrollTo
@@ -186,9 +187,7 @@ class CapturasTest {
         ir("PASADO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
         rule.onNodeWithText("EN AZABACHE").performScrollTo(); foto("12_ficha_casillas")
-        rule.onNodeWithText("EDITAR").performClick()
-        rule.onNodeWithText("FILA 1").performScrollTo(); foto("13_ficha_editando")
-        rule.onNodeWithText("RESTABLECER EL DISEÑO DE SIEMPRE").performScrollTo(); foto("14_ficha_editando_abajo")
+        // (el diálogo de «Editar» no se captura: el cursor de su campo de texto nunca deja «quieta» la prueba)
     }
 
     @Test
@@ -198,7 +197,7 @@ class CapturasTest {
         montar(oscuro = false)
         ir("PASADO")
         rule.onAllNodesWithText("Pokémon Esmeralda", substring = true, useUnmergedTree = true)[0].performClick()
-        rule.onNodeWithText("PORTADA\u00A0→").performScrollTo().performClick(); foto("10_portada_opciones")
+        rule.onNodeWithTag("portada").performScrollTo().performClick(); foto("10_portada_opciones")
         rule.onNodeWithText("Buscar en internet\u00A0→").performClick(); foto("11_buscador")
     }
 

@@ -164,4 +164,14 @@ class WidgetsTest {
         assertEquals(0xFF123456.toInt(), pixelCentro(WTipo.ESTANTE))
         Skin.fondoPropio = 0L
     }
+
+    @Test fun unWidgetPuedeAbrirSiempreElJuegoQueElijas() = kotlinx.coroutines.runBlocking {
+        siembra()
+        val fijo = Biblioteca.juegos.last()
+        Widgets.ponFijo(ctx, 77, fijo.id)
+        val pag = Widgets.componer(ctx, WTipo.JUGANDO, 77, 330f, 165f)
+        assertTrue(pag.zonas.any { it.desc == "Abrir ${fijo.titulo}" })
+        assertTrue(Widgets.componer(ctx, WTipo.PORTADA, 77, 330f, 250f).zonas.any { it.desc == fijo.titulo })
+        Widgets.olvidar(ctx, intArrayOf(77)); assertNull(Widgets.fijoDe(ctx, 77))
+    }
 }

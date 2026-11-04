@@ -7,6 +7,17 @@ como dos programas de la misma suite. Atrio es la puerta de la casa; Carmesí es
 Carmesí **no es un emulador**: abre los que ya tienes instalados, los juegos de Android y los juegos de navegador, todo desde
 una sola biblioteca.
 
+## 0.20.0: la ficha sin casillas que mover, los widgets eligen juego
+
+- **La ficha, como la de Marfil**: las pestañas de estado (Jugando · Pendiente · Pasado · Abandonado) van arriba, pegadas a la barra. Debajo, el
+  titular, la portada (tocarla la cambia: SteamGridDB, internet, galería, encuadrar) y las horas; luego «Jugar» (o «Vincular») y «Saga», y las
+  casillas fijas: Cómo se abre, En Azabache, Lo que suele durar y En la nube. **Fuera el modo de mover casillas** (eso se queda en Azabache):
+  «Editar» ahora es el nombre, la plataforma, corregir las horas y quitar el juego. Fuera también «Unir con otro», «Renombrar», «Portada» y
+  «Acceso directo» como botones.
+- **Los widgets eligen juego**: al poner «Sigue jugando» o «En portada» en el escritorio, Android pregunta qué juego abre: «el que toque» (como
+  hasta ahora) o uno fijo. Es lo que hacían los accesos directos, pero con el dibujo de la revista.
+- En la portada, los filetes de los estantes son de tinta (con fuerza), como los de Marfil.
+
 ## 0.19.0: la ficha como la de Marfil, SteamGridDB, horas de Steam y encuadre
 
 - **La ficha**: la portada grande a la izquierda y, a su lado, tus horas en grande (o, si se sabe lo que dura el juego, el **porcentaje de la
@@ -87,7 +98,7 @@ La interfaz es la «Revista» de Atrio. Generadas en el ordenador con datos de e
 [portada en oscuro](docs/capturas/7_portada_oscuro.png) · [Jugando](docs/capturas/3_juegos.png) · [Pendiente](docs/capturas/3b_pendiente.png) ·
 [Pasado](docs/capturas/3c_pasado.png) · [Pasado, solo Emulación](docs/capturas/3d_pasado_emulacion.png) · [Sagas](docs/capturas/3e_sagas.png) ·
 [saga abierta](docs/capturas/3f_saga_abierta.png) · [página de una saga](docs/capturas/3g_pagina_saga.png) · [ficha](docs/capturas/12_ficha_casillas.png) ·
-[ficha sin lanzador](docs/capturas/6b_ficha_sin_lanzador.png) · [ficha editando casillas](docs/capturas/13_ficha_editando.png) ·
+[ficha sin lanzador](docs/capturas/6b_ficha_sin_lanzador.png) ·
 [sistemas](docs/capturas/4_sistemas.png) · [ajustes](docs/capturas/5_ajustes.png) · [añadir](docs/capturas/9_anadir.png) ·
 [portada con el PC en directo](docs/capturas/22_portada_pc.png) · [portada](docs/capturas/20_inicio.png) · [portada editando](docs/capturas/21_inicio_editando.png) · [Tu PC](docs/capturas/23_tu_pc.png) · [biblioteca del PC](docs/capturas/24_tu_pc_biblioteca.png) ·
 [equipo](docs/capturas/25_tu_pc_equipo.png) · [ficha de un juego del PC](docs/capturas/26_ficha_pc.png)

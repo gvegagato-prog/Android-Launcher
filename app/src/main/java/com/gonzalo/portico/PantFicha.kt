@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,37 +77,6 @@ suspend fun guardarPortadaBytes(c: Context, id: String, bytes: ByteArray, origin
     }.getOrNull()
 }
 
-/** El icono del acceso directo: la portada si hay, o el degradado con la inicial. */
-fun iconoAcceso(c: Context, j: Juego): Bitmap {
-    val lado = 192
-    val bm = Bitmap.createBitmap(lado, lado, Bitmap.Config.ARGB_8888)
-    val cv = Canvas(bm)
-    val (a, b) = tonosDe(j)
-    val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    p.shader = LinearGradient(0f, 0f, lado.toFloat(), lado.toFloat(), a.toArgb(), b.toArgb(), Shader.TileMode.CLAMP)
-    cv.drawRect(0f, 0f, lado.toFloat(), lado.toFloat(), p)
-    val cover = j.portada.takeIf { it.isNotBlank() && File(it).exists() }?.let { BitmapFactory.decodeFile(it) }
-    if (cover != null) {
-        val r = maxOf(lado.toFloat() / cover.width, lado.toFloat() / cover.height)
-        val w = cover.width * r; val h = cover.height * r
-        cv.drawBitmap(cover, null, android.graphics.RectF((lado - w) / 2, (lado - h) / 2, (lado + w) / 2, (lado + h) / 2), null)
-    } else if (j.tipo == Tipo.APP) {
-        runCatching { c.packageManager.getApplicationIcon(j.paquete).aBitmap(lado) }.getOrNull()?.let { cv.drawBitmap(it, null, android.graphics.RectF(lado * 0.2f, lado * 0.2f, lado * 0.8f, lado * 0.8f), null) }
-    } else {
-        val t = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(230, 255, 255, 255); textSize = lado * 0.55f; textAlign = Paint.Align.CENTER; isFakeBoldText = true }
-        cv.drawText(j.titulo.trim().firstOrNull()?.uppercase() ?: "?", lado / 2f, lado * 0.69f, t)
-    }
-    return bm
-}
-private fun Color.toArgb(): Int = android.graphics.Color.argb((alpha * 255).toInt(), (red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt())
-
-fun crearAcceso(c: Context, j: Juego): Boolean {
-    if (!ShortcutManagerCompat.isRequestPinShortcutSupported(c)) return false
-    val info = ShortcutInfoCompat.Builder(c, "juego_" + j.id).setShortLabel(j.titulo.take(24)).setLongLabel(j.titulo)
-        .setIcon(IconCompat.createWithBitmap(iconoAcceso(c, j))).setIntent(LanzarActivity.intent(c, j.id)).build()
-    return ShortcutManagerCompat.requestPinShortcut(c, info, null)
-}
-
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPortada: Boolean = false, alVerPortada: () -> Unit = {}, alVincular: (Juego) -> Unit = {}, alIrA: (String) -> Unit = {}) {
@@ -114,17 +84,14 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
     val scope = rememberCoroutineScope()
     val j = Biblioteca.por(id)
     if (j == null) { LaunchedEffect(Unit) { alCerrar() }; return }
-    var renombrar by remember { mutableStateOf(false) }
+    var editar by remember { mutableStateOf(false) }
     var borrar by remember { mutableStateOf(false) }
     var selector by remember { mutableStateOf(false) }
     var editarWeb by remember { mutableStateOf(false) }
     var eligePortada by remember { mutableStateOf(abrirPortada) }
-    var disenando by remember { mutableStateOf(false) }
     var editarHoras by remember { mutableStateOf(false) }
     var buscaInternet by remember { mutableStateOf(false) }
     var saga by remember { mutableStateOf(false) }
-    var unir by remember { mutableStateOf(false) }
-    var plataforma by remember { mutableStateOf(false) }
     var sgdb by remember { mutableStateOf(false) }
     var encuadre by remember { mutableStateOf(false) }
     // La valoración de Azabache, solo para verla (se refresca de vez en cuando)
@@ -135,13 +102,18 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
         if (u != null) scope.launch { guardarPortada(ctx, j.id, u)?.let { Biblioteca.poner(Biblioteca.por(j.id)!!.copy(portada = it, zoom = 1f, ox = 0f, oy = 0f)) } }
     }
     val sistema = Catalogo.sistema(j.sistema)
+    val miSaga = Sagas.de(j)
 
     Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 20.dp)) {
+        // Arriba: favorito y editar (el nombre, la plataforma, las horas, quitar)
         RevistaTopBar(alCerrar, "Volver") {
-            if (!disenando) EnlaceRevista(if (j.favorito) "★ Favorito" else "☆ Favorito", acento = j.favorito) { Biblioteca.poner(j.copy(favorito = !j.favorito)) }
-            EnlaceRevista(if (disenando) "Listo" else "Editar", acento = disenando) { disenando = !disenando }
+            EnlaceRevista(if (j.favorito) "★ Favorito" else "☆ Favorito", acento = j.favorito) { Biblioteca.poner(j.copy(favorito = !j.favorito)) }
+            EnlaceRevista("Editar") { editar = true }
         }
         Filete(3.dp)
+        // El estado, como las pestañas de estado de Atrio, pegado a la barra de arriba
+        FiltrosRevista(Estado.entries.map { it.nombre }, j.estado.ordinal, Modifier.padding(top = 4.dp)) { i -> Biblioteca.cambiar(j.id) { it.conEstado(Estado.entries[i]) } }
+        Filete(1.dp)
         Spacer(Modifier.height(14.dp))
         RevistaHeadline(j.titulo, when (j.tipo) { Tipo.ROM -> listOfNotNull(sistema?.corto, sistema?.nombre).joinToString(" · "); Tipo.APP -> "Juego de Android"; Tipo.WEB -> "Juego de navegador"; Tipo.FICHA -> j.plataforma.ifBlank { "Sin lanzador en el móvil" }; Tipo.PC -> "Juego del PC" })
         val deck = listOfNotNull(
@@ -151,9 +123,9 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
         if (deck.isNotBlank()) Text(deck, color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 17.sp, modifier = Modifier.padding(top = 6.dp))
         Spacer(Modifier.height(14.dp))
 
-        // La portada y tus horas (como la ficha de Marfil: la portada y por dónde vas)
+        // La portada (un toque la cambia) y tus horas (como la ficha de Marfil: la portada y por dónde vas)
         Row(Modifier.fillMaxWidth().height(220.dp)) {
-            Box(Modifier.width(150.dp).height(220.dp).clip(esquina(3.dp)).border(1.dp, Line, esquina(3.dp)).clickable { eligePortada = true }) {
+            Box(Modifier.width(150.dp).height(220.dp).clip(esquina(3.dp)).border(1.dp, Line, esquina(3.dp)).clickable { eligePortada = true }.testTag("portada")) {
                 PortadaArco(j, Modifier.matchParentSize(), titulo = false, letra = true, relleno = true, tamLetra = 64)
             }
             Column(Modifier.weight(1f).padding(start = 18.dp).fillMaxHeight(), verticalArrangement = Arrangement.Bottom) {
@@ -179,46 +151,59 @@ fun Ficha(id: String, alCerrar: () -> Unit, alJugar: (Juego) -> Unit, abrirPorta
         }
         Spacer(Modifier.height(16.dp))
 
-        // El estado, como las pestañas de estado de Atrio, y debajo sus acciones
+        // Las acciones: jugar (o vincular) y la saga
         Filete(1.dp)
-        FiltrosRevista(Estado.entries.map { it.nombre }, j.estado.ordinal, Modifier.padding(top = 4.dp)) { i -> Biblioteca.cambiar(j.id) { it.conEstado(Estado.entries[i]) } }
-        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            if (j.sinLanzador) EnlaceRevista("Vincular\u00A0→", acento = true) { alVincular(j) }
-            else EnlaceRevista(if (j.enPc) "Jugar en el PC / streaming\u00A0→" else "Jugar\u00A0→", acento = true) { alJugar(j) }
-            EnlaceRevista("Portada\u00A0→") { eligePortada = true }
-            EnlaceRevista("Saga\u00A0→", acento = Sagas.de(j) != null) { saga = true }
-            if (!j.sinLanzador) EnlaceRevista("Acceso directo\u00A0→") { if (!crearAcceso(ctx, j)) Lanzador.aviso(ctx, "Tu launcher no deja crear accesos directos") }
-            EnlaceRevista("Renombrar\u00A0→") { renombrar = true }
-            if (j.sinLanzador) EnlaceRevista("Plataforma\u00A0→") { plataforma = true }
-            EnlaceRevista("Unir con otro\u00A0→") { unir = true }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (j.sinLanzador) EnlaceRevista("Vincular →", acento = true) { alVincular(j) }
+            else EnlaceRevista(if (j.enPc) "Jugar en el PC / streaming →" else "Jugar →", acento = true) { alJugar(j) }
+            EnlaceRevista(if (miSaga != null) "Saga: ${miSaga.nombre} →" else "Saga →", acento = miSaga != null) { saga = true }
         }
         Filete(1.dp)
         Spacer(Modifier.height(4.dp))
         Filete(2.dp)
-        Spacer(Modifier.height(16.dp))
-        if (disenando) Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Sand).padding(12.dp)) {
-            Text("Toca una casilla para elegir qué va en ella (o texto libre, o una imagen). Arrastra el círculo ⇔ de la línea para moverla y el ⇕ de abajo para cambiar el alto.", color = Charcoal, fontFamily = Body, fontSize = 13.sp, lineHeight = 18.sp)
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (j.portada.isNotBlank()) Text("USAR LA PORTADA AUTOMÁTICA", color = Acento, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.clickable { Biblioteca.poner(j.copy(portada = "")) }.padding(vertical = 6.dp))
-                Spacer(Modifier.weight(1f))
-                Text("QUITAR DE CARMESÍ", color = Muted, fontFamily = Body, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.clickable { borrar = true }.padding(vertical = 6.dp))
+
+        // Las casillas, fijas: cómo se abre, En Azabache, lo que suele durar y la nube
+        if (!j.sinLanzador) Casilla("Cómo se abre", if (j.tipo == Tipo.WEB) "Editar" to { editarWeb = true } else if (j.tipo == Tipo.ROM) "Cambiar" to { selector = true } else null) {
+            when (j.tipo) {
+                Tipo.ROM -> {
+                    val e = remember(j) { Lanzador.elegir(ctx, j) }
+                    Text(e?.etiqueta ?: "Sin emulador para este sistema", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+                    val r = e?.resultado
+                    Text((when (r) { is Resultado.Ok -> if (Comando.esRetroArch(e.plantilla)) "Instalado · necesita el núcleo descargado en RetroArch" else "Instalado y listo"; is Resultado.Falta -> r.motivo; null -> "" }).uppercase(),
+                        color = if (r is Resultado.Ok) Muted else Acento, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
+                Tipo.APP -> { Text("App de Android", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text(j.paquete, color = Muted, fontFamily = Body, fontSize = 12.sp) }
+                Tipo.WEB -> { Text(j.url, color = Charcoal, fontFamily = Display, fontSize = 17.sp, maxLines = 2); Text(("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)]).uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
+                Tipo.PC -> BotonesPc(j)
+                Tipo.FICHA -> {}
             }
         }
-        MagPage(j, defs(j, ctx, { selector = true }, { editarWeb = true }, { editarHoras = true }, NotaAzabache.de(notas, j)), disenando)
-        if (!disenando) SeccionNube(j)
-        if (disenando) MagFooter("Listo") { disenando = false } else MagFooter { disenando = true }
+        val nota = NotaAzabache.de(notas, j)
+        Casilla("En Azabache", if (NotaAzabache.instalado(ctx)) "Abrir" to { NotaAzabache.abrir(ctx, nota) } else null) {
+            if (nota == null) {
+                Text("Sin valorar en Azabache.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp)
+                Text("La valoración se hace allí; aquí solo se ve.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            } else {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(nota.general.toString(), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 64.sp, lineHeight = 62.sp, letterSpacing = (-2).sp, maxLines = 1, softWrap = false)
+                    Text("/100", color = Muted, fontFamily = Body, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+                }
+                if (nota.resena.isNotBlank()) Text(nota.resena, color = Charcoal, fontFamily = Display, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 6, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+        if (j.durHistoria > 0 || j.durExtras > 0 || j.durCompleto > 0) Casilla("Lo que suele durar") {
+            listOf("Historia" to j.durHistoria, "Con extras" to j.durExtras, "Al completo" to j.durCompleto).filter { it.second > 0 }.forEach { (n, m) ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                    Text(n.uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
+                    Text(tiempoDe(m * 60_000L), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                }
+            }
+        }
+        SeccionNube(j)
         Spacer(Modifier.height(20.dp))
     }
-    if (renombrar) DialogoTexto("Nombre del juego", j.titulo, "Guardar", { renombrar = false }) { t -> if (t.isNotBlank()) Biblioteca.poner(j.copy(titulo = t.trim())); renombrar = false }
-    if (plataforma) DialogoTexto("Plataforma (PC, Switch, PS5…)", j.plataforma, "Guardar", { plataforma = false }) { t -> Biblioteca.poner(j.copy(plataforma = t.trim())); plataforma = false }
+    if (editar) DialogoEditarJuego(j, alCerrar = { editar = false }, alHoras = { editar = false; editarHoras = true }, alQuitar = { editar = false; borrar = true })
     if (saga) DialogoSagaDeJuego(j) { saga = false }
-    if (unir) SelectorJuegos("Unir «${j.titulo}» con…", Biblioteca.juegos.filter { it.id != j.id }, { unir = false }, uno = true) { claves ->
-        unir = false
-        val otro = claves.firstOrNull()?.let { Biblioteca.porClave(it) } ?: return@SelectorJuegos
-        // Se queda el que tiene lanzador (si los dos, este); el otro se funde dentro y su clave queda como alias
-        val (dest, orig) = if (j.sinLanzador && !otro.sinLanzador) otro to j else j to otro
-        Biblioteca.unir(dest.id, orig.id)?.let { alIrA(it.id) }
-    }
     if (borrar) AlertDialog(
         onDismissRequest = { borrar = false }, containerColor = Paper, shape = esquina(4.dp),
         title = { Text("¿Quitar «${j.titulo}»?", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
@@ -384,62 +369,41 @@ fun desgloseHoras(j: Juego): String {
 private fun fechaCorta(t: Long) = java.text.SimpleDateFormat("d/M/yyyy", java.util.Locale("es", "ES")).format(java.util.Date(t))
 fun notaTexto(n: Float) = if (n <= 0f) "—" else if (n % 1f == 0f) n.toInt().toString() else String.format(java.util.Locale("es", "ES"), "%.1f", n)
 
-/** Los módulos de la ficha: lo que se puede poner en una casilla. */
+/** Una casilla fija de la ficha: su antetítulo (con una acción a la derecha, si la hay) y lo que pinta, entre filetes. */
 @Composable
-private fun defs(j: Juego, ctx: Context, abrirSelector: () -> Unit, editarWeb: () -> Unit, editarHoras: () -> Unit, notaAzabache: NotaAzabache.Nota?): Map<String, MagDef> = mapOf(
-    "horas" to MagDef("Horas jugadas", "✎" to editarHoras) {
-        FitTitle(tiempoDe(j.msJugados), 40.sp, 42.sp, unaLinea = true, maxLines = 1)
-        Text("TUS HORAS", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        Text("Aproximado: se apunta al volver de jugar", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-    },
-    "veces" to MagDef("Veces y última vez") {
-        Text(j.veces.toString(), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 40.sp, lineHeight = 42.sp, maxLines = 1)
-        Text("VECES", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        Text("Última vez: " + haceCuanto(j.ultima).lowercase(), color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-    },
-    "estado" to MagDef("Estado") {
-        MagChoice(Estado.entries.map { it.nombre }, j.estado.ordinal) { i -> Biblioteca.cambiar(j.id) { it.conEstado(Estado.entries[i]) } }
-        Text(if (j.terminado && j.finalizado > 0) "pasado el " + fechaCorta(j.finalizado) else when (j.estado) { Estado.JUGANDO -> "lo estás jugando"; Estado.PENDIENTE -> "pendiente de empezar"; Estado.ABANDONADO -> "lo dejaste"; Estado.PASADO -> "pasado" }, color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
-    },
-    "azabache" to MagDef("En Azabache", if (NotaAzabache.instalado(ctx)) "Abrir" to { NotaAzabache.abrir(ctx, notaAzabache) } else null) {
-        val n = notaAzabache
-        if (n == null) {
-            Text("Sin valorar en Azabache.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 16.sp)
-            Text("La valoración se hace allí; aquí solo se ve.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-        } else {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(n.general.toString(), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 64.sp, lineHeight = 62.sp, letterSpacing = (-2).sp, maxLines = 1, softWrap = false)
-                Text("/100", color = Muted, fontFamily = Body, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
-            }
-            if (n.resena.isNotBlank()) Text(n.resena, color = Charcoal, fontFamily = Display, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 6, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+fun Casilla(titulo: String, accion: Pair<String, () -> Unit>? = null, contenido: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 14.dp)) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { Antetitulo(titulo, tam = 12.sp, conCuadro = false) }
+            if (accion != null) Text(accion.first.uppercase(), color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp, modifier = Modifier.clickable(onClick = accion.second).padding(4.dp))
         }
-    },
-    "duracion" to MagDef("Lo que suele durar") {
-        if (j.durHistoria == 0 && j.durExtras == 0 && j.durCompleto == 0) Text("No se sabe. Atrio lo trae de HowLongToBeat/RAWG al importar.", color = Muted, fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp)
-        else listOf("Historia" to j.durHistoria, "Con extras" to j.durExtras, "Al completo" to j.durCompleto).filter { it.second > 0 }.forEach { (n, m) ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-                Text(n.uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.weight(1f))
-                Text(tiempoDe(m * 60_000L), color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-            }
-        }
-    },
-    "lanzamiento" to MagDef("Cómo se abre", if (j.tipo == Tipo.WEB) "Editar" to editarWeb else if (j.tipo == Tipo.ROM) "Cambiar" to abrirSelector else null) {
-        when (j.tipo) {
-            Tipo.ROM -> {
-                val e = remember(j) { Lanzador.elegir(ctx, j) }
-                Text(e?.etiqueta ?: "Sin emulador para este sistema", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
-                val r = e?.resultado
-                Text((when (r) { is Resultado.Ok -> if (Comando.esRetroArch(e.plantilla)) "Instalado · necesita el núcleo descargado en RetroArch" else "Instalado y listo"; is Resultado.Falta -> r.motivo; null -> "" }).uppercase(),
-                    color = if (r is Resultado.Ok) Muted else Acento, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-            }
-            Tipo.APP -> { Text("App de Android", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text(j.paquete, color = Muted, fontFamily = Body, fontSize = 12.sp) }
-            Tipo.WEB -> { Text(j.url, color = Charcoal, fontFamily = Display, fontSize = 17.sp, maxLines = 2); Text(("Pantalla: " + listOf("automática", "horizontal", "vertical")[j.orientacion.coerceIn(0, 2)]).uppercase(), color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
-            Tipo.FICHA -> { Text(j.plataforma.ifBlank { "Sin lanzador" }, color = Charcoal, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 20.sp); Text("NO SE ABRE DESDE EL MÓVIL", color = Muted, fontFamily = Body, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
-            Tipo.PC -> BotonesPc(j)
-        }
-    },
-)
+        contenido()
+    }
+    Filete(2.dp)
+}
 
+/** «Editar»: el nombre, la plataforma (en las fichas sin lanzador), corregir las horas y quitar el juego. */
+@Composable
+fun DialogoEditarJuego(j: Juego, alCerrar: () -> Unit, alHoras: () -> Unit, alQuitar: () -> Unit) {
+    var nombre by remember { mutableStateOf(j.titulo) }
+    var plataforma by remember { mutableStateOf(j.plataforma) }
+    AlertDialog(
+        onDismissRequest = alCerrar, containerColor = Paper, shape = esquina(4.dp),
+        title = { Text("Editar", color = Charcoal, fontFamily = Display, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                CampoRevista("Nombre", nombre, "nombre del juego") { nombre = it }
+                if (j.sinLanzador) CampoRevista("Plataforma", plataforma, "PC, Switch, PS5…") { plataforma = it }
+                Spacer(Modifier.height(12.dp))
+                MagLink("Corregir las horas", "Carmesí las apunta al volver de jugar; aquí las ajustas", onClick = alHoras)
+                Filete(1.dp, Line)
+                MagLink("Quitar de Carmesí", if (j.tipo == Tipo.ROM) "La ROM no se toca" else null, onClick = alQuitar)
+            }
+        },
+        confirmButton = { TextButton({ if (nombre.isNotBlank()) Biblioteca.cambiar(j.id) { it.copy(titulo = nombre.trim(), plataforma = plataforma.trim()) }; alCerrar() }) { Text("GUARDAR", color = Acento, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } },
+        dismissButton = { TextButton(alCerrar) { Text("CANCELAR", color = Charcoal, fontFamily = Body, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp) } }
+    )
+}
 
 /** «En la nube» (solo ROMs): carpeta de guardados del sistema, subir la ROM a tu kDrive y bajarla en otro móvil. */
 @Composable
@@ -468,10 +432,8 @@ private fun SeccionNube(j: Juego) {
             }
         }
     }
-    Spacer(Modifier.height(8.dp))
-    Filete(2.dp)
-    Spacer(Modifier.height(12.dp))
-    Antetitulo("En la nube", Modifier.padding(bottom = 4.dp))
+    Spacer(Modifier.height(16.dp))
+    Antetitulo("En la nube", Modifier.padding(bottom = 8.dp), tam = 12.sp, conCuadro = false)
     if (!listo) {
         Cuerpo("Para llevarte la partida a otro móvil: vincula tu cuenta de Atrio y conecta tu kDrive (Ajustes). Carmesí sube el guardado al volver de jugar y baja el último antes de jugar.", tam = 12)
     } else {

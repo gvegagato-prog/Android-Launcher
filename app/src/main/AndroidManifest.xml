@@ -167,6 +167,10 @@
         <provider android:name="androidx.core.content.FileProvider" android:authorities="com.gonzalo.portico.archivos" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/rutas" />
         </provider>
+        <!-- Al poner un widget de un juego: elegir cuál abre -->
+        <activity android:name=".ConfigWidgetActivity" android:exported="true" android:theme="@style/Portico">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
         <!-- Sin pantalla: los accesos directos de cada juego pasan por aquí -->
         <activity android:name=".LanzarActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay"
             android:excludeFromRecents="true" android:taskAffinity="" />

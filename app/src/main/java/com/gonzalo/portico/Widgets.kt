@@ -395,9 +395,13 @@ object Widgets {
 
     fun olvidar(ctx: Context, ids: IntArray) {
         val ed = prefs(ctx).edit()
-        ids.forEach { id -> ed.remove("${id}_i") }
+        ids.forEach { id -> ed.remove("${id}_i"); ed.remove("${id}_fijo") }
         ed.apply()
     }
+
+    /** El juego que elegiste para ese widget al ponerlo (o null: el que toque). */
+    fun fijoDe(ctx: Context, id: Int): Juego? = prefs(ctx).getString("${id}_fijo", null)?.let { Biblioteca.por(it) }
+    fun ponFijo(ctx: Context, id: Int, juegoId: String?) { prefs(ctx).edit().apply { if (juegoId == null) remove("${id}_fijo") else putString("${id}_fijo", juegoId) }.apply() }
 
     /** Lee lo guardado (el tema, la biblioteca y los colores de Atrio): un widget puede pintarse sin que la app esté abierta. */
     fun preparar(ctx: Context) {
@@ -492,9 +496,9 @@ object Widgets {
     suspend fun componer(ctx: Context, tipo: WTipo, id: Int, w: Float, h: Float, dentro: Boolean = false): Pagina {
         val d = WDatos(ctx)
         return when (tipo) {
-            WTipo.JUGANDO -> jugando(d, id, w, h, dentro = dentro)
+            WTipo.JUGANDO -> jugando(d, id, w, h, fijo = fijoDe(ctx, id), dentro = dentro)
             WTipo.ESTANTE -> estante(d, w, h, dentro)
-            WTipo.PORTADA -> enPortada(d, id, w, h, dentro)
+            WTipo.PORTADA -> enPortada(d, id, w, h, dentro, fijo = fijoDe(ctx, id))
             WTipo.SIGUIENTE -> siguiente(d, id, w, h, dentro)
             WTipo.MARCA -> marca(d, w, h)
             WTipo.MARCA_PAPEL -> marcaPapel(d, w, h, dentro)
@@ -723,9 +727,9 @@ object Widgets {
 
     // ------------------------------------------------------------------ En portada
 
-    private suspend fun enPortada(d: WDatos, id: Int, w: Float, h: Float, dentro: Boolean = false): Pagina {
+    private suspend fun enPortada(d: WDatos, id: Int, w: Float, h: Float, dentro: Boolean = false, fijo: Juego? = null): Pagina {
         val ctx = d.ctx
-        val items = d.recientes
+        val items = if (fijo != null) listOf(fijo) else d.recientes
         if (items.isEmpty()) return vacio(ctx, "En portada", "Tu revista empieza aquí", "Añade o juega algo y saldrá en la portada.", w, h)
         val i = Math.floorMod(estado(ctx, id, "i", 0), items.size)
         val e = items[i]
